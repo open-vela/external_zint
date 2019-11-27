@@ -29,7 +29,6 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 /*
  * Attempts to encode DotCode according to AIMD013 Rev 1.34a, dated Feb 19, 2009
@@ -476,7 +475,7 @@ int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char sourc
         array_length++;
     }
 
-    if ((symbol->input_mode & 0x07) != GS1_MODE) {
+    if (symbol->input_mode != GS1_MODE) {
         if (length > 2) {
             if (((source[input_position] >= '0') && (source[input_position] <= '9')) &&
                     ((source[input_position + 1] >= '0') && (source[input_position + 1] <= '9'))) {
@@ -651,7 +650,7 @@ int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char sourc
         }
 
         if ((!done) && (encoding_mode == 'C')) {
-            if (datum_c(source, input_position, length) || ((source[input_position] == '[') && ((symbol->input_mode & 0x07) == GS1_MODE))) {
+            if (datum_c(source, input_position, length) || ((source[input_position] == '[') && (symbol->input_mode == GS1_MODE))) {
                 if (source[input_position] == '[') {
                     codeword_array[array_length] = 107; // FNC1
                     input_position++;
@@ -752,7 +751,7 @@ int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char sourc
 
         /* Step C2 */
         if ((!done) && (encoding_mode == 'B')) {
-            if ((source[input_position] == '[') && ((symbol->input_mode & 0x07) == GS1_MODE)) {
+            if ((source[input_position] == '[') && (symbol->input_mode == GS1_MODE)) {
                 codeword_array[array_length] = 107; // FNC1
                 array_length++;
                 input_position++;
@@ -880,7 +879,7 @@ int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char sourc
 
         /* Step D2 */
         if ((!done) && (encoding_mode == 'A')) {
-            if ((source[input_position] == '[') && ((symbol->input_mode & 0x07) == GS1_MODE)) {
+            if ((source[input_position] == '[') && (symbol->input_mode == GS1_MODE)) {
                 codeword_array[array_length] = 107; // FNC1
                 array_length++;
                 input_position++;
