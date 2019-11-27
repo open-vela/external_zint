@@ -244,10 +244,6 @@ SOURCE=..\backend\rss.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\backend\sjis.c
-# End Source File
-# Begin Source File
-
 SOURCE=..\backend\svg.c
 # End Source File
 # Begin Source File

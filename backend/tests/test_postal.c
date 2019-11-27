@@ -27,7 +27,6 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 #include "testcommon.h"
 
@@ -39,6 +38,8 @@ static void test_koreapost(void)
     struct item {
         unsigned char* data;
         int ret_encode;
+        float w;
+        float h;
         int ret_vector;
 
         int expected_height;
@@ -46,7 +47,7 @@ static void test_koreapost(void)
         int expected_width;
     };
     struct item data[] = {
-        /* 0*/ { "123456", 0, 0, 50, 1, 167 },
+        /* 0*/ { "123456", 0, 100, 30, 0, 50, 1, 167 },
     };
     int data_size = sizeof(data) / sizeof(struct item);
 
@@ -76,58 +77,9 @@ static void test_koreapost(void)
     testFinish();
 }
 
-static void test_japanpost(void)
-{
-    testStart("");
-
-    int ret;
-    struct item {
-        unsigned char* data;
-        int ret_encode;
-        int ret_vector;
-
-        int expected_height;
-        int expected_rows;
-        int expected_width;
-        char* comment;
-    };
-    struct item data[] = {
-        /* 0*/ { "123", 0, 0, 8, 3, 133, "Check 3" },
-        /* 1*/ { "123456-AB", 0, 0, 8, 3, 133, "Check 10" },
-        /* 2*/ { "123456", 0, 0, 8, 3, 133, "Check 11" },
-    };
-    int data_size = sizeof(data) / sizeof(struct item);
-
-    for (int i = 0; i < data_size; i++) {
-
-        struct zint_symbol* symbol = ZBarcode_Create();
-        assert_nonnull(symbol, "Symbol not created\n");
-
-        symbol->symbology = BARCODE_JAPANPOST;
-        int length = strlen(data[i].data);
-
-        ret = ZBarcode_Encode(symbol, data[i].data, length);
-        assert_equal(ret, data[i].ret_encode, "i:%d ZBarcode_Encode ret %d != %d\n", i, ret, data[i].ret_encode);
-
-        if (data[i].ret_vector != -1) {
-            assert_equal(symbol->height, data[i].expected_height, "i:%d symbol->height %d != %d\n", i, symbol->height, data[i].expected_height);
-            assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d\n", i, symbol->rows, data[i].expected_rows);
-            assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d\n", i, symbol->width, data[i].expected_width);
-
-            ret = ZBarcode_Buffer_Vector(symbol, 0);
-            assert_equal(ret, data[i].ret_vector, "i:%d ZBarcode_Buffer_Vector ret %d != %d\n", i, ret, data[i].ret_vector);
-        }
-
-        ZBarcode_Delete(symbol);
-    }
-
-    testFinish();
-}
-
 int main()
 {
     test_koreapost();
-    test_japanpost();
 
     testReport();
 
