@@ -28,6 +28,7 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
+/* vim: set ts=4 sw=4 et : */
 
 /* This code attempts to implement Han Xin Code according to AIMD-015:2010 (Rev 0.8) */
 
@@ -368,6 +369,7 @@ static void calculate_binary(char binary[], char mode[], int source[], const siz
                     printf("Numeric\n");
                 }
 
+                count = 0; /* Suppress gcc -Wmaybe-uninitialized */
                 i = 0;
 
                 while (i < block_length) {
@@ -1131,8 +1133,8 @@ int hx_apply_bitmask(unsigned char *grid, int size) {
     unsigned char p;
 
 #ifndef _MSC_VER
-    unsigned char mask[size * size];
-    unsigned char eval[size * size];
+    unsigned char mask[(unsigned int)(size * size)]; /* Cast to suppress gcc -Walloc-size-larger-than */
+    unsigned char eval[(unsigned int)(size * size)];
 #else
     unsigned char* mask = (unsigned char *) _alloca((size * size) * sizeof (unsigned char));
     unsigned char* eval = (unsigned char *) _alloca((size * size) * sizeof (unsigned char));
@@ -1249,12 +1251,13 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], size_t len
     unsigned char *grid;
 #endif
 
-    if ((symbol->input_mode == DATA_MODE) || (symbol->eci != 0)) {
+    if (((symbol->input_mode & 0x07) == DATA_MODE) || (symbol->eci != 0)) {
         for (i = 0; i < length; i++) {
             gbdata[i] = (int) source[i];
         }
     } else {
         int posn;
+        unsigned char gb2312_buf[2]; /* Temporary use until gb18030_utf8tomb() implemented */
         /* Convert Unicode input to GB-18030 */
         int error_number = utf8toutf16(symbol, source, utfdata, &length);
         if (error_number != 0) {
@@ -1275,15 +1278,11 @@ int han_xin(struct zint_symbol *symbol, const unsigned char source[], size_t len
 
             /* Two bytes characters in GB-2312 */
             if (done == 0) {
-                j = 0;
-                do {
-                    if (gb2312_lookup[j * 2] == utfdata[i]) {
-                        gbdata[posn] = gb2312_lookup[(j * 2) + 1];
-                        posn++;
-                        done = 1;
-                    }
-                    j++;
-                } while ((j < 7445) && (done == 0));
+                if (gb2312_wctomb_zint(gb2312_buf, utfdata[i], 2) == 2) { /* Temporary use until gb18030_utf8tomb() implemented */
+                    gbdata[posn] = (gb2312_buf[0] << 8) | gb2312_buf[1];
+                    posn++;
+                    done = 1;
+                }
             }
 
             /* Two byte characters in GB-18030 */

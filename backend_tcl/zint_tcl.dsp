@@ -156,6 +156,10 @@ SOURCE=..\backend\emf.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\backend\gb2312.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\backend\general_field.c
 # End Source File
 # Begin Source File
@@ -241,6 +245,10 @@ SOURCE=..\backend\render.c
 # Begin Source File
 
 SOURCE=..\backend\rss.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\backend\sjis.c
 # End Source File
 # Begin Source File
 
