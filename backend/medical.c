@@ -29,15 +29,13 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include "common.h"
 
-INTERNAL int c39(struct zint_symbol *symbol, unsigned char source[], const size_t length);
-
+extern int c39(struct zint_symbol *symbol, unsigned char source[], const size_t length);
 /* Codabar table checked against EN 798:1995 */
 
 #define CALCIUM	"0123456789-$:/.+ABCD"
@@ -48,7 +46,7 @@ static const char *CodaTable[20] = {
     "21212111", "11212121", "11221211", "12121121", "11121221", "11122211"
 };
 
-INTERNAL int pharma_one(struct zint_symbol *symbol, unsigned char source[], int length) {
+int pharma_one(struct zint_symbol *symbol, unsigned char source[], int length) {
     /* "Pharmacode can represent only a single integer from 3 to 131070. Unlike other
        commonly used one-dimensional barcode schemes, pharmacode does not store the data in a
        form corresponding to the human-readable digits; the number is encoded in binary, rather
@@ -108,7 +106,7 @@ INTERNAL int pharma_one(struct zint_symbol *symbol, unsigned char source[], int 
     return error_number;
 }
 
-static int pharma_two_calc(struct zint_symbol *symbol, unsigned char source[], char dest[]) {
+int pharma_two_calc(struct zint_symbol *symbol, unsigned char source[], char dest[]) {
     /* This code uses the Two Track Pharamacode defined in the document at
        http://www.laetus.com/laetus.php?request=file&id=69 and using a modified
        algorithm from the One Track system. This standard accepts integet values
@@ -153,7 +151,7 @@ static int pharma_two_calc(struct zint_symbol *symbol, unsigned char source[], c
     return error_number;
 }
 
-INTERNAL int pharma_two(struct zint_symbol *symbol, unsigned char source[], int length) {
+int pharma_two(struct zint_symbol *symbol, unsigned char source[], int length) {
     /* Draws the patterns for two track pharmacode */
     char height_pattern[200];
     unsigned int loopey, h;
@@ -194,7 +192,7 @@ INTERNAL int pharma_two(struct zint_symbol *symbol, unsigned char source[], int 
 }
 
 /* The Codabar system consisting of simple substitution */
-INTERNAL int codabar(struct zint_symbol *symbol, unsigned char source[], int length) {
+int codabar(struct zint_symbol *symbol, unsigned char source[], int length) {
 
     int i, error_number;
     char dest[512];
@@ -234,7 +232,7 @@ INTERNAL int codabar(struct zint_symbol *symbol, unsigned char source[], int len
 }
 
 /* Italian Pharmacode */
-INTERNAL int code32(struct zint_symbol *symbol, unsigned char source[], int length) {
+int code32(struct zint_symbol *symbol, unsigned char source[], int length) {
     int i, zeroes, error_number, checksum, checkpart, checkdigit;
     char localstr[10], risultante[7];
     long int pharmacode, devisor;
@@ -307,3 +305,5 @@ INTERNAL int code32(struct zint_symbol *symbol, unsigned char source[], int leng
 
     return error_number;
 }
+
+

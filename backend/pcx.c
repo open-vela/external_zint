@@ -29,7 +29,6 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,7 +44,7 @@
 
 #define SSET	"0123456789ABCDEF"
 
-INTERNAL int pcx_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
+int pcx_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     int fgred, fggrn, fgblu, bgred, bggrn, bgblu;
     int row, column, i, colour;
     int run_count;
@@ -171,3 +170,4 @@ INTERNAL int pcx_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
 
     return 0;
 }
+

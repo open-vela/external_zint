@@ -28,19 +28,18 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "eci.h"
-#include "common.h"
+#include "zint.h"
 #ifdef _MSC_VER
 #include <malloc.h>
 #endif
 
 /* Convert Unicode to other character encodings */
-INTERNAL int utf_to_eci(const int eci, const unsigned char source[], unsigned char dest[], size_t *length) {
+int utf_to_eci(const int eci, const unsigned char source[], unsigned char dest[], size_t *length) {
     int in_posn;
     int out_posn;
     int ext;
@@ -254,7 +253,7 @@ INTERNAL int utf_to_eci(const int eci, const unsigned char source[], unsigned ch
 }
 
 /* Find the lowest ECI mode which will encode a given set of Unicode text */
-INTERNAL int get_best_eci(unsigned char source[], size_t length) {
+int get_best_eci(unsigned char source[], size_t length) {
     int eci = 3;
 
 #ifndef _MSC_VER
@@ -272,3 +271,5 @@ INTERNAL int get_best_eci(unsigned char source[], size_t length) {
 
     return 26; // If all of these fail, use Unicode!
 }
+
+

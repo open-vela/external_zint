@@ -31,7 +31,7 @@
 
 #include "testcommon.h"
 
-static void test_utf8_to_unicode(void)
+static void test_utf8toutf16(void)
 {
     testStart("");
 
@@ -39,7 +39,6 @@ static void test_utf8_to_unicode(void)
     struct item {
         unsigned char* data;
         int length;
-        int disallow_4byte;
         int ret;
         size_t ret_length;
         int expected_vals[20];
@@ -47,11 +46,11 @@ static void test_utf8_to_unicode(void)
     };
     // s/\/\*[ 0-9]*\*\//\=printf("\/*%3d*\/", line(".") - line("'<"))
     struct item data[] = {
-        /*  0*/ { "", -1, 1, 0, 0, {}, "" },
-        /*  1*/ { "\000a\302\200\340\240\200", 7, 1, 0, 4, { 0, 'a', 0x80, 0x800 }, "NUL a C280 E0A080" },
-        /*  2*/ { "\357\277\277", -1, 1, 0, 1, { 0xFFFF }, "EFBFBF" },
-        /*  3*/ { "\360\220\200\200", -1, 1, ZINT_ERROR_INVALID_DATA, -1, {}, "Four-byte F0908080" },
-        /*  4*/ { "a\200b", -1, 1, ZINT_ERROR_INVALID_DATA, -1, {}, "Orphan continuation 0x80" },
+        /*  0*/ { "", -1, 0, 0, {}, "" },
+        /*  1*/ { "\000a\302\200\340\240\200", 7, 0, 4, { 0, 'a', 0x80, 0x800 }, "NUL a C280 E0A080" },
+        /*  2*/ { "\357\277\277", -1, 0, 1, { 0xFFFF }, "EFBFBF" },
+        /*  3*/ { "\360\220\200\200", -1, ZINT_ERROR_INVALID_DATA, -1, {}, "Four-byte F0908080" },
+        /*  4*/ { "a\200b", -1, ZINT_ERROR_INVALID_DATA, -1, {}, "Orphan continuation 0x80" },
     };
     int data_size = sizeof(data) / sizeof(struct item);
 
@@ -63,7 +62,7 @@ static void test_utf8_to_unicode(void)
         int length = data[i].length == -1 ? strlen(data[i].data) : data[i].length;
         size_t ret_length = length;
 
-        ret = utf8_to_unicode(&symbol, data[i].data, vals, &ret_length, data[i].disallow_4byte);
+        ret = utf8toutf16(&symbol, data[i].data, vals, &ret_length);
         assert_equal(ret, data[i].ret, "i:%d ret %d != %d\n", i, ret, data[i].ret);
         if (ret == 0) {
             assert_equal(ret_length, data[i].ret_length, "i:%d ret_length %ld != %ld\n", i, ret_length, data[i].ret_length);
@@ -78,7 +77,7 @@ static void test_utf8_to_unicode(void)
 
 int main()
 {
-    test_utf8_to_unicode();
+    test_utf8toutf16();
 
     testReport();
 

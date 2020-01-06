@@ -56,7 +56,7 @@
 #include "common.h"
 #include "gb2312.h"
 
-INTERNAL int utf_to_eci(const int eci, const unsigned char source[], unsigned char dest[], size_t *length); /* Convert Unicode to other encodings */
+extern int utf_to_eci(const int eci, const unsigned char source[], unsigned char dest[], size_t *length); /* Convert Unicode to other encodings */
 
 /*
  * GB2312.1980-0 (libiconv-1.16/lib/gb2312.h)
@@ -1499,17 +1499,23 @@ static const Summary16 gb2312_uni2indx_pageff[15] = {
   { 7441, 0x0000 }, { 7441, 0x0000 }, { 7441, 0x002b },
 };
 
-INTERNAL int gb2312_wctomb_zint(unsigned int* r, unsigned int wc) {
+int gb2312_wctomb_zint(unsigned char *r, unsigned int wc, size_t n) {
     const Summary16 *summary = NULL;
     if (wc >= 0x0000 && wc < 0x0460) {
         if (wc == 0x00b7) { /* ZINT: Patched to duplicate map to 0xA1A4 */
-            *r = 0xA1A4;
+            if (n < 2) {
+                return -1;
+            }
+            r[0] = 0xA1; r[1] = 0xA4;
             return 2;
         }
         summary = &gb2312_uni2indx_page00[(wc>>4)];
     } else if (wc >= 0x2000 && wc < 0x2650) {
         if (wc == 0x2014) { /* ZINT: Patched to duplicate map to 0xA1AA */
-            *r = 0xA1AA;
+            if (n < 2) {
+                return -1;
+            }
+            r[0] = 0xA1; r[1] = 0xAA;
             return 2;
         }
         summary = &gb2312_uni2indx_page20[(wc>>4)-0x200];
@@ -1526,6 +1532,10 @@ INTERNAL int gb2312_wctomb_zint(unsigned int* r, unsigned int wc) {
         unsigned short used = summary->used;
         unsigned int i = wc & 0x0f;
         if (used & ((unsigned short) 1 << i)) {
+            unsigned short c;
+            if (n < 2) {
+                return -1;
+            }
             /* Keep in 'used' only the bits 0..i-1. */
             used &= ((unsigned short) 1 << i) - 1;
             /* Add 'summary->indx' and the number of bits set in 'used'. */
@@ -1533,7 +1543,8 @@ INTERNAL int gb2312_wctomb_zint(unsigned int* r, unsigned int wc) {
             used = (used & 0x3333) + ((used & 0xcccc) >> 2);
             used = (used & 0x0f0f) + ((used & 0xf0f0) >> 4);
             used = (used & 0x00ff) + (used >> 8);
-            *r = gb2312_2charset[summary->indx + used];
+            c = gb2312_2charset[summary->indx + used];
+            r[0] = (c >> 8); r[1] = (c & 0xff);
             return 2;
         }
     }
@@ -1541,16 +1552,17 @@ INTERNAL int gb2312_wctomb_zint(unsigned int* r, unsigned int wc) {
 }
 
 /* Convert UTF-8 string to GB 2312 (EUC-CN) and place in array of ints */
-INTERNAL int gb2312_utf8tomb(struct zint_symbol *symbol, const unsigned char source[], size_t* p_length, unsigned int* gbdata) {
-    int i, error_number;
+int gb2312_utf8tomb(struct zint_symbol *symbol, const unsigned char source[], size_t* p_length, unsigned int* gbdata) {
+    int i, error_number, ret;
     unsigned int length;
+    unsigned char buf[2];
 #ifndef _MSC_VER
-    unsigned int utfdata[*p_length + 1];
+    int utfdata[*p_length + 1]; /* Leave signed for the moment until `utf8toutf16()` signature changed */
 #else
-    unsigned int* utfdata = (unsigned int*) _alloca((*p_length + 1) * sizeof(unsigned int));
+    int* utfdata = (int*) _alloca((*p_length + 1) * sizeof(int));
 #endif
 
-    error_number = utf8_to_unicode(symbol, source, utfdata, p_length, 1 /*disallow_4byte*/);
+    error_number = utf8toutf16(symbol, source, utfdata, p_length);
     if (error_number != 0) {
         return error_number;
     }
@@ -1559,10 +1571,12 @@ INTERNAL int gb2312_utf8tomb(struct zint_symbol *symbol, const unsigned char sou
         if (utfdata[i] < 0x80) {
             gbdata[i] = utfdata[i];
         } else {
-            if (!gb2312_wctomb_zint(gbdata + i, utfdata[i])) {
+            ret = gb2312_wctomb_zint(buf, utfdata[i], 2);
+            if (ret != 2) {
                 strcpy(symbol->errtxt, "810: Invalid character in input data");
                 return ZINT_ERROR_INVALID_DATA;
             }
+            gbdata[i] = (buf[0] << 8) | buf[1];
         }
     }
 
@@ -1570,7 +1584,7 @@ INTERNAL int gb2312_utf8tomb(struct zint_symbol *symbol, const unsigned char sou
 }
 
 /* Convert UTF-8 string to single byte ECI and place in array of ints */
-INTERNAL int gb2312_utf8tosb(int eci, const unsigned char source[], size_t* p_length, unsigned int* gbdata) {
+int gb2312_utf8tosb(int eci, const unsigned char source[], size_t* p_length, unsigned int* gbdata) {
     int error_number;
 #ifndef _MSC_VER
     unsigned char single_byte[*p_length + 1];
@@ -1590,7 +1604,7 @@ INTERNAL int gb2312_utf8tosb(int eci, const unsigned char source[], size_t* p_le
 }
 
 /* Copy byte input stream to array of ints, putting double-bytes that match GRIDMATRIX Chinese mode in single entry */
-INTERNAL void gb2312_cpy(const unsigned char source[], size_t* p_length, unsigned int* gbdata) {
+void gb2312_cpy(const unsigned char source[], size_t* p_length, unsigned int* gbdata) {
     int i, j;
     unsigned int length;
     unsigned char c1, c2;

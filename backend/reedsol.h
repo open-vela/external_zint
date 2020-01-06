@@ -29,7 +29,6 @@
     SUCH DAMAGE.
 
  */
-/* vim: set ts=4 sw=4 et : */
 
 #ifndef __REEDSOL_H
 #define __REEDSOL_H
@@ -38,14 +37,15 @@
 extern "C" {
 #endif /* __cplusplus */
 
-INTERNAL void rs_init_gf(const int poly);
-INTERNAL void rs_init_code(const int nsym,int index);
-INTERNAL void rs_encode(const size_t len,const unsigned char *data, unsigned char *res);
-INTERNAL void rs_encode_long(const int len,const unsigned int *data, unsigned int *res);
-INTERNAL void rs_free(void);
+extern void rs_init_gf(const int poly);
+extern void rs_init_code(const int nsym,int index);
+extern void rs_encode(const size_t len,const unsigned char *data, unsigned char *res);
+extern void rs_encode_long(const int len,const unsigned int *data, unsigned int *res);
+    extern void rs_free(void);
 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
 
 #endif				/* __REEDSOL_H */
+

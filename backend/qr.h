@@ -38,7 +38,6 @@
 #define RHODIUM "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:"
 
 #define RMQR_VERSION    100
-#define MICROQR_VERSION 200
 
 /* From ISO/IEC 18004:2006 Table 7 */
 static const unsigned short int qr_data_codewords_L[] = {

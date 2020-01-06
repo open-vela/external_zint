@@ -29,7 +29,6 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 #define GDSET 	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz #"
 
@@ -69,7 +68,7 @@ static inline char convert_pattern(char data, int shift) {
 }
 
 /* Adds Reed-Solomon error correction to auspost */
-static void rs_error(char data_pattern[]) {
+void rs_error(char data_pattern[]) {
     size_t reader, triple_writer = 0;
     char triple[31];
     unsigned char result[5];
@@ -91,7 +90,7 @@ static void rs_error(char data_pattern[]) {
 }
 
 /* Handles Australia Posts's 4 State Codes */
-INTERNAL int australia_post(struct zint_symbol *symbol, unsigned char source[], int length) {
+int australia_post(struct zint_symbol *symbol, unsigned char source[], int length) {
     /* Customer Standard Barcode, Barcode 2 or Barcode 3 system determined automatically
        (i.e. the FCC doesn't need to be specified by the user) dependent
        on the length of the input string */
@@ -249,3 +248,6 @@ INTERNAL int australia_post(struct zint_symbol *symbol, unsigned char source[], 
 
     return error_number;
 }
+
+
+

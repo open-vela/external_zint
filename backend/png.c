@@ -29,7 +29,6 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 #include <stdio.h>
 #ifdef _MSC_VER
@@ -72,7 +71,7 @@ static void writepng_error_handler(png_structp png_ptr, png_const_charp msg) {
     longjmp(graphic->jmpbuf, 1);
 }
 
-INTERNAL int png_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
+int png_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     struct mainprog_info_type wpng_info;
     struct mainprog_info_type *graphic;
     png_structp png_ptr;
@@ -190,3 +189,5 @@ INTERNAL int png_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     return 0;
 }
 #endif /* NO_PNG */
+
+

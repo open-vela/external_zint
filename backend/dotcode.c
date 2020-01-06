@@ -104,7 +104,7 @@ static int clr_row(char *Dots, const int Hgt, const int Wid, const int y) {
 }
 
 /* Dot pattern scoring routine from Annex A */
-static const int score_array(char Dots[], int Hgt, int Wid) {
+const int score_array(char Dots[], int Hgt, int Wid) {
     int x, y, worstedge, first, last, sum;
     int penalty_local = 0;
     int penalty = 0;
@@ -268,7 +268,7 @@ static const int score_array(char Dots[], int Hgt, int Wid) {
 // employing Galois Field GF, where GF is prime, with a prime modulus of PM
 //-------------------------------------------------------------------------
 
-static void rsencode(int nd, int nc, unsigned char *wd) {
+void rsencode(int nd, int nc, unsigned char *wd) {
     int i, j, k, nw, start, step, root[GF], c[GF];
 
     // Start by generating "nc" roots (antilogs):
@@ -312,7 +312,7 @@ static void rsencode(int nd, int nc, unsigned char *wd) {
 }
 
 /* Check if the next character is directly encodable in code set A (Annex F.II.D) */
-static int datum_a(const unsigned char source[], int position, int length) {
+int datum_a(const unsigned char source[], int position, int length) {
     int retval = 0;
 
     if (position < length) {
@@ -325,7 +325,7 @@ static int datum_a(const unsigned char source[], int position, int length) {
 }
 
 /* Check if the next character is directly encodable in code set B (Annex F.II.D) */
-static int datum_b(const unsigned char source[], int position, int length) {
+int datum_b(const unsigned char source[], int position, int length) {
     int retval = 0;
 
     if (position < length) {
@@ -352,7 +352,7 @@ static int datum_b(const unsigned char source[], int position, int length) {
 }
 
 /* Check if the next characters are directly encodable in code set C (Annex F.II.D) */
-static int datum_c(const unsigned char source[], int position, int length) {
+int datum_c(const unsigned char source[], int position, int length) {
     int retval = 0;
 
     if (position <= length - 2) {
@@ -365,7 +365,7 @@ static int datum_c(const unsigned char source[], int position, int length) {
 }
 
 /* Returns how many consecutive digits lie immediately ahead (Annex F.II.A) */
-static int n_digits(const unsigned char source[], int position, int length) {
+int n_digits(const unsigned char source[], int position, int length) {
     int i;
 
     for (i = position; ((source[i] >= '0') && (source[i] <= '9')) && (i < length); i++);
@@ -374,7 +374,7 @@ static int n_digits(const unsigned char source[], int position, int length) {
 }
 
 /* checks ahead for 10 or more digits starting "17xxxxxx10..." (Annex F.II.B) */
-static int seventeen_ten(const unsigned char source[], int position, int length) {
+int seventeen_ten(const unsigned char source[], int position, int length) {
     int found = 0;
 
     if (n_digits(source, position, length) >= 10) {
@@ -390,7 +390,7 @@ static int seventeen_ten(const unsigned char source[], int position, int length)
 /*  checks how many characters ahead can be reached while datum_c is true,
  *  returning the resulting number of codewords (Annex F.II.E)
  */
-static int ahead_c(const unsigned char source[], int position, int length) {
+int ahead_c(const unsigned char source[], int position, int length) {
     int count = 0;
     int i;
 
@@ -402,7 +402,7 @@ static int ahead_c(const unsigned char source[], int position, int length) {
 }
 
 /* Annex F.II.F */
-static int try_c(const unsigned char source[], int position, int length) {
+int try_c(const unsigned char source[], int position, int length) {
     int retval = 0;
 
     if (n_digits(source, position, length) > 0) {
@@ -415,7 +415,7 @@ static int try_c(const unsigned char source[], int position, int length) {
 }
 
 /* Annex F.II.G */
-static int ahead_a(const unsigned char source[], int position, int length) {
+int ahead_a(const unsigned char source[], int position, int length) {
     int count = 0;
     int i;
 
@@ -428,7 +428,7 @@ static int ahead_a(const unsigned char source[], int position, int length) {
 }
 
 /* Annex F.II.H */
-static int ahead_b(const unsigned char source[], int position, int length) {
+int ahead_b(const unsigned char source[], int position, int length) {
     int count = 0;
     int i;
 
@@ -441,7 +441,7 @@ static int ahead_b(const unsigned char source[], int position, int length) {
 }
 
 /* checks if the next character is in the range 128 to 255  (Annex F.II.I) */
-static int binary(const unsigned char source[], int position) {
+int binary(const unsigned char source[], int position) {
     int retval = 0;
 
     if (source[position] >= 128) {
@@ -452,7 +452,7 @@ static int binary(const unsigned char source[], int position) {
 }
 
 /* Analyse input data stream and encode using algorithm from Annex F */
-static int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char source[], int length, unsigned char *codeword_array, int *binary_finish) {
+int dotcode_encode_message(struct zint_symbol *symbol, const unsigned char source[], int length, unsigned char *codeword_array, int *binary_finish) {
     int input_position, array_length, i;
     char encoding_mode;
     int inside_macro;
@@ -496,8 +496,8 @@ static int dotcode_encode_message(struct zint_symbol *symbol, const unsigned cha
             // the next three codewords valued A, B & C encode the ECI value of
             // (A - 40) * 12769 + B * 113 + C + 40 (Section 5.2.1)
             int a, b, c;
-            a = (symbol->eci - 40) / 12769;
-            b = ((symbol->eci - 40) - (12769 * a)) / 113;
+            a = (symbol->eci - 40) % 12769;
+            b = ((symbol->eci - 40) - (12769 * a)) % 113;
             c = (symbol->eci - 40) - (12769 * a) - (113 * b);
 
             codeword_array[array_length] = a + 40;
@@ -1102,7 +1102,7 @@ static size_t make_dotstream(unsigned char masked_array[], int array_length, cha
 /* Determines if a given dot is a reserved corner dot
  * to be used by one of the last six bits
  */
-static int is_corner(int column, int row, int width, int height) {
+int is_corner(int column, int row, int width, int height) {
     int corner = 0;
 
     /* Top Left */
@@ -1144,7 +1144,7 @@ static int is_corner(int column, int row, int width, int height) {
 }
 
 /* Place the dots in the symbol*/
-static void fold_dotstream(char dot_stream[], int width, int height, char dot_array[]) {
+void fold_dotstream(char dot_stream[], int width, int height, char dot_array[]) {
     int column, row;
     int input_position = 0;
 
@@ -1209,7 +1209,7 @@ static void fold_dotstream(char dot_stream[], int width, int height, char dot_ar
     }
 }
 
-static void apply_mask(int mask, int data_length, unsigned char *masked_codeword_array, unsigned char *codeword_array, int ecc_length, char *dot_stream) {
+void apply_mask(int mask, int data_length, unsigned char *masked_codeword_array, unsigned char *codeword_array, int ecc_length, char *dot_stream) {
     int weight = 0;
     int j;
 
@@ -1246,7 +1246,7 @@ static void apply_mask(int mask, int data_length, unsigned char *masked_codeword
     rsencode(data_length + 1, ecc_length, masked_codeword_array);
 }
 
-static void force_corners(int width, int height, char *dot_array) {
+void force_corners(int width, int height, char *dot_array) {
     if (width % 2) {
         // "Vertical" symbol
         dot_array[0] = '1';
@@ -1266,7 +1266,7 @@ static void force_corners(int width, int height, char *dot_array) {
     }
 }
 
-INTERNAL int dotcode(struct zint_symbol *symbol, const unsigned char source[], int length) {
+int dotcode(struct zint_symbol *symbol, const unsigned char source[], int length) {
     int i, j, k;
     size_t jc, n_dots;
     int data_length, ecc_length;
@@ -1519,3 +1519,4 @@ INTERNAL int dotcode(struct zint_symbol *symbol, const unsigned char source[], i
 
     return 0;
 }
+
