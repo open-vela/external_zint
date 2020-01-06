@@ -79,7 +79,7 @@
  * combins(n,r): returns the number of Combinations of r selected from n:
  *   Combinations = n! / ((n - r)! * r!)
  **********************************************************************/
-static int combins(int n, int r) {
+int combins(int n, int r) {
     int i, j;
     int maxDenom, minDenom;
     int val;
@@ -120,7 +120,7 @@ static int combins(int n, int r) {
  * Return:
  * static int widths[] = element widths
  **********************************************************************/
-static void getRSSwidths(int val, int n, int elements, int maxWidth, int noNarrow) {
+void getRSSwidths(int val, int n, int elements, int maxWidth, int noNarrow) {
     int bar;
     int elmWidth;
     int mxwElement;
@@ -161,7 +161,7 @@ static void getRSSwidths(int val, int n, int elements, int maxWidth, int noNarro
 }
 
 /* GS1 DataBar-14 */
-INTERNAL int rss14(struct zint_symbol *symbol, unsigned char source[], int src_len) {
+int rss14(struct zint_symbol *symbol, unsigned char source[], int src_len) {
     int error_number = 0, i, j, mask;
     short int accum[112], left_reg[112], right_reg[112], x_reg[112], y_reg[112];
     int data_character[4], data_group[4], v_odd[4], v_even[4];
@@ -732,7 +732,7 @@ INTERNAL int rss14(struct zint_symbol *symbol, unsigned char source[], int src_l
 }
 
 /* GS1 DataBar Limited */
-INTERNAL int rsslimited(struct zint_symbol *symbol, unsigned char source[], int src_len) {
+int rsslimited(struct zint_symbol *symbol, unsigned char source[], int src_len) {
     int error_number = 0, i, mask;
     short int accum[112], left_reg[112], right_reg[112], x_reg[112], y_reg[112];
     int left_group, right_group, left_odd, left_even, right_odd, right_even;
@@ -1058,7 +1058,7 @@ INTERNAL int rsslimited(struct zint_symbol *symbol, unsigned char source[], int 
 }
 
 /* Handles all data encodation from section 7.2.5 of ISO/IEC 24724 */
-static int rss_binary_string(struct zint_symbol *symbol, char source[], char binary_string[]) {
+int rss_binary_string(struct zint_symbol *symbol, char source[], char binary_string[]) {
     int encoding_method, i, j, read_posn, last_digit, debug = symbol->debug, mode = NUMERIC;
     int symbol_characters, characters_per_row;
 #ifndef _MSC_VER
@@ -1510,7 +1510,7 @@ static int rss_binary_string(struct zint_symbol *symbol, char source[], char bin
 }
 
 /* GS1 DataBar Expanded */
-INTERNAL int rssexpanded(struct zint_symbol *symbol, unsigned char source[], int src_len) {
+int rssexpanded(struct zint_symbol *symbol, unsigned char source[], int src_len) {
     int i, j, k, p, data_chars, vs[21], group[21], v_odd[21], v_even[21];
     char substring[21][14], latch;
     int char_widths[21][8], checksum, check_widths[8], c_group;
@@ -1957,3 +1957,5 @@ INTERNAL int rssexpanded(struct zint_symbol *symbol, unsigned char source[], int
 
     return 0;
 }
+
+

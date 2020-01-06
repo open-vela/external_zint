@@ -31,6 +31,7 @@ namespace Zint {
         m_border = NO_BORDER;
         m_borderWidth = 0;
         m_securityLevel = -1;
+        m_pdf417CodeWords = 928;
         m_fgColor = Qt::black;
         m_bgColor = Qt::white;
         m_zintSymbol = 0;
@@ -71,7 +72,11 @@ namespace Zint {
         } else {
             m_zintSymbol->show_hrt = 1;
         }
-		m_zintSymbol->option_3 = m_option_3;
+        if (m_symbol == BARCODE_PDF417) {
+            m_zintSymbol->option_3 = m_pdf417CodeWords;
+        } else {
+            m_zintSymbol->option_3 = m_option_3;
+        }
         QByteArray bstr = m_text.toUtf8();
         QByteArray pstr = m_primaryMessage.left(99).toLatin1();
         strcpy(m_zintSymbol->primary, pstr.data());
@@ -185,6 +190,14 @@ namespace Zint {
         m_whitespace = whitespace;
     }
 
+    int QZint::pdf417CodeWords() const {
+        return m_pdf417CodeWords;
+    }
+
+    void QZint::setPdf417CodeWords(int pdf417CodeWords) {
+        m_pdf417CodeWords = pdf417CodeWords;
+    }
+
     int QZint::securityLevel() const {
         return m_securityLevel;
     }
@@ -236,7 +249,11 @@ namespace Zint {
         } else {
             m_zintSymbol->show_hrt = 1;
         }
-		m_zintSymbol->option_3 = m_option_3;
+        if (m_symbol == BARCODE_PDF417) {
+            m_zintSymbol->option_3 = m_pdf417CodeWords;
+        } else {
+            m_zintSymbol->option_3 = m_option_3;
+        }
         m_zintSymbol->scale = m_scale;
         QByteArray bstr = m_text.toUtf8();
         QByteArray pstr = m_primaryMessage.left(99).toLatin1();

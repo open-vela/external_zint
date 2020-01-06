@@ -56,26 +56,38 @@
 #include "common.h"
 #include "sjis.h"
 
-INTERNAL int utf_to_eci(const int eci, const unsigned char source[], unsigned char dest[], size_t *length); /* Convert Unicode to other encodings */
+extern int utf_to_eci(const int eci, const unsigned char source[], unsigned char dest[], size_t *length); /* Convert Unicode to other encodings */
 
 /*
  * JISX0201.1976-0 (libiconv-1.16/lib/jisx0201.h)
  */
 
-static int jisx0201_wctomb(unsigned int* r, unsigned int wc) {
+static int jisx0201_wctomb(unsigned char* r, unsigned int wc, size_t n) {
     if (wc < 0x0080 && !(wc == 0x005c || wc == 0x007e)) {
+        if (n < 1) {
+            return -1;
+        }
         *r = wc;
         return 1;
     }
     if (wc == 0x00a5) {
+        if (n < 1) {
+            return -1;
+        }
         *r = 0x5c;
         return 1;
     }
     if (wc == 0x203e) {
+        if (n < 1) {
+            return -1;
+        }
         *r = 0x7e;
         return 1;
     }
     if (wc >= 0xff61 && wc < 0xffa0) {
+        if (n < 1) {
+            return -1;
+        }
         *r = wc - 0xfec0;
         return 1;
     }
@@ -1441,7 +1453,7 @@ static const Summary16 jisx0208_uni2indx_pageff[15] = {
   { 6877, 0x0000 }, { 6877, 0x0000 }, { 6877, 0x0028 },
 };
 
-static int jisx0208_wctomb(unsigned int* r, unsigned int wc) {
+static int jisx0208_wctomb(unsigned char* r, unsigned int wc, size_t n) {
     const Summary16 *summary = NULL;
     if (wc >= 0x0000 && wc < 0x0100) {
         summary = &jisx0208_uni2indx_page00[(wc>>4)];
@@ -1462,6 +1474,10 @@ static int jisx0208_wctomb(unsigned int* r, unsigned int wc) {
         unsigned short used = summary->used;
         unsigned int i = wc & 0x0f;
         if (used & ((unsigned short) 1 << i)) {
+            unsigned short c;
+            if (n < 2) {
+                return -1;
+            }
             /* Keep in 'used' only the bits 0..i-1. */
             used &= ((unsigned short) 1 << i) - 1;
             /* Add 'summary->indx' and the number of bits set in 'used'. */
@@ -1469,7 +1485,8 @@ static int jisx0208_wctomb(unsigned int* r, unsigned int wc) {
             used = (used & 0x3333) + ((used & 0xcccc) >> 2);
             used = (used & 0x0f0f) + ((used & 0xf0f0) >> 4);
             used = (used & 0x00ff) + (used >> 8);
-            *r = jisx0208_2charset[summary->indx + used];
+            c = jisx0208_2charset[summary->indx + used];
+            r[0] = (c >> 8); r[1] = (c & 0xff);
             return 2;
         }
     }
@@ -1480,19 +1497,19 @@ static int jisx0208_wctomb(unsigned int* r, unsigned int wc) {
  * SHIFT_JIS (libiconv-1.16/lib/sjis.h)
  */
 
-/* Returns 1 or 2 on success, 0 if no mapping */
-INTERNAL int sjis_wctomb_zint(unsigned int* r, unsigned int wc) {
+/* Returns 1 or 2 on success, 0 if no mapping, -1 if buffer too small */
+int sjis_wctomb_zint(unsigned char* r, unsigned int wc, size_t n) {
     int ret;
 
     /* Try JIS X 0201-1976. */
-    ret = jisx0201_wctomb(r, wc);
+    ret = jisx0201_wctomb(r, wc, n);
     if (ret) {
         return ret;
     }
 
     /* Try JIS X 0208-1990. */
     /* ZINT: Note leaving mapping of full-width reverse solidus U+FF3C to 0x815F (duplicate of patched U+005C) to avoid having to regen tables */
-    ret = jisx0208_wctomb(r, wc);
+    ret = jisx0208_wctomb(r, wc, n);
     if (ret) {
         return ret;
     }
@@ -1502,9 +1519,13 @@ INTERNAL int sjis_wctomb_zint(unsigned int* r, unsigned int wc) {
     /* ZINT: https://file.allitebooks.com/20160708/CJKV%20Information%20Processing.pdf (table 4-86, p. 286, 2nd ed.) */
     if (wc >= 0xe000 && wc < 0xe758) {
         unsigned char c1, c2;
+        if (n < 2) {
+            return -1;
+        }
         c1 = (unsigned int) (wc - 0xe000) / 188;
         c2 = (unsigned int) (wc - 0xe000) % 188;
-        *r = ((c1 + 0xf0) << 8) | (c2 < 0x3f ? c2 + 0x40 : c2 + 0x41);
+        r[0] = c1 + 0xf0;
+        r[1] = c2 < 0x3f ? c2 + 0x40 : c2 + 0x41;
         return 2;
     }
 
@@ -1512,24 +1533,31 @@ INTERNAL int sjis_wctomb_zint(unsigned int* r, unsigned int wc) {
 }
 
 /* Convert UTF-8 string to Shift JIS and place in array of ints */
-INTERNAL int sjis_utf8tomb(struct zint_symbol *symbol, const unsigned char source[], size_t* p_length, unsigned int* jisdata) {
-    int i, error_number;
+int sjis_utf8tomb(struct zint_symbol *symbol, const unsigned char source[], size_t* p_length, unsigned int* jisdata) {
+    int i, error_number, ret;
     unsigned int length;
+    unsigned char buf[2];
 #ifndef _MSC_VER
-    unsigned int utfdata[*p_length + 1];
+    int utfdata[*p_length + 1]; /* Leave signed for the moment until `utf8toutf16()` signature changed */
 #else
-    unsigned int* utfdata = (unsigned int*) _alloca((*p_length + 1) * sizeof(unsigned int));
+    int* utfdata = (int*) _alloca((*p_length + 1) * sizeof(int));
 #endif
 
-    error_number = utf8_to_unicode(symbol, source, utfdata, p_length, 1 /*disallow_4byte*/);
+    error_number = utf8toutf16(symbol, source, utfdata, p_length);
     if (error_number != 0) {
         return error_number;
     }
 
     for (i = 0, length = *p_length; i < length; i++) {
-        if (!sjis_wctomb_zint(jisdata + i, utfdata[i])) {
+        ret = sjis_wctomb_zint(buf, utfdata[i], 2);
+        if (ret <= 0) {
             strcpy(symbol->errtxt, "800: Invalid character in input data");
             return ZINT_ERROR_INVALID_DATA;
+        }
+        if (ret == 1) {
+            jisdata[i] = buf[0];
+        } else {
+            jisdata[i] = (buf[0] << 8) | buf[1];
         }
     }
 
@@ -1537,7 +1565,7 @@ INTERNAL int sjis_utf8tomb(struct zint_symbol *symbol, const unsigned char sourc
 }
 
 /* Convert UTF-8 string to single byte ECI and place in array of ints */
-INTERNAL int sjis_utf8tosb(int eci, const unsigned char source[], size_t* p_length, unsigned int* jisdata) {
+int sjis_utf8tosb(int eci, const unsigned char source[], size_t* p_length, unsigned int* jisdata) {
     int error_number;
 #ifndef _MSC_VER
     unsigned char single_byte[*p_length + 1];
@@ -1557,7 +1585,7 @@ INTERNAL int sjis_utf8tosb(int eci, const unsigned char source[], size_t* p_leng
 }
 
 /* Copy byte input stream to array of ints, putting double-bytes that match QR Kanji mode in single entry */
-INTERNAL void sjis_cpy(const unsigned char source[], size_t* p_length, unsigned int* jisdata) {
+void sjis_cpy(const unsigned char source[], size_t* p_length, unsigned int* jisdata) {
     int i, j;
     unsigned int jis, length;
     unsigned char c;

@@ -28,7 +28,6 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 /* Developed according to [MS-EMF] - v20160714, Released July 14, 2016
  * and [MS-WMF] - v20160714, Released July 14, 2016 */
@@ -42,7 +41,7 @@
 #include "common.h"
 #include "emf.h"
 
-static int count_rectangles(struct zint_symbol *symbol) {
+int count_rectangles(struct zint_symbol *symbol) {
     int rectangles = 0;
     struct zint_vector_rect *rect;
 
@@ -55,7 +54,7 @@ static int count_rectangles(struct zint_symbol *symbol) {
     return rectangles;
 }
 
-static int count_circles(struct zint_symbol *symbol) {
+int count_circles(struct zint_symbol *symbol) {
     int circles = 0;
     struct zint_vector_circle *circ;
 
@@ -68,7 +67,7 @@ static int count_circles(struct zint_symbol *symbol) {
     return circles;
 }
 
-static int count_hexagons(struct zint_symbol *symbol) {
+int count_hexagons(struct zint_symbol *symbol) {
     int hexagons = 0;
     struct zint_vector_hexagon *hex;
 
@@ -81,7 +80,7 @@ static int count_hexagons(struct zint_symbol *symbol) {
     return hexagons;
 }
 
-static int count_strings(struct zint_symbol *symbol) {
+int count_strings(struct zint_symbol *symbol) {
     int strings = 0;
     struct zint_vector_string *str;
 
@@ -94,7 +93,7 @@ static int count_strings(struct zint_symbol *symbol) {
     return strings;
 }
 
-static void utfle_copy(unsigned char *output, unsigned char *input, int length) {
+void utfle_copy(unsigned char *output, unsigned char *input, int length) {
     int i;
     int o;
 
@@ -118,7 +117,7 @@ static void utfle_copy(unsigned char *output, unsigned char *input, int length) 
     } while (i < length);
 }
 
-static int bump_up(int input) {
+int bump_up(int input) {
     /* Strings length must be a multiple of 4 bytes */
     if ((input % 2) == 1) {
         input++;
@@ -126,7 +125,7 @@ static int bump_up(int input) {
     return input;
 }
 
-INTERNAL int emf_plot(struct zint_symbol *symbol) {
+int emf_plot(struct zint_symbol *symbol) {
     int i,j;
     FILE *emf_file;
     int fgred, fggrn, fgblu, bgred, bggrn, bgblu;
