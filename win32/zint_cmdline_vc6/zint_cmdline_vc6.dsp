@@ -152,6 +152,10 @@ SOURCE=..\..\backend\emf.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\backend\gb18030.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\backend\gb2312.c
 # End Source File
 # Begin Source File
@@ -245,10 +249,6 @@ SOURCE=..\..\backend\raster.c
 # Begin Source File
 
 SOURCE=..\..\backend\reedsol.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\backend\render.c
 # End Source File
 # Begin Source File
 

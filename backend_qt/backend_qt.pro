@@ -19,7 +19,7 @@ TARGET = QtZint
 INCLUDEPATH += ../backend
 
 #EDIT THIS !!!!
-DEFINES += ZINT_VERSION="\\\"2.6.7\\\""
+DEFINES += ZINT_VERSION="\\\"2.7.1\\\""
 
 !contains(DEFINES, NO_PNG) {
     INCLUDEPATH += ../../lpng
@@ -60,6 +60,7 @@ HEADERS +=  ../backend/aztec.h \
             ../backend/dmatrix.h \
             ../backend/eci.h \
             ../backend/font.h \
+            ../backend/gb18030.h \
             ../backend/gb2312.h \
             ../backend/gridmtx.h \
             ../backend/gs1.h \
@@ -90,6 +91,7 @@ SOURCES += ../backend/2of5.c \
            ../backend/dotcode.c \
            ../backend/eci.c \
            ../backend/emf.c \
+           ../backend/gb18030.c \
            ../backend/gb2312.c \
            ../backend/general_field.c \
            ../backend/gif.c \
@@ -109,7 +111,6 @@ SOURCES += ../backend/2of5.c \
            ../backend/ps.c \
            ../backend/raster.c \
            ../backend/reedsol.c \
-            ../backend/render.c \
            ../backend/rss.c \
            ../backend/sjis.c \
            ../backend/svg.c \
@@ -124,7 +125,7 @@ SOURCES += ../backend/2of5.c \
            ../backend/png.c \
            qzint.cpp
 
-VERSION = 2.6.7
+VERSION = 2.7.1
 
 #DESTDIR = .
 
