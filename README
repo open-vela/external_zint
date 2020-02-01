@@ -18,7 +18,7 @@ Composite Symbology, Data Matrix, QR Code, Maxicode, Aztec Code, EAN-13,
 Micro QR, Korea Post Barcode, HIBC Code 128, HIBC Code 39, HIBC Data Matrix,
 HIBC PDF417, HIBC MicroPDF417, HIBC QR Code, HIBC Aztec Code, Japanese Postal
 Code, Code 49, Channel Code, Code One, Grid Matrix, FIM and Flattermarken,
-Codablock-F, DotCode, Han Xin Code.
+Codablock-F, DotCode, Han Xin Code, rMQR.
 
 Output can be saved as BMP, EPS, GIF, PCX, TIF, EMF, PNG or SVG. 
 
@@ -94,11 +94,14 @@ The default of the parameter changed from 3 to 0.
 Fixed bugs:
 Ticket 146, 165: fix wrong encoding of RSS composite codes
 
-Version 2.6.8 2019-11-17:
+Version 2.7.0 2019-12-05:
 Changes:
 - Automatic height option added to qzint
 - DotCode in line with new specification
 - New GS1 AIs 7240, 235, 417, 7040, 8026, updated checks for 7007, 8008
+- New Symbology rMQR
+- QR and Qridmatrix optimisation for GB2312
+- removed depreciated interface for gLabels program. Please use current interface.
 
 Fixed bugs:
 - Many improvements in composite codes
@@ -106,11 +109,10 @@ Fixed bugs:
 - GS1-128 and RSS may only be used with GS1 contents
 - Han Xin chinese character handling
 
-Version 2.7.1 not released jet:
+Version 2.7.1 2020-02-01:
 Changes:
-- Ultracode and colour code support
 - QR encoding optimized to get smaller code matrix results
-- PDF417: do not use option_1 to give the maximum number of codewords (928).
+- PDF417: remove obsolete codeword number option in qzint.
   Option removed in qtzint.
 - Removed annex B (3 digit country codes) and annex C (GS1 General Specification)
   from the manual. This material may be found elsewhere.
