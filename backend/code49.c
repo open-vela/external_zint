@@ -41,7 +41,7 @@
 
 /* "!" represents Shift 1 and "&" represents Shift 2, "*" represents FNC1 */
 
-INTERNAL int code_49(struct zint_symbol *symbol, unsigned char source[], const int length) {
+int code_49(struct zint_symbol *symbol, unsigned char source[], const int length) {
     int i, j, rows, M, x_count, y_count, z_count, posn_val, local_value;
     char intermediate[170] = "";
     int codewords[170], codeword_count;
@@ -344,3 +344,4 @@ INTERNAL int code_49(struct zint_symbol *symbol, unsigned char source[], const i
 
     return 0;
 }
+

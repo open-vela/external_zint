@@ -29,7 +29,6 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,7 +44,7 @@
 
 #define SSET	"0123456789ABCDEF"
 
-INTERNAL int pcx_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
+int pcx_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     int fgred, fggrn, fgblu, bgred, bggrn, bgblu;
     int row, column, i, colour;
     int run_count;
@@ -124,24 +123,69 @@ INTERNAL int pcx_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
             for (column = 0; column < symbol->bitmap_width; column++) {
                 switch (colour) {
                     case 0:
-                        if (pixelbuf[(row * symbol->bitmap_width) + column] == '1') {
-                            rle_row[column] = fgred;
-                        } else {
-                            rle_row[column] = bgred;
+                        switch(pixelbuf[(row * symbol->bitmap_width) + column]) {
+                            case 'W': // White
+                            case 'M': // Magenta
+                            case 'R': // Red
+                            case 'Y': // Yellow
+                                rle_row[column] = 255;
+                                break;
+                            case 'C': // Cyan
+                            case 'B': // Blue
+                            case 'G': // Green
+                            case 'K': // Black
+                                rle_row[column] = 0;
+                                break;
+                            case '1':
+                                rle_row[column] = fgred;
+                                break;
+                            default:
+                                rle_row[column] = bgred;
+                                break;
                         }
                         break;
                     case 1:
-                        if (pixelbuf[(row * symbol->bitmap_width) + column] == '1') {
-                            rle_row[column] = fggrn;
-                        } else {
-                            rle_row[column] = bggrn;
+                        switch(pixelbuf[(row * symbol->bitmap_width) + column]) {
+                            case 'W': // White
+                            case 'C': // Cyan
+                            case 'Y': // Yellow
+                            case 'G': // Green
+                                rle_row[column] = 255;
+                                break;
+                            case 'B': // Blue
+                            case 'M': // Magenta
+                            case 'R': // Red
+                            case 'K': // Black
+                                rle_row[column] = 0;
+                                break;
+                            case '1':
+                                rle_row[column] = fggrn;
+                                break;
+                            default:
+                                rle_row[column] = bggrn;
+                                break;
                         }
                         break;
                     case 2:
-                        if (pixelbuf[(row * symbol->bitmap_width) + column] == '1') {
-                            rle_row[column] = fgblu;
-                        } else {
-                            rle_row[column] = bgblu;
+                        switch(pixelbuf[(row * symbol->bitmap_width) + column]) {
+                            case 'W': // White
+                            case 'C': // Cyan
+                            case 'B': // Blue
+                            case 'M': // Magenta
+                                rle_row[column] = 255;
+                                break;
+                            case 'R': // Red
+                            case 'Y': // Yellow
+                            case 'G': // Green
+                            case 'K': // Black
+                                rle_row[column] = 0;
+                                break;
+                            case '1':
+                                rle_row[column] = fgblu;
+                                break;
+                            default:
+                                rle_row[column] = bgblu;
+                                break;
                         }
                         break;
                 }
@@ -171,3 +215,4 @@ INTERNAL int pcx_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
 
     return 0;
 }
+

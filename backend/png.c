@@ -29,7 +29,6 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 #include <stdio.h>
 #ifdef _MSC_VER
@@ -72,7 +71,7 @@ static void writepng_error_handler(png_structp png_ptr, png_const_charp msg) {
     longjmp(graphic->jmpbuf, 1);
 }
 
-INTERNAL int png_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
+int png_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     struct mainprog_info_type wpng_info;
     struct mainprog_info_type *graphic;
     png_structp png_ptr;
@@ -159,6 +158,46 @@ INTERNAL int png_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
         for (column = 0; column < symbol->bitmap_width; column++) {
             i = column * 3;
             switch (*(pixelbuf + (symbol->bitmap_width * row) + column)) {
+                case 'W': // White
+                    outdata[i] = 255;
+                    outdata[i + 1] = 255;
+                    outdata[i + 2] = 255;
+                    break;
+                case 'C': // Cyan
+                    outdata[i] = 0;
+                    outdata[i + 1] = 255;
+                    outdata[i + 2] = 255;
+                    break;
+                case 'B': // Blue
+                    outdata[i] = 0;
+                    outdata[i + 1] = 0;
+                    outdata[i + 2] = 255;
+                    break;
+                case 'M': // Magenta
+                    outdata[i] = 255;
+                    outdata[i + 1] = 0;
+                    outdata[i + 2] = 255;
+                    break;
+                case 'R': // Red
+                    outdata[i] = 255;
+                    outdata[i + 1] = 0;
+                    outdata[i + 2] = 0;
+                    break;
+                case 'Y': // Yellow
+                    outdata[i] = 255;
+                    outdata[i + 1] = 255;
+                    outdata[i + 2] = 0;
+                    break;
+                case 'G': // Green
+                    outdata[i] = 0;
+                    outdata[i + 1] = 255;
+                    outdata[i + 2] = 0;
+                    break;
+                case 'K': // Black
+                    outdata[i] = 0;
+                    outdata[i + 1] = 0;
+                    outdata[i + 2] = 0;
+                    break;
                 case '1':
                     outdata[i] = fgred;
                     outdata[i + 1] = fggrn;
@@ -190,3 +229,5 @@ INTERNAL int png_pixel_plot(struct zint_symbol *symbol, char *pixelbuf) {
     return 0;
 }
 #endif /* NO_PNG */
+
+

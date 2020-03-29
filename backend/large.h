@@ -29,7 +29,6 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
 */
-/* vim: set ts=4 sw=4 et : */
 #ifndef __LARGE_H
 #define __LARGE_H
 
@@ -37,16 +36,17 @@
 extern "C" {
 #endif /* __cplusplus */
 
-INTERNAL void binary_load(short int reg[], char data[], const size_t src_len);
-INTERNAL void binary_add(short int accumulator[], short int input_buffer[]);
-INTERNAL void binary_subtract(short int accumulator[], short int input_buffer[]);
-INTERNAL void shiftdown(short int buffer[]);
-INTERNAL void shiftup(short int buffer[]);
-INTERNAL short int islarger(short int accum[], short int reg[]);
-INTERNAL void binary_multiply(short int reg[], char data[]);
+extern void binary_load(short int reg[], char data[], const size_t src_len);
+extern void binary_add(short int accumulator[], short int input_buffer[]);
+extern void binary_subtract(short int accumulator[], short int input_buffer[]);
+extern void shiftdown(short int buffer[]);
+extern void shiftup(short int buffer[]);
+extern short int islarger(short int accum[], short int reg[]);
+extern void binary_multiply(short int reg[], char data[]);
 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
 
 #endif /* __LARGE_H */
+

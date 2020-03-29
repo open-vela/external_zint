@@ -29,7 +29,6 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 /*  The function "USPS_MSB_Math_CRC11GenerateFrameCheckSequence"
     is Copyright (C) 2006 United States Postal Service */
@@ -210,7 +209,7 @@ static const unsigned short int AppxD_IV[130] = {
  ** Outputs:
  **   return unsigned short - 11 bit Frame Check Sequence (right justified)
  ***************************************************************************/
-static unsigned short USPS_MSB_Math_CRC11GenerateFrameCheckSequence(unsigned char *ByteArrayPtr) {
+extern unsigned short USPS_MSB_Math_CRC11GenerateFrameCheckSequence(unsigned char *ByteArrayPtr) {
     unsigned short GeneratorPolynomial = 0x0F35;
     unsigned short FrameCheckSequence = 0x07FF;
     unsigned short Data;
@@ -244,7 +243,7 @@ static unsigned short USPS_MSB_Math_CRC11GenerateFrameCheckSequence(unsigned cha
     return FrameCheckSequence;
 }
 
-INTERNAL int imail(struct zint_symbol *symbol, unsigned char source[], int length) {
+int imail(struct zint_symbol *symbol, unsigned char source[], int length) {
     char data_pattern[200];
     int error_number;
     int i, j, read;
@@ -566,3 +565,4 @@ INTERNAL int imail(struct zint_symbol *symbol, unsigned char source[], int lengt
     symbol->width = read - 1;
     return error_number;
 }
+
