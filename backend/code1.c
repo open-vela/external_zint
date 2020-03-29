@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2009-2020 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2017 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -39,7 +39,7 @@
 #include <string.h>
 #include <math.h>
 
-static void horiz(struct zint_symbol *symbol, int row_no, int full) {
+void horiz(struct zint_symbol *symbol, int row_no, int full) {
     int i;
 
     if (full) {
@@ -53,7 +53,7 @@ static void horiz(struct zint_symbol *symbol, int row_no, int full) {
     }
 }
 
-static void central_finder(struct zint_symbol *symbol, int start_row, int row_count, int full_rows) {
+void central_finder(struct zint_symbol *symbol, int start_row, int row_count, int full_rows) {
     int i;
 
     for (i = 0; i < row_count; i++) {
@@ -69,7 +69,7 @@ static void central_finder(struct zint_symbol *symbol, int start_row, int row_co
     }
 }
 
-static void vert(struct zint_symbol *symbol, int column, int height, int top) {
+void vert(struct zint_symbol *symbol, int column, int height, int top) {
     int i;
 
     if (top) {
@@ -83,7 +83,7 @@ static void vert(struct zint_symbol *symbol, int column, int height, int top) {
     }
 }
 
-static void spigot(struct zint_symbol *symbol, int row_no) {
+void spigot(struct zint_symbol *symbol, int row_no) {
     int i;
 
     for (i = symbol->width - 1; i > 0; i--) {
@@ -93,7 +93,7 @@ static void spigot(struct zint_symbol *symbol, int row_no) {
     }
 }
 
-static int isedi(unsigned char input) {
+int isedi(unsigned char input) {
     int result = 0;
 
     if (input == 13) {
@@ -118,7 +118,7 @@ static int isedi(unsigned char input) {
     return result;
 }
 
-static int dq4bi(unsigned char source[], int sourcelen, int position) {
+int dq4bi(unsigned char source[], int sourcelen, int position) {
     int i;
 
     for (i = position; isedi(source[position + i]) && ((position + i) < sourcelen); i++);
@@ -350,7 +350,7 @@ static int c1_look_ahead_test(unsigned char source[], int sourcelen, int positio
     return best_scheme;
 }
 
-static int c1_encode(struct zint_symbol *symbol, unsigned char source[], unsigned int target[], int length) {
+int c1_encode(struct zint_symbol *symbol, unsigned char source[], unsigned int target[], int length) {
     int current_mode, next_mode;
     int sp, tp, gs1, i, j, p, latch;
     int c40_buffer[6], c40_p;
@@ -441,11 +441,9 @@ static int c1_encode(struct zint_symbol *symbol, unsigned char source[], unsigne
 
                 if (j == 13) {
                     latch = 0;
-                    if ((length - sp) >= 14) {
-                        for (i = sp + 13; i < length; i++) {
-                            if (!((source[i] >= '0') && (source[i] <= '9'))) {
-                                latch = 1;
-                            }
+                    for (i = sp + 13; i < length; i++) {
+                        if (!((source[sp + i] >= '0') && (source[sp + i] <= '9'))) {
+                            latch = 1;
                         }
                     }
 
@@ -492,11 +490,9 @@ static int c1_encode(struct zint_symbol *symbol, unsigned char source[], unsigne
 
                             if (j == 7) {
                                 latch = 0;
-                                if ((length - sp) >= 8) {
-                                    for (i = sp + 7; i < length; i++) {
-                                        if (!((source[sp + i] >= '0') && (source[sp + i] <= '9'))) {
-                                            latch = 1;
-                                        }
+                                for (i = sp + 7; i < length; i++) {
+                                    if (!((source[sp + i] >= '0') && (source[sp + i] <= '9'))) {
+                                        latch = 1;
                                     }
                                 }
 
@@ -1176,7 +1172,7 @@ static int c1_encode(struct zint_symbol *symbol, unsigned char source[], unsigne
     return tp;
 }
 
-static void block_copy(struct zint_symbol *symbol, char grid[][120], int start_row, int start_col, int height, int width, int row_offset, int col_offset) {
+void block_copy(struct zint_symbol *symbol, char grid[][120], int start_row, int start_col, int height, int width, int row_offset, int col_offset) {
     int i, j;
 
     for (i = start_row; i < (start_row + height); i++) {
@@ -1188,7 +1184,7 @@ static void block_copy(struct zint_symbol *symbol, char grid[][120], int start_r
     }
 }
 
-INTERNAL int code_one(struct zint_symbol *symbol, unsigned char source[], int length) {
+int code_one(struct zint_symbol *symbol, unsigned char source[], int length) {
     int size = 1, i, j;
 
     char datagrid[136][120];
@@ -1774,3 +1770,5 @@ INTERNAL int code_one(struct zint_symbol *symbol, unsigned char source[], int le
 
     return 0;
 }
+
+

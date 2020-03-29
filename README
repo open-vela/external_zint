@@ -18,7 +18,7 @@ Composite Symbology, Data Matrix, QR Code, Maxicode, Aztec Code, EAN-13,
 Micro QR, Korea Post Barcode, HIBC Code 128, HIBC Code 39, HIBC Data Matrix,
 HIBC PDF417, HIBC MicroPDF417, HIBC QR Code, HIBC Aztec Code, Japanese Postal
 Code, Code 49, Channel Code, Code One, Grid Matrix, FIM and Flattermarken,
-Codablock-F, DotCode, Han Xin Code, rMQR.
+Codablock-F, DotCode, Han Xin Code.
 
 Output can be saved as BMP, EPS, GIF, PCX, TIF, EMF, PNG or SVG. 
 
@@ -94,53 +94,17 @@ The default of the parameter changed from 3 to 0.
 Fixed bugs:
 Ticket 146, 165: fix wrong encoding of RSS composite codes
 
-Version 2.7.0 2019-12-05:
+Version 2.6.8 2019-11-17:
 Changes:
 - Automatic height option added to qzint
 - DotCode in line with new specification
 - New GS1 AIs 7240, 235, 417, 7040, 8026, updated checks for 7007, 8008
-- New Symbology rMQR
-- QR and Qridmatrix optimisation for GB2312
-- removed depreciated interface for gLabels program. Please use current interface.
 
 Fixed bugs:
 - Many improvements in composite codes
 - SVG output corrected for messages containing "<" and "&".
 - GS1-128 and RSS may only be used with GS1 contents
 - Han Xin chinese character handling
-
-Version 2.7.1 2020-02-01:
-Changes:
-- QR encoding optimized to get smaller code matrix results
-- PDF417: remove obsolete codeword number option in qzint.
-  Option removed in qtzint.
-- Removed annex B (3 digit country codes) and annex C (GS1 General Specification)
-  from the manual. This material may be found elsewhere.
-- MAC homebrew remark added to the documentation
-- Correct cmake file to match BSD-3-clause licence
-Bugs:
-- Correct uninitialized warning in gridmatrix.call
-- do not export internal functions
-- raster painting of UPC-A bound check
-- pdf417 documentation corrected: change flag -security to -secure
-- Dot Code encoding ECI number corrected
-- Corrected postscript plotting error
-- Datamatrix: corrected possible buffer overrun in 3 characters to 2 byte
-  encodings.
-- In 2.7.0 removed interface "ZBarcode_Render" still declared
-- vc6 make was missing (trivial) resource.h
-
-Version 2.7.2 Not released jet
-Changes:
-(New) Tests for auspost, codablock, composite, dotcode, general, telepen, upcean
-Bugs:
-- Ticket 181 penetration test found many bugs:
-  - Auspost: null bytes in content caused segfault
-  - Codablock: data 0x1a..0x1f caused segfault
-  - Dotcode: overrun in binary mode
-  - empty or unreadable input file
-  - telepen: buffer overflow
-  - EANUCC: buffer overflow on multiple + (multiple extension bars)
 
 CONTACT US
 ----------

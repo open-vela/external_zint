@@ -28,14 +28,13 @@ FORMS += extData.ui \
          grpDBExtend.ui \
          grpDM.ui \
          grpGrid.ui \
-         grpHX.ui \
          grpMaxicode.ui \
          grpMicroPDF.ui \
          grpMQR.ui \
          grpMSICheck.ui \
          grpPDF417.ui \
          grpQR.ui \
-         grpRMQR.ui \
+         grpHX.ui \
          mainWindow.ui \
          grpDotCode.ui
 

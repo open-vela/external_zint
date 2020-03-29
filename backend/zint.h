@@ -125,7 +125,7 @@ extern "C" {
         unsigned char encoded_data[200][143];
         int row_height[200]; /* Largest symbol is 189 x 189 Han Xin */
         char errtxt[100];
-        unsigned char *bitmap;
+        char *bitmap;
         int bitmap_width;
         int bitmap_height;
         unsigned int bitmap_byte_length;
@@ -136,8 +136,8 @@ extern "C" {
     };
 
 #define ZINT_VERSION_MAJOR      2
-#define ZINT_VERSION_MINOR      7
-#define ZINT_VERSION_RELEASE    1
+#define ZINT_VERSION_MINOR      6
+#define ZINT_VERSION_RELEASE    7
 
     /* Tbarcode 7 codes */
 #define BARCODE_CODE11          1
@@ -267,6 +267,9 @@ extern "C" {
 #define DM_SQUARE               100
 #define DM_DMRE                 101
 
+// Ultracode specific option
+#define ULTRA_COMPRESSION       128
+
 // Warning and error conditions
 #define ZINT_WARN_INVALID_OPTION        2
 #define ZINT_WARN_USES_ECI              3
@@ -315,6 +318,8 @@ extern "C" {
     ZINT_EXTERN int ZBarcode_Print(struct zint_symbol *symbol, int rotate_angle);
     ZINT_EXTERN int ZBarcode_Encode_and_Print(struct zint_symbol *symbol, unsigned char *input, int length, int rotate_angle);
     ZINT_EXTERN int ZBarcode_Encode_File_and_Print(struct zint_symbol *symbol, char *filename, int rotate_angle);
+
+    ZINT_EXTERN int ZBarcode_Render(struct zint_symbol *symbol, const float width, const float height);
 
     ZINT_EXTERN int ZBarcode_Buffer(struct zint_symbol *symbol, int rotate_angle);
     ZINT_EXTERN int ZBarcode_Buffer_Vector(struct zint_symbol *symbol, int rotate_angle);

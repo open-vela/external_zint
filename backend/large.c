@@ -29,14 +29,13 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 #include <stdio.h>
 #include <string.h>
 #include "common.h"
 #include "large.h"
 
-INTERNAL void binary_add(short int accumulator[], short int input_buffer[]) { /* Binary addition */
+void binary_add(short int accumulator[], short int input_buffer[]) { /* Binary addition */
     int i, carry;
     carry = 0;
 
@@ -93,7 +92,7 @@ INTERNAL void binary_add(short int accumulator[], short int input_buffer[]) { /*
     }
 }
 
-INTERNAL void binary_subtract(short int accumulator[], short int input_buffer[]) {
+void binary_subtract(short int accumulator[], short int input_buffer[]) {
     /* 2's compliment subtraction */
     /* take input_buffer from accumulator and put answer in accumulator */
     int i;
@@ -116,7 +115,7 @@ INTERNAL void binary_subtract(short int accumulator[], short int input_buffer[])
     binary_add(accumulator, sub_buffer);
 }
 
-INTERNAL void binary_multiply(short int reg[], char data[]) {
+void binary_multiply(short int reg[], char data[]) {
     /* Multiply the contents of reg[] by a number */
     short int temp[112] = {0};
     short int accum[112] = {0};
@@ -136,7 +135,7 @@ INTERNAL void binary_multiply(short int reg[], char data[]) {
     }
 }
 
-INTERNAL void shiftdown(short int buffer[]) {
+void shiftdown(short int buffer[]) {
     int i;
 
     buffer[102] = 0;
@@ -147,7 +146,7 @@ INTERNAL void shiftdown(short int buffer[]) {
     }
 }
 
-INTERNAL void shiftup(short int buffer[]) {
+void shiftup(short int buffer[]) {
     int i;
 
     for (i = 102; i > 0; i--) {
@@ -157,7 +156,7 @@ INTERNAL void shiftup(short int buffer[]) {
     buffer[0] = 0;
 }
 
-INTERNAL short int islarger(short int accum[], short int reg[]) {
+short int islarger(short int accum[], short int reg[]) {
     /* Returns 1 if accum[] is larger than reg[], else 0 */
     int i, latch, larger;
     latch = 0;
@@ -179,7 +178,7 @@ INTERNAL short int islarger(short int accum[], short int reg[]) {
     return larger;
 }
 
-INTERNAL void binary_load(short int reg[], char data[], const size_t src_len) {
+void binary_load(short int reg[], char data[], const size_t src_len) {
 	size_t    read;
 	int       i;
     short int temp[112] = {0};
@@ -209,3 +208,5 @@ INTERNAL void binary_load(short int reg[], char data[], const size_t src_len) {
         binary_add(reg, temp);
     }
 }
+
+

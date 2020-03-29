@@ -40,6 +40,7 @@
 /* vim: set ts=4 sw=4 et : */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 #include <assert.h>
@@ -51,8 +52,8 @@
 #define ceilf ceil
 #endif
 #endif
-#include "common.h"
 #include "reedsol.h"
+#include "common.h"
 #include "dmatrix.h"
 
 /* Annex M placement alorithm low level */
@@ -756,7 +757,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                 process_buffer[*process_p] = value;
                 (*process_p)++;
 
-                while (*process_p >= 3) {
+                if (*process_p >= 3) {
                     int iv;
 
                     iv = (1600 * process_buffer[0]) + (40 * process_buffer[1]) + (process_buffer[2]) + 1;
@@ -824,7 +825,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                 process_buffer[*process_p] = value;
                 (*process_p)++;
 
-                while (*process_p >= 3) {
+                if (*process_p >= 3) {
                     int iv;
 
                     iv = (1600 * process_buffer[0]) + (40 * process_buffer[1]) + (process_buffer[2]) + 1;
@@ -885,7 +886,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                 process_buffer[*process_p] = value;
                 (*process_p)++;
 
-                while (*process_p >= 3) {
+                if (*process_p >= 3) {
                     int iv;
 
                     iv = (1600 * process_buffer[0]) + (40 * process_buffer[1]) + (process_buffer[2]) + 1;
@@ -932,7 +933,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                 sp++;
             }
 
-            while (*process_p >= 4) {
+            if (*process_p >= 4) {
                 target[tp] = (unsigned char) ((process_buffer[0] << 2) + ((process_buffer[1] & 0x30) >> 4));
                 tp++;
                 target[tp] = ((process_buffer[1] & 0x0f) << 4) + ((process_buffer[2] & 0x3c) >> 2);
@@ -1163,7 +1164,7 @@ static void add_tail(unsigned char target[], int tp, const int tail_length) {
     }
 }
 
-static int data_matrix_200(struct zint_symbol *symbol,const unsigned char source[], const size_t in_length) {
+int data_matrix_200(struct zint_symbol *symbol,const unsigned char source[], const size_t in_length) {
     int i, skew = 0;
     size_t inputlen = in_length;
     unsigned char binary[2200];
@@ -1253,7 +1254,7 @@ static int data_matrix_200(struct zint_symbol *symbol,const unsigned char source
 #ifdef DEBUG
     {
         int CWCount;
-        int posCur;
+		int posCur;
         if (skew)
             CWCount = 1558 + 620;
         else
@@ -1289,7 +1290,7 @@ static int data_matrix_200(struct zint_symbol *symbol,const unsigned char source
         // Print position matrix as in standard
         for (y = NR - 1; y >= 0; y--) {
             for (x = 0; x < NC; x++) {
-                int v;
+				int v;
                 if (x != 0)
                     fprintf(stderr, "|");
                 v = places[(NR - y - 1) * NC + x];
@@ -1326,7 +1327,7 @@ static int data_matrix_200(struct zint_symbol *symbol,const unsigned char source
     return error_number;
 }
 
-INTERNAL int dmatrix(struct zint_symbol *symbol, const unsigned char source[], const size_t in_length) {
+int dmatrix(struct zint_symbol *symbol, const unsigned char source[], const size_t in_length) {
     int error_number;
 
     if (symbol->option_1 <= 1) {
@@ -1340,3 +1341,5 @@ INTERNAL int dmatrix(struct zint_symbol *symbol, const unsigned char source[], c
 
     return error_number;
 }
+
+
