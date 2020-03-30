@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2008-2019 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2008-2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -79,7 +79,7 @@
  * combins(n,r): returns the number of Combinations of r selected from n:
  *   Combinations = n! / ((n - r)! * r!)
  **********************************************************************/
-int combins(int n, int r) {
+static int combins(int n, int r) {
     int i, j;
     int maxDenom, minDenom;
     int val;
@@ -120,7 +120,7 @@ int combins(int n, int r) {
  * Return:
  * static int widths[] = element widths
  **********************************************************************/
-void getRSSwidths(int val, int n, int elements, int maxWidth, int noNarrow) {
+static void getRSSwidths(int val, int n, int elements, int maxWidth, int noNarrow) {
     int bar;
     int elmWidth;
     int mxwElement;
@@ -161,7 +161,7 @@ void getRSSwidths(int val, int n, int elements, int maxWidth, int noNarrow) {
 }
 
 /* GS1 DataBar-14 */
-int rss14(struct zint_symbol *symbol, unsigned char source[], int src_len) {
+INTERNAL int rss14(struct zint_symbol *symbol, unsigned char source[], int src_len) {
     int error_number = 0, i, j, mask;
     short int accum[112], left_reg[112], right_reg[112], x_reg[112], y_reg[112];
     int data_character[4], data_group[4], v_odd[4], v_even[4];
@@ -568,7 +568,7 @@ int rss14(struct zint_symbol *symbol, unsigned char source[], int src_len) {
         }
         symbol->row_height[symbol->rows] = 7;
         /* separator pattern */
-        for (i = 4; i < 46; i++) {
+        for (i = 1; i < 46; i++) {
             if (module_is_set(symbol, symbol->rows - 2, i) == module_is_set(symbol, symbol->rows, i)) {
                 if (!(module_is_set(symbol, symbol->rows - 2, i))) {
                     set_module(symbol, symbol->rows - 1, i);
@@ -579,6 +579,9 @@ int rss14(struct zint_symbol *symbol, unsigned char source[], int src_len) {
                 }
             }
         }
+        unset_module(symbol, symbol->rows - 1, 1);
+        unset_module(symbol, symbol->rows - 1, 2);
+        unset_module(symbol, symbol->rows - 1, 3);
         symbol->row_height[symbol->rows - 1] = 1;
         if (symbol->symbology == BARCODE_RSS14STACK_CC) {
             /* separator pattern for composite symbol */
@@ -732,7 +735,7 @@ int rss14(struct zint_symbol *symbol, unsigned char source[], int src_len) {
 }
 
 /* GS1 DataBar Limited */
-int rsslimited(struct zint_symbol *symbol, unsigned char source[], int src_len) {
+INTERNAL int rsslimited(struct zint_symbol *symbol, unsigned char source[], int src_len) {
     int error_number = 0, i, mask;
     short int accum[112], left_reg[112], right_reg[112], x_reg[112], y_reg[112];
     int left_group, right_group, left_odd, left_even, right_odd, right_even;
@@ -1058,7 +1061,7 @@ int rsslimited(struct zint_symbol *symbol, unsigned char source[], int src_len) 
 }
 
 /* Handles all data encodation from section 7.2.5 of ISO/IEC 24724 */
-int rss_binary_string(struct zint_symbol *symbol, char source[], char binary_string[]) {
+static int rss_binary_string(struct zint_symbol *symbol, char source[], char binary_string[]) {
     int encoding_method, i, j, read_posn, last_digit, debug = symbol->debug, mode = NUMERIC;
     int symbol_characters, characters_per_row;
 #ifndef _MSC_VER
@@ -1383,7 +1386,7 @@ int rss_binary_string(struct zint_symbol *symbol, char source[], char binary_str
     rest of the data (if any) goes into a general-purpose data compaction field */
 
     j = 0;
-    for (i = read_posn; i < strlen(source); i++) {
+    for (i = read_posn; i < (int) strlen(source); i++) {
         general_field[j] = source[i];
         j++;
     }
@@ -1510,7 +1513,7 @@ int rss_binary_string(struct zint_symbol *symbol, char source[], char binary_str
 }
 
 /* GS1 DataBar Expanded */
-int rssexpanded(struct zint_symbol *symbol, unsigned char source[], int src_len) {
+INTERNAL int rssexpanded(struct zint_symbol *symbol, unsigned char source[], int src_len) {
     int i, j, k, p, data_chars, vs[21], group[21], v_odd[21], v_even[21];
     char substring[21][14], latch;
     int char_widths[21][8], checksum, check_widths[8], c_group;
@@ -1957,5 +1960,3 @@ int rssexpanded(struct zint_symbol *symbol, unsigned char source[], int src_len)
 
     return 0;
 }
-
-
