@@ -9,8 +9,8 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 #comment or remove the above line before release
 
 set (ZINT_VERSION_MAJOR 2)
-set (ZINT_VERSION_MINOR 6)
-set (ZINT_VERSION_RELEASE 7)
+set (ZINT_VERSION_MINOR 7)
+set (ZINT_VERSION_RELEASE 0)
 set (ZINT_VERSION "${ZINT_VERSION_MAJOR}.${ZINT_VERSION_MINOR}.${ZINT_VERSION_RELEASE}" )
 
 add_definitions (-DZINT_VERSION=\"${ZINT_VERSION}\" -Wall)
@@ -19,6 +19,8 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" )
 
 set(ZINT_DEBUG FALSE CACHE BOOL "Set debug compile flag")
 set(ZINT_SANITIZE FALSE CACHE BOOL "Set sanitize compile/link flags")
+set(ZINT_TEST FALSE CACHE BOOL "Set test compile flag")
+set(ZINT_STATIC FALSE CACHE BOOL "Build static library")
 
 include (SetPaths.cmake)
 
@@ -36,8 +38,11 @@ if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_COMPILER_IS_GNUCC)
     if (ZINT_SANITIZE)
         add_compile_options("-fsanitize=undefined")
         add_compile_options("-fsanitize=address")
-        set (CMAKE_EXE_LINKER_FLAGS "-fsanitize=undefined -fsanitize=address")
+        set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=undefined -fsanitize=address")
     endif (ZINT_SANITIZE)
+    if (ZINT_TEST)
+        add_definitions("-DZINT_TEST")
+    endif (ZINT_TEST)
 endif (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_COMPILER_IS_GNUCC)
 
 

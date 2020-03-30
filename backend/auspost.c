@@ -29,6 +29,7 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
+/* vim: set ts=4 sw=4 et : */
 
 #define GDSET 	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz #"
 
@@ -68,7 +69,7 @@ static inline char convert_pattern(char data, int shift) {
 }
 
 /* Adds Reed-Solomon error correction to auspost */
-void rs_error(char data_pattern[]) {
+static void rs_error(char data_pattern[]) {
     size_t reader, triple_writer = 0;
     char triple[31];
     unsigned char result[5];
@@ -90,7 +91,7 @@ void rs_error(char data_pattern[]) {
 }
 
 /* Handles Australia Posts's 4 State Codes */
-int australia_post(struct zint_symbol *symbol, unsigned char source[], int length) {
+INTERNAL int australia_post(struct zint_symbol *symbol, unsigned char source[], int length) {
     /* Customer Standard Barcode, Barcode 2 or Barcode 3 system determined automatically
        (i.e. the FCC doesn't need to be specified by the user) dependent
        on the length of the input string */
@@ -109,7 +110,12 @@ int australia_post(struct zint_symbol *symbol, unsigned char source[], int lengt
     char fcc[3] = {0, 0, 0}, dpid[10];
     char localstr[30];
 
-    error_number = 0;
+    /* Check input immediately to catch nuls */
+    error_number = is_sane(GDSET, source, length);
+    if (error_number == ZINT_ERROR_INVALID_DATA) {
+        strcpy(symbol->errtxt, "404: Invalid characters in data");
+        return error_number;
+    }
     strcpy(localstr, "");
 
     /* Do all of the length checking first to avoid stack smashing */
@@ -164,12 +170,6 @@ int australia_post(struct zint_symbol *symbol, unsigned char source[], int lengt
 
     strcat(localstr, (char*) source);
     h = strlen(localstr);
-    error_number = is_sane(GDSET, (unsigned char *) localstr, h);
-    if (error_number == ZINT_ERROR_INVALID_DATA) {
-        strcpy(symbol->errtxt, "404: Invalid characters in data");
-        return error_number;
-    }
-
     /* Verifiy that the first 8 characters are numbers */
     memcpy(dpid, localstr, 8);
     dpid[8] = '\0';
@@ -248,6 +248,3 @@ int australia_post(struct zint_symbol *symbol, unsigned char source[], int lengt
 
     return error_number;
 }
-
-
-

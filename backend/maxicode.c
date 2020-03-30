@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2010-2017 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2010-2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -29,18 +29,18 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
+/* vim: set ts=4 sw=4 et : */
 
 /* Includes corrections thanks to Monica Swanson @ Source Technologies */
 #include "common.h"
 #include "maxicode.h"
 #include "reedsol.h"
 #include <string.h>
-#include <stdlib.h>
 
-int maxi_codeword[144];
+static int maxi_codeword[144];
 
 /* Handles error correction of primary message */
-void maxi_do_primary_check() {
+static void maxi_do_primary_check() {
     unsigned char data[15];
     unsigned char results[15];
     int j;
@@ -61,7 +61,7 @@ void maxi_do_primary_check() {
 }
 
 /* Handles error correction of odd characters in secondary */
-void maxi_do_secondary_chk_odd(int ecclen) {
+static void maxi_do_secondary_chk_odd(int ecclen) {
     unsigned char data[100];
     unsigned char results[30];
     int j;
@@ -85,7 +85,7 @@ void maxi_do_secondary_chk_odd(int ecclen) {
 }
 
 /* Handles error correction of even characters in secondary */
-void maxi_do_secondary_chk_even(int ecclen) {
+static void maxi_do_secondary_chk_even(int ecclen) {
     unsigned char data[100];
     unsigned char results[30];
     int j;
@@ -109,7 +109,7 @@ void maxi_do_secondary_chk_even(int ecclen) {
 }
 
 /* Moves everything up so that a shift or latch can be inserted */
-void maxi_bump(int set[], int character[], int bump_posn) {
+static void maxi_bump(int set[], int character[], int bump_posn) {
     int i;
 
     for (i = 143; i > bump_posn; i--) {
@@ -119,7 +119,7 @@ void maxi_bump(int set[], int character[], int bump_posn) {
 }
 
 /* If the value is present in  array, return the value, else return badvalue */
-int value_in_array(int val, int arr[], int badvalue, int arrLength){
+static int value_in_array(int val, int arr[], int badvalue, int arrLength) {
     int i;
     for(i = 0; i < arrLength; i++){
         if(arr[i] == val) return val;
@@ -128,7 +128,7 @@ int value_in_array(int val, int arr[], int badvalue, int arrLength){
 }
 
 /* Choose the best set from previous and next set in the range of the setval array, if no value can be found we return setval[0] */
-int bestSurroundingSet(int index, int length, int set[], int setval[], int setLength) {
+static int bestSurroundingSet(int index, int length, int set[], int setval[], int setLength) {
     int badValue = -1;
     int option1 = value_in_array(set[index - 1], setval, badValue, setLength);
     if (index + 1 < length) {
@@ -146,7 +146,7 @@ int bestSurroundingSet(int index, int length, int set[], int setval[], int setLe
 }
 
 /* Format text according to Appendix A */
-int maxi_text_process(int mode, unsigned char source[], int length, int eci) {
+static int maxi_text_process(int mode, unsigned char source[], int length, int eci) {
     /* This code doesn't make use of [Lock in C], [Lock in D]
     and [Lock in E] and so is not always the most efficient at
     compressing data, but should suffice for most applications */
@@ -293,7 +293,7 @@ int maxi_text_process(int mode, unsigned char source[], int length, int eci) {
     }
     /* Number compression not allowed in primary message */
     count = 0;
-    for (i = j; i < 143; i++) {
+    for (i = j; i < 144; i++) {
         if ((set[i] == 1) && ((character[i] >= 48) && (character[i] <= 57))) {
             /* Character is a number */
             count++;
@@ -425,7 +425,7 @@ int maxi_text_process(int mode, unsigned char source[], int length, int eci) {
     do {
         if (set[i] == 6) {
             /* Number compression */
-            char substring[11];
+            char substring[10];
             int value;
 
             for (j = 0; j < 9; j++) {
@@ -442,7 +442,7 @@ int maxi_text_process(int mode, unsigned char source[], int length, int eci) {
             character[i + 5] = (value & 0x3f);
 
             i += 6;
-            for (j = i; j < 140; j++) {
+            for (j = i; j < 141; j++) {
                 set[j] = set[j + 3];
                 character[j] = character[j + 3];
             }
@@ -450,7 +450,7 @@ int maxi_text_process(int mode, unsigned char source[], int length, int eci) {
         } else {
             i++;
         }
-    } while (i <= 143);
+    } while (i <= 135); /* 144 - 9 */
 
     /* Insert ECI at the beginning of message if needed */
     /* Encode ECI assignment numbers according to table 3 */
@@ -533,7 +533,7 @@ int maxi_text_process(int mode, unsigned char source[], int length, int eci) {
 }
 
 /* Format structured primary for Mode 2 */
-void maxi_do_primary_2(char postcode[], int country, int service) {
+static void maxi_do_primary_2(char postcode[], int country, int service) {
     size_t postcode_length;
    int    postcode_num, i;
 
@@ -559,7 +559,7 @@ void maxi_do_primary_2(char postcode[], int country, int service) {
 }
 
 /* Format structured primary for Mode 3 */
-void maxi_do_primary_3(char postcode[], int country, int service) {
+static void maxi_do_primary_3(char postcode[], int country, int service) {
     int i, h;
 
     h = strlen(postcode);
@@ -589,7 +589,7 @@ void maxi_do_primary_3(char postcode[], int country, int service) {
     maxi_codeword[9] = ((service & 0x3f0) >> 4);
 }
 
-int maxicode(struct zint_symbol *symbol, unsigned char local_source[], const int length) {
+INTERNAL int maxicode(struct zint_symbol *symbol, unsigned char local_source[], const int length) {
     int i, j, block, bit, mode, lp = 0;
     int bit_pattern[7], internal_error = 0, eclen;
     char postcode[12], countrystr[4], servicestr[4];
@@ -734,5 +734,3 @@ int maxicode(struct zint_symbol *symbol, unsigned char local_source[], const int
 
     return internal_error;
 }
-
-
