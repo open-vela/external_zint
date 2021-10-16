@@ -36,6 +36,22 @@
 
 static void test_print(int index, int generate, int debug) {
 
+    testStart("");
+
+    int have_identify = 0;
+    int have_libreoffice = 0;
+    int have_ghostscript = 0;
+    int have_vnu = 0;
+    int have_tiffinfo = 0;
+    if (generate) {
+        have_identify = testUtilHaveIdentify();
+        have_libreoffice = testUtilHaveLibreOffice();
+        have_ghostscript = testUtilHaveGhostscript();
+        have_vnu = testUtilHaveVnu();
+        have_tiffinfo = testUtilHaveTiffInfo();
+    }
+
+    int ret;
     struct item {
         int symbology;
         int option_1;
@@ -51,80 +67,52 @@ static void test_print(int index, int generate, int debug) {
         /*  3*/ { BARCODE_ULTRA, -1, -1, -1, "A", "ultracode_a" },
         /*  4*/ { BARCODE_MAXICODE, -1, -1, -1, "THIS IS A 93 CHARACTER CODE SET A MESSAGE THAT FILLS A MODE 4, UNAPPENDED, MAXICODE SYMBOL...", "maxicode_fig_2" },
     };
-    int data_size = ARRAY_SIZE(data);
-    int i, length, ret;
-    struct zint_symbol *symbol;
-    int j;
+    int data_size = sizeof(data) / sizeof(struct item);
 
     char *exts[] = { "bmp", "emf", "eps", "gif", "pcx", "png", "svg", "tif", "txt" };
-    int exts_size = ARRAY_SIZE(exts);
+    int exts_len = sizeof(exts) / sizeof(char*);
 
     char data_dir[1024];
-    char data_subdir[1024];
     char expected_file[1024];
 
     char escaped[1024];
     int escaped_size = 1024;
 
-    int have_identify = 0;
-    int have_libreoffice = 0;
-    int have_ghostscript = 0;
-    int have_vnu = 0;
-    int have_tiffinfo = 0;
     if (generate) {
-        have_identify = testUtilHaveIdentify();
-        have_libreoffice = testUtilHaveLibreOffice();
-        have_ghostscript = testUtilHaveGhostscript();
-        have_vnu = testUtilHaveVnu();
-        have_tiffinfo = testUtilHaveTiffInfo();
+        strcpy(data_dir, "../data");
+        if (!testUtilExists(data_dir)) {
+            ret = mkdir(data_dir, 0755);
+            assert_zero(ret, "mkdir(%s) ret %d != 0\n", data_dir, ret);
+        }
+        strcat(data_dir, "/print");
+        if (!testUtilExists(data_dir)) {
+            ret = mkdir(data_dir, 0755);
+            assert_zero(ret, "mkdir(%s) ret %d != 0\n", data_dir, ret);
+        }
     }
 
-    testStart("test_print");
-
-    assert_nonzero(testUtilDataPath(data_dir, sizeof(data_dir), "/backend/tests/data", NULL), "testUtilDataPath == 0\n");
-
-    if (generate) {
-        if (!testUtilDirExists(data_dir)) {
-            ret = testUtilMkDir(data_dir);
-            assert_zero(ret, "testUtilMkDir(%s) ret %d != 0 (%d: %s)\n", data_dir, ret, errno, strerror(errno));
-        }
-        assert_nonzero(sizeof(data_dir) > strlen(data_dir) + 6, "sizeof(data_dir) %d <= strlen (%d) + 6\n", (int) sizeof(data_dir), (int) strlen(data_dir));
-        strcat(data_dir, "/print");
-        if (!testUtilDirExists(data_dir)) {
-            ret = testUtilMkDir(data_dir);
-            assert_zero(ret, "testUtilMkDir(%s) ret %d != 0 (%d: %s)\n", data_dir, ret, errno, strerror(errno));
-        }
-    } else {
-        assert_nonzero(sizeof(data_dir) > strlen(data_dir) + 6, "sizeof(data_dir) %d <= strlen (%d) + 6\n", (int) sizeof(data_dir), (int) strlen(data_dir));
-        strcat(data_dir, "/print");
-    }
-
-    for (j = 0; j < exts_size; j++) {
+    for (int j = 0; j < exts_len; j++) {
 #ifdef NO_PNG
         if (strcmp(exts[j], "png") == 0) continue;
 #endif
-        assert_nonzero(sizeof(data_subdir) > strlen(data_dir) + 1 + strlen(exts[j]),
-            "sizeof(data_subdir) (%d) <= strlen(data_dir) (%d) + 1 + strlen(%s) (%d)\n",
-            (int) sizeof(data_subdir), (int) strlen(data_dir), exts[j], (int) strlen(exts[j]));
-        strcpy(data_subdir, data_dir);
-        strcat(data_subdir, "/");
-        strcat(data_subdir, exts[j]);
+        strcpy(data_dir, "../data/print/");
+        strcat(data_dir, exts[j]);
 
         if (generate) {
-            if (!testUtilDirExists(data_subdir)) {
-                ret = testUtilMkDir(data_subdir);
-                assert_zero(ret, "testUtilMkDir(%s) ret %d != 0 (%d: %s)\n", data_subdir, ret, errno, strerror(errno));
+            if (!testUtilExists(data_dir)) {
+                ret = mkdir(data_dir, 0755);
+                assert_zero(ret, "mkdir(%s) ret %d != 0\n", data_dir, ret);
             }
         }
 
-        for (i = 0; i < data_size; i++) {
+        for (int i = 0; i < data_size; i++) {
 
             if (index != -1 && i != index) continue;
 
-            symbol = ZBarcode_Create();
+            struct zint_symbol *symbol = ZBarcode_Create();
             assert_nonnull(symbol, "Symbol not created\n");
 
-            length = testUtilSetSymbol(symbol, data[i].symbology, -1 /*input_mode*/, -1 /*eci*/, data[i].option_1, data[i].option_2, -1, -1 /*output_options*/, data[i].data, -1, debug);
+            int length = testUtilSetSymbol(symbol, data[i].symbology, -1 /*input_mode*/, -1 /*eci*/, data[i].option_1, data[i].option_2, -1, -1 /*output_options*/, data[i].data, -1, debug);
             if (data[i].scale != -1) {
                 symbol->scale = data[i].scale;
             }
@@ -135,10 +123,7 @@ static void test_print(int index, int generate, int debug) {
             strcpy(symbol->outfile, "out.");
             strcat(symbol->outfile, exts[j]);
 
-            assert_nonzero(sizeof(expected_file) > strlen(data_subdir) + 1 + strlen(data[i].expected_file) + 1 + strlen(exts[j]),
-                "i:%d sizeof(expected_file) (%d) > strlen(data_subdir) (%d) + 1 + strlen(%s) (%d) + 1 + strlen(%s) (%d),\n",
-                i, (int) sizeof(expected_file), (int) strlen(data_subdir), data[i].expected_file, (int) strlen(data[i].expected_file), exts[j], (int) strlen(exts[j]));
-            strcpy(expected_file, data_subdir);
+            strcpy(expected_file, data_dir);
             strcat(expected_file, "/");
             strcat(expected_file, data[i].expected_file);
             strcat(expected_file, ".");
@@ -154,8 +139,8 @@ static void test_print(int index, int generate, int debug) {
                             testUtilEscape(data[i].data, length, escaped, escaped_size), data[i].expected_file);
                 }
                 if (strstr(TEST_PRINT_OVERWRITE_EXPECTED, exts[j])) {
-                    ret = testUtilRename(symbol->outfile, expected_file);
-                    assert_zero(ret, "i:%d testUtilRename(%s, %s) ret %d != 0\n", i, symbol->outfile, expected_file, ret);
+                    ret = rename(symbol->outfile, expected_file);
+                    assert_zero(ret, "i:%d rename(%s, %s) ret %d != 0\n", i, symbol->outfile, expected_file, ret);
                     if (strcmp(exts[j], "eps") == 0) {
                         if (have_ghostscript) {
                             ret = testUtilVerifyGhostscript(expected_file, debug);

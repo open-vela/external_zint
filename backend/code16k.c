@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2008 - 2021 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2008 - 2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -116,13 +116,14 @@ INTERNAL int code16k(struct zint_symbol *symbol, unsigned char source[], int len
     int values[C128_MAX] = {0};
     int bar_characters;
     float glyph_count;
-    int error_number = 0, first_sum, second_sum;
+    int error_number, first_sum, second_sum;
     int input_length;
     int gs1, c_count;
 
     /* Suppresses clang-analyzer-core.UndefinedBinaryOperatorResult warning on fset which is fully set */
     assert(length > 0);
 
+    error_number = 0;
     strcpy(width_pattern, "");
     input_length = length;
 
@@ -150,6 +151,9 @@ INTERNAL int code16k(struct zint_symbol *symbol, unsigned char source[], int len
     indexchaine = 0;
 
     mode = parunmodd(source[indexchaine]);
+    if ((gs1) && (source[indexchaine] == '[')) {
+        mode = ABORC;
+    } /* FNC1 */
 
     do {
         list[1][indexliste] = mode;
@@ -483,22 +487,11 @@ INTERNAL int code16k(struct zint_symbol *symbol, unsigned char source[], int len
                 flip_flop = 0;
             }
         }
+        symbol->row_height[current_row] = 10;
     }
 
     symbol->rows = rows;
     symbol->width = 70;
-
-    if (symbol->output_options & COMPLIANT_HEIGHT) {
-        /* BS EN 12323:2005 Section 4.5 (d) minimum 8X; use 10X as default
-           Section 4.5 (b) H = X[r(h + g) + g] = rows * row_height + (rows - 1) * separator as borders not included
-           in symbol->height (added on) */
-        const int separator = symbol->option_3 >= 1 && symbol->option_3 <= 4 ? symbol->option_3 : 1;
-        const float min_row_height = stripf((8.0f * rows + separator * (rows - 1)) / rows);
-        const float default_height = 10.0f * rows + separator * (rows - 1);
-        error_number = set_height(symbol, min_row_height, default_height, 0.0f, 0 /*no_errtxt*/);
-    } else {
-        (void) set_height(symbol, 0.0f, 10.0f * rows, 0.0f, 1 /*no_errtxt*/);
-    }
 
     symbol->output_options |= BARCODE_BIND;
 
