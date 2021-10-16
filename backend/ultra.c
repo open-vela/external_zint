@@ -1,7 +1,7 @@
 /*  ultra.c - Ultracode
 
     libzint - the open source barcode library
-    Copyright (C) 2020 - 2021 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -57,43 +57,25 @@ static const char ultra_c43_set3[] = "{}`()\"+'<>|$;&\\^*";
 static const char ultra_digit[] = "0123456789,/";
 static const char ultra_colour[] = "0CBMRYGKW";
 
-// Max size and min cols adjusted to BWIPP values as updated 2021-07-14
-// https://github.com/bwipp/postscriptbarcode/commit/4255810845fa8d45c6192dd30aee1fdad1aaf0cc
-static const int ultra_maxsize[] = {37, 84, 161, 282};
+//static const int ultra_maxsize[] = {34, 78, 158, 282}; // According to Table 1
+static const int ultra_maxsize[] = {34, 81, 158, 282}; // Adjusted to allow 79-81 codeword range in 3-row symbols (only 1 secondary vertical clock track, not 2, so 3 extra)
 
-static const int ultra_mincols[] = {5, 13, 22, 29};
+static const int ultra_mincols[] = {5, 13, 23, 30}; // # Total Tile Columns from Table 1
 
 static const int kec[] = {0, 1, 2, 4, 6, 8}; // Value K(EC) from Table 12
 
-/* Taken from BWIPP - change in DCCU/DCCL tiles for revision 2 2021-09-28 */
-static const unsigned short dccu[2][32] = {
-    { // Revision 1
-        051363, 051563, 051653, 053153, 053163, 053513, 053563, 053613, //  0-7
-        053653, 056153, 056163, 056313, 056353, 056363, 056513, 056563, //  8-15
-        051316, 051356, 051536, 051616, 053156, 053516, 053536, 053616, // 16-23
-        053636, 053656, 056136, 056156, 056316, 056356, 056516, 056536  // 24-31
-    },
-    { // Revision 2 (inversion of DCCL Revision 1)
-        015316, 016316, 013516, 016516, 013616, 015616, 013136, 015136, //  0-7
-        016136, 013536, 016536, 013636, 013156, 016156, 015356, 013656, //  8-15
-        015313, 016313, 013513, 016513, 013613, 015613, 013153, 015153, // 16-23
-        016153, 016353, 013653, 015653, 013163, 015163, 015363, 013563  // 24-31
-    },
+static const int dccu[] = {
+    051363, 051563, 051653, 053153, 053163, 053513, 053563, 053613, //  0-7
+    053653, 056153, 056163, 056313, 056353, 056363, 056513, 056563, //  8-15
+    051316, 051356, 051536, 051616, 053156, 053516, 053536, 053616, // 16-23
+    053636, 053656, 056136, 056156, 056316, 056356, 056516, 056536  // 24-31
 };
 
-static const unsigned short dccl[2][32] = {
-    { // Revision 1
-        061351, 061361, 061531, 061561, 061631, 061651, 063131, 063151, //  0-7
-        063161, 063531, 063561, 063631, 065131, 065161, 065351, 065631, //  8-15
-        031351, 031361, 031531, 031561, 031631, 031651, 035131, 035151, // 16-23
-        035161, 035361, 035631, 035651, 036131, 036151, 036351, 036531  // 24-31
-    },
-    { // Revision 2 (inversion of DCCU Revision 1)
-        036315, 036515, 035615, 035135, 036135, 031535, 036535, 031635, //  0-7
-        035635, 035165, 036165, 031365, 035365, 036365, 031565, 036565, //  8-15
-        061315, 065315, 063515, 061615, 065135, 061535, 063535, 061635, // 16-23
-        063635, 065635, 063165, 065165, 061365, 065365, 061565, 063565  // 24-31
-    },
+static const int dccl[] = {
+    061351, 061361, 061531, 061561, 061631, 061651, 063131, 063151, //  0-7
+    063161, 063531, 063561, 063631, 065131, 065161, 065351, 065631, //  8-15
+    031351, 031361, 031531, 031561, 031631, 031651, 035131, 035151, // 16-23
+    035161, 035361, 035631, 035651, 036131, 036151, 036351, 036531  // 24-31
 };
 
 static const int tiles[] = {
@@ -134,14 +116,14 @@ static const int tiles[] = {
  * Dated 2001-03-09
  * Corrected thanks to input from Terry Burton */
 
-/*
+/* 
  * NOTE: Included here is an attempt to allow code compression within Ultracode. Unfortunately
  * the copy of the standard this was written from was an early draft which includes self
  * contradictions, so this is a "best guess" implementation. Because it is not guaranteed
  * to be correct this compression is not applied by default. To enable compression set
- *
+ * 
  * symbol->option_3 = ULTRA_COMPRESSION;
- *
+ * 
  * Code compression should be enabled by default when it has been implemented according to
  * a more reliable version of the specification.
  */
@@ -170,7 +152,7 @@ static void ultra_initLogTables(unsigned short gfPwr[], unsigned short gfLog[]) 
     for (j = 0; j < 283; j++) gfLog[j] = 0;
     i = 1;
     for (j = 0; j < 282; j++) {
-        /* j + 282 indices save doing the modulo operation in GFMUL */
+        /* j + 282 indicies save doing the modulo operation in GFMUL */
         gfPwr[j + 282] = gfPwr[j] = (short) i;
         gfLog[i] = (short) j;
         i = (i * 3) % 283;
@@ -226,7 +208,7 @@ static int ultra_find_fragment(const unsigned char source[], int source_length, 
 
     for (j = 0; j < 27; j++) {
         latch = 0;
-        fraglen = (int) strlen(fragment[j]);
+        fraglen = strlen(fragment[j]);
         if ((position + fraglen) <= source_length) {
             latch = 1;
             for (k = 0; k < fraglen; k++) {
@@ -246,8 +228,8 @@ static int ultra_find_fragment(const unsigned char source[], int source_length, 
 }
 
 /* Encode characters in 8-bit mode */
-static float look_ahead_eightbit(unsigned char source[], int in_length, int in_locn, char current_mode, int end_char,
-            int cw[], int *cw_len, int gs1) {
+static float look_ahead_eightbit(unsigned char source[], int in_length, int in_locn, char current_mode, int end_char, int cw[], int* cw_len, int gs1)
+{
     int codeword_count = 0;
     int i;
     int letters_encoded = 0;
@@ -274,13 +256,13 @@ static float look_ahead_eightbit(unsigned char source[], int in_length, int in_l
 
     if (codeword_count == 0) {
         return 0.0;
+    } else {
+        return (float)letters_encoded / (float)codeword_count;
     }
-    return (float) letters_encoded / (float) codeword_count;
 }
 
 /* Encode character in the ASCII mode/submode (including numeric compression) */
-static float look_ahead_ascii(unsigned char source[], int in_length, int in_locn, char current_mode, int symbol_mode,
-            int end_char, int cw[], int *cw_len, int *encoded, int gs1) {
+static float look_ahead_ascii(unsigned char source[], int in_length, int in_locn, char current_mode, int symbol_mode, int end_char, int cw[], int* cw_len, int* encoded, int gs1) {
     int codeword_count = 0;
     int i;
     int first_digit, second_digit, done;
@@ -363,8 +345,9 @@ static float look_ahead_ascii(unsigned char source[], int in_length, int in_locn
 
     if (codeword_count == 0) {
         return 0.0;
+    } else {
+        return (float)letters_encoded / (float)codeword_count;
     }
-    return (float) letters_encoded / (float) codeword_count;
 }
 
 /* Returns true if should latch to subset other than given `subset` */
@@ -372,8 +355,8 @@ static int c43_should_latch_other(const unsigned char data[], const int length, 
             const int gs1) {
     int i, fraglen, predict_window;
     int cnt, alt_cnt, fragno;
-    const char *set = subset == 1 ? ultra_c43_set1 : ultra_c43_set2;
-    const char *alt_set = subset == 2 ? ultra_c43_set1 : ultra_c43_set2;
+    const char* set = subset == 1 ? ultra_c43_set1 : ultra_c43_set2;
+    const char* alt_set = subset == 2 ? ultra_c43_set1 : ultra_c43_set2;
 
     if (locn + 3 > length) {
         return 0;
@@ -387,7 +370,7 @@ static int c43_should_latch_other(const unsigned char data[], const int length, 
 
         fragno = ultra_find_fragment(data, length, i);
         if (fragno != -1 && fragno != 26) {
-            fraglen = (int) strlen(fragment[fragno]);
+            fraglen = strlen(fragment[fragno]);
             predict_window += fraglen;
             if (predict_window > length) {
                 predict_window = length;
@@ -437,8 +420,7 @@ static int get_subset(unsigned char source[], int in_length, int in_locn, int cu
 }
 
 /* Encode characters in the C43 compaction submode */
-static float look_ahead_c43(unsigned char source[], int in_length, int in_locn, char current_mode, int end_char,
-            int subset, int cw[], int *cw_len, int *encoded, int gs1, int debug) {
+static float look_ahead_c43(unsigned char source[], int in_length, int in_locn, char current_mode, int end_char, int subset, int cw[], int* cw_len, int* encoded, int gs1, int debug) {
     int codeword_count = 0;
     int subcodeword_count = 0;
     int i;
@@ -453,7 +435,7 @@ static float look_ahead_c43(unsigned char source[], int in_length, int in_locn, 
 #ifndef _MSC_VER
     int subcw[(in_length + 3) * 2];
 #else
-    int *subcw = (int *) _alloca((in_length + 3) * 2 * sizeof(int));
+    int * subcw = (int *) _alloca((in_length + 3) * 2 * sizeof (int));
 #endif /* _MSC_VER */
 
     if (current_mode == EIGHTBIT_MODE) {
@@ -466,53 +448,58 @@ static float look_ahead_c43(unsigned char source[], int in_length, int in_locn, 
             fragno -= 2;
         }
 
-        switch (fragno) {
+        switch(fragno) {
             case 17: // mailto:
                 cw[codeword_count] = 276;
-                sublocn += (int) strlen(fragment[fragno]);
+                sublocn += strlen(fragment[fragno]);
                 codeword_count++;
                 break;
             case 18: // tel:
                 cw[codeword_count] = 277;
-                sublocn += (int) strlen(fragment[fragno]);
+                sublocn += strlen(fragment[fragno]);
                 codeword_count++;
                 break;
             case 26: // file:
                 cw[codeword_count] = 278;
-                sublocn += (int) strlen(fragment[fragno]);
+                sublocn += strlen(fragment[fragno]);
                 codeword_count++;
                 break;
             case 0: // http://
                 cw[codeword_count] = 279;
-                sublocn += (int) strlen(fragment[fragno]);
+                sublocn += strlen(fragment[fragno]);
                 codeword_count++;
                 break;
             case 1: // https://
                 cw[codeword_count] = 280;
-                sublocn += (int) strlen(fragment[fragno]);
+                sublocn += strlen(fragment[fragno]);
                 codeword_count++;
                 break;
             case 4: // ftp://
                 cw[codeword_count] = 281;
-                sublocn += (int) strlen(fragment[fragno]);
+                sublocn += strlen(fragment[fragno]);
                 codeword_count++;
                 break;
             default:
                 if (subset == 1) {
                     cw[codeword_count] = 260; // C43 Compaction Submode C1
                     codeword_count++;
-                } else if ((subset == 2) || (subset == 3)) {
+                }
+
+                if ((subset == 2) || (subset == 3)) {
                     cw[codeword_count] = 266; // C43 Compaction Submode C2
                     codeword_count++;
                 }
                 break;
         }
+    }
 
-    } else if (current_mode == ASCII_MODE) {
+    if (current_mode == ASCII_MODE) {
         if (subset == 1) {
             cw[codeword_count] = 278; // C43 Compaction Submode C1
             codeword_count++;
-        } else if ((subset == 2) || (subset == 3)) {
+        }
+
+        if ((subset == 2) || (subset == 3)) {
             cw[codeword_count] = 280; // C43 Compaction Submode C2
             codeword_count++;
         }
@@ -552,26 +539,33 @@ static float look_ahead_c43(unsigned char source[], int in_length, int in_locn, 
             subcw[subcodeword_count] = posn(ultra_c43_set1, source[sublocn]);
             subcodeword_count++;
             sublocn++;
-        } else if (subset == 2) {
+        }
+
+        if (subset == 2) {
             subcw[subcodeword_count] = posn(ultra_c43_set2, source[sublocn]);
             subcodeword_count++;
             sublocn++;
-        } else if (subset == 3) {
+        }
+
+        if (subset == 3) {
             subcw[subcodeword_count] = 41; // Shift to set 3
             subcodeword_count++;
 
             fragno = ultra_find_fragment(source, in_length, sublocn);
-            if (fragno != -1 && fragno != 26) {
-                if (fragno <= 18) {
-                    subcw[subcodeword_count] = fragno; // C43 Set 3 codewords 0 to 18
-                    subcodeword_count++;
-                    sublocn += (int) strlen(fragment[fragno]);
-                } else {
-                    subcw[subcodeword_count] = fragno + 17; // C43 Set 3 codewords 36 to 42
-                    subcodeword_count++;
-                    sublocn += (int) strlen(fragment[fragno]);
-                }
-            } else {
+            if (fragno == 26) {
+                fragno = -1;
+            }
+            if ((fragno >= 0) && (fragno <= 18)) {
+                subcw[subcodeword_count] = fragno; // C43 Set 3 codewords 0 to 18
+                subcodeword_count++;
+                sublocn += strlen(fragment[fragno]);
+            }
+            if ((fragno >= 19) && (fragno <= 25)) {
+                subcw[subcodeword_count] = fragno + 17; // C43 Set 3 codewords 36 to 42
+                subcodeword_count++;
+                sublocn += strlen(fragment[fragno]);
+            }
+            if (fragno == -1) {
                 subcw[subcodeword_count] = posn(ultra_c43_set3, source[sublocn]) + 19; // C43 Set 3 codewords 19 to 35
                 subcodeword_count++;
                 sublocn++;
@@ -613,8 +607,9 @@ static float look_ahead_c43(unsigned char source[], int in_length, int in_locn, 
 
     if (codeword_count == 0) {
         return 0.0;
+    } else {
+        return (float)letters_encoded / (float)codeword_count;
     }
-    return (float) letters_encoded / (float) codeword_count;
 }
 
 /* Produces a set of codewords which are "somewhat" optimised - this could be improved on */
@@ -642,9 +637,9 @@ static int ultra_generate_codewords(struct zint_symbol *symbol, const unsigned c
     char mode[in_length + 1];
     int cw_fragment[in_length * 2 + 1];
 #else
-    unsigned char *crop_source = (unsigned char *) _alloca(in_length + 1);
-    char *mode = (char *) _alloca(in_length + 1);
-    int *cw_fragment = (int *) _alloca((in_length * 2 + 1) * sizeof(int));
+    unsigned char * crop_source = (unsigned char *) _alloca((in_length + 1) * sizeof (unsigned char));
+    char * mode = (char *) _alloca((in_length + 1) * sizeof (char));
+    int * cw_fragment = (int *) _alloca((in_length * 2 + 1) * sizeof (int));
 #endif /* _MSC_VER */
 
     if ((symbol->input_mode & 0x07) == GS1_MODE) {
@@ -659,7 +654,7 @@ static int ultra_generate_codewords(struct zint_symbol *symbol, const unsigned c
             break;
         }
     }
-
+    
     if (symbol->option_3 != ULTRA_COMPRESSION && !gs1) {
         // Force eight-bit mode by default as other modes are poorly documented
         symbol_mode = EIGHTBIT_MODE;
@@ -722,16 +717,18 @@ static int ultra_generate_codewords(struct zint_symbol *symbol, const unsigned c
         }
 
         if ((codewords[0] == 257) || (codewords[0] == 272)) {
-            fragno = ultra_find_fragment(source, in_length, 0);
+            fragno = ultra_find_fragment((unsigned char *)source, in_length, 0);
 
             // Check for http:// at start of input
             if ((fragno == 0) || (fragno == 2)) {
                 codewords[0] = 281;
                 input_locn = 7;
                 symbol_mode = EIGHTBIT_MODE;
+            }
+
 
             // Check for https:// at start of input
-            } else if ((fragno == 1) || (fragno == 3)) {
+            if ((fragno == 1) || (fragno == 3)) {
                 codewords[0] = 282;
                 input_locn = 8;
                 symbol_mode = EIGHTBIT_MODE;
@@ -745,18 +742,18 @@ static int ultra_generate_codewords(struct zint_symbol *symbol, const unsigned c
             && source[4] == '0' && source[5] == '6' && source[6] == '\x1d'
             && source[in_length - 2] == '\x1e' && source[in_length - 1] == '\x04') {
 
-        if (symbol_mode == EIGHTBIT_MODE) {
-            codewords[codeword_count] = 271; // 06 Macro
-        } else {
-            codewords[codeword_count] = 273; // 06 Macro
-        }
-        codeword_count++;
+            if (symbol_mode == EIGHTBIT_MODE) {
+                codewords[codeword_count] = 271; // 06 Macro
+            } else {
+                codewords[codeword_count] = 273; // 06 Macro
+            }
+            codeword_count++;
 
-        for (i = 7; i < (in_length - 2); i++) {
-            crop_source[i - 7] = source[i];
-        }
-        crop_length = in_length - 9;
-        crop_source[crop_length] = '\0';
+            for (i = 7; i < (in_length - 2); i++) {
+                crop_source[i - 7] = source[i];
+            }
+            crop_length = in_length - 9;
+            crop_source[crop_length] = '\0';
    } else {
         /* Make a cropped version of input data - removes http:// and https:// if needed */
         for (i = input_locn; i < in_length; i++) {
@@ -772,13 +769,10 @@ static int ultra_generate_codewords(struct zint_symbol *symbol, const unsigned c
         input_locn = 0;
         do {
             end_char = input_locn + PREDICT_WINDOW;
-            eightbit_score = look_ahead_eightbit(crop_source, crop_length, input_locn, current_mode, end_char,
-                                cw_fragment, &fragment_length, gs1);
-            ascii_score = look_ahead_ascii(crop_source, crop_length, input_locn, current_mode, symbol_mode,
-                                end_char, cw_fragment, &fragment_length, &ascii_encoded, gs1);
+            eightbit_score = look_ahead_eightbit(crop_source, crop_length, input_locn, current_mode, end_char, cw_fragment, &fragment_length, gs1);
+            ascii_score = look_ahead_ascii(crop_source, crop_length, input_locn, current_mode, symbol_mode, end_char, cw_fragment, &fragment_length, &ascii_encoded, gs1);
             subset = c43_should_latch_other(crop_source, crop_length, input_locn, 1 /*subset*/, gs1) ? 2 : 1;
-            c43_score = look_ahead_c43(crop_source, crop_length, input_locn, current_mode, end_char,
-                                subset, cw_fragment, &fragment_length, &c43_encoded, gs1, 0 /*debug*/);
+            c43_score = look_ahead_c43(crop_source, crop_length, input_locn, current_mode, end_char, subset, cw_fragment, &fragment_length, &c43_encoded, gs1, 0 /*debug*/);
 
             mode[input_locn] = 'a';
             current_mode = ASCII_MODE;
@@ -786,7 +780,9 @@ static int ultra_generate_codewords(struct zint_symbol *symbol, const unsigned c
             if ((c43_score > ascii_score) && (c43_score > eightbit_score)) {
                 mode[input_locn] = 'c';
                 current_mode = C43_MODE;
-            } else if ((eightbit_score > ascii_score) && (eightbit_score > c43_score)) {
+            }
+
+            if ((eightbit_score > ascii_score) && (eightbit_score > c43_score)) {
                 mode[input_locn] = '8';
                 current_mode = EIGHTBIT_MODE;
             }
@@ -813,7 +809,7 @@ static int ultra_generate_codewords(struct zint_symbol *symbol, const unsigned c
     mode[crop_length] = '\0';
 
     if (symbol->debug & ZINT_DEBUG_PRINT) {
-        printf("Mode (%d): %s\n", (int) strlen(mode), mode);
+        printf("Mode: %s (%d)\n", mode, (int) strlen(mode));
     }
 
     /* Use results from test to perform actual mode switching */
@@ -826,28 +822,23 @@ static int ultra_generate_codewords(struct zint_symbol *symbol, const unsigned c
             block_length++;
         }
 
-        switch (mode[input_locn]) {
+        switch(mode[input_locn]) {
             case 'a':
-                look_ahead_ascii(crop_source, crop_length, input_locn, current_mode, symbol_mode,
-                            input_locn + block_length, cw_fragment, &fragment_length, NULL, gs1);
+                look_ahead_ascii(crop_source, crop_length, input_locn, current_mode, symbol_mode, input_locn + block_length, cw_fragment, &fragment_length, NULL, gs1);
                 current_mode = ASCII_MODE;
                 break;
             case 'c':
                 subset = c43_should_latch_other(crop_source, crop_length, input_locn, 1 /*subset*/, gs1) ? 2 : 1;
-                look_ahead_c43(crop_source, crop_length, input_locn, current_mode, input_locn + block_length, subset,
-                            cw_fragment, &fragment_length, NULL, gs1, symbol->debug);
+                look_ahead_c43(crop_source, crop_length, input_locn, current_mode, input_locn + block_length, subset, cw_fragment, &fragment_length, NULL, gs1, symbol->debug);
 
                 /* Substitute temporary latch if possible */
-                if ((current_mode == EIGHTBIT_MODE) && (cw_fragment[0] == 260)
-                        && (fragment_length >= 5) && (fragment_length <= 11)) {
+                if ((current_mode == EIGHTBIT_MODE) && (cw_fragment[0] == 260) && (fragment_length >= 5) && (fragment_length <= 11)) {
                     /* Temporary latch to submode 1 from Table 11 */
                     cw_fragment[0] = 256 + ((fragment_length - 5) / 2);
-                } else if ((current_mode == EIGHTBIT_MODE) && (cw_fragment[0] == 266)
-                        && (fragment_length >= 5) && (fragment_length <= 11)) {
+                } else if ((current_mode == EIGHTBIT_MODE) && (cw_fragment[0] == 266) && (fragment_length >= 5) && (fragment_length <= 11)) {
                     /* Temporary latch to submode 2 from Table 11 */
                     cw_fragment[0] = 262 + ((fragment_length - 5) / 2);
-                } else if ((current_mode == ASCII_MODE) && (cw_fragment[0] == 278)
-                        && (fragment_length >= 5) && (fragment_length <= 11)) {
+                } else if ((current_mode == ASCII_MODE) && (cw_fragment[0] == 278) && (fragment_length >= 5) && (fragment_length <= 11)) {
                     /* Temporary latch to submode 1 from Table 9 */
                     cw_fragment[0] = 274 + ((fragment_length - 5) / 2);
                 } else {
@@ -855,8 +846,7 @@ static int ultra_generate_codewords(struct zint_symbol *symbol, const unsigned c
                 }
                 break;
             case '8':
-                look_ahead_eightbit(crop_source, crop_length, input_locn, current_mode, input_locn + block_length,
-                            cw_fragment, &fragment_length, gs1);
+                look_ahead_eightbit(crop_source, crop_length, input_locn, current_mode, input_locn + block_length, cw_fragment, &fragment_length, gs1);
                 current_mode = EIGHTBIT_MODE;
                 break;
         }
@@ -872,96 +862,45 @@ static int ultra_generate_codewords(struct zint_symbol *symbol, const unsigned c
     return codeword_count;
 }
 
-INTERNAL int ultra(struct zint_symbol *symbol, unsigned char source[], int length) {
+INTERNAL int ultracode(struct zint_symbol *symbol, unsigned char source[], int length) {
     int data_cw_count = 0;
     int acc, qcc;
-    int scr[3] = {0}, scr_cw_count = 0; /* Symbol Control Region (only if have Structured Append) */
-    int dr_count;
     int ecc_level;
     int rows, columns;
     int total_cws;
     int pads;
     int cw_memalloc;
-    // Allow for 3 pads in final 57th (60th incl. clock tracks) column of 5-row symbol (57 * 5 == 285)
-    int codeword[282 + 3];
+    int codeword[282 + 3]; // Allow for 3 pads in final 57th (60th incl. clock tracks) column of 5-row symbol (57 * 5 == 285)
     int i, j, locn;
     int total_height, total_width;
     char tilepat[6];
     int tilex, tiley;
     int dcc;
-    int revision_idx = 0;
 #ifdef _MSC_VER
-    int *data_codewords;
-    char *pattern;
+    int* data_codewords;
+    char* pattern;
 #endif /* _MSC_VER */
-
-    if (symbol->eci > 811799) {
-        strcpy(symbol->errtxt, "590: ECI value not supported by Ultracode");
-        return ZINT_ERROR_INVALID_OPTION;
-    }
-
-    if (symbol->structapp.count) {
-        int link2 = 2; /* Draft Table 7, Structured Append Group (SAG) with no File Number */
-
-        if (symbol->structapp.count < 2 || symbol->structapp.count > 8) {
-            strcpy(symbol->errtxt, "558: Structured Append count out of range (2-8)");
-            return ZINT_ERROR_INVALID_OPTION;
-        }
-        if (symbol->structapp.index < 1 || symbol->structapp.index > symbol->structapp.count) {
-            sprintf(symbol->errtxt, "559: Structured Append index out of range (1-%d)", symbol->structapp.count);
-            return ZINT_ERROR_INVALID_OPTION;
-        }
-        scr_cw_count = 1;
-
-        if (symbol->structapp.id[0]) {
-            int id, id_len;
-
-            for (id_len = 0; id_len < 32 && symbol->structapp.id[id_len]; id_len++);
-
-            if (id_len > 5) { /* 282 * 283 + 282 = 80088 */
-                strcpy(symbol->errtxt, "727: Structured Append ID too long (5 digit maximum)");
-                return ZINT_ERROR_INVALID_OPTION;
-            }
-
-            id = to_int((const unsigned char *) symbol->structapp.id, id_len);
-            if (id == -1) {
-                strcpy(symbol->errtxt, "728: Invalid Structured Append ID (digits only)");
-                return ZINT_ERROR_INVALID_OPTION;
-            }
-            if (id > 80088) {
-                sprintf(symbol->errtxt, "729: Structured Append ID '%d' out of range (1-80088)", id);
-                return ZINT_ERROR_INVALID_OPTION;
-            }
-            if (id) {
-                link2 = 3; /* Missing from draft Table 7 but mentioned 7.4.3 - SAG with File Number */
-                scr[1] = id / 283;
-                scr[2] = id % 283; /* 7.4.3.2 says 1-282 but can be 0 if id >= 283 */
-                scr_cw_count += 2;
-            }
-        }
-
-        scr[0] = link2 * 70 + (symbol->structapp.count - 1) * 8 + symbol->structapp.index - 1;
-    }
 
     cw_memalloc = length * 2;
     if (cw_memalloc < 283) {
         cw_memalloc = 283;
     }
 
+    if (symbol->eci > 811799) {
+        strcpy(symbol->errtxt, "590: ECI value not supported by Ultracode");
+        return ZINT_ERROR_INVALID_OPTION;
+    }
+
 #ifndef _MSC_VER
     int data_codewords[cw_memalloc];
 #else
-    data_codewords = (int *) _alloca(cw_memalloc * sizeof(int));
+    data_codewords = (int *) _alloca(cw_memalloc * sizeof (int));
 #endif /* _MSC_VER */
 
     data_cw_count = ultra_generate_codewords(symbol, source, length, data_codewords);
 
     if (symbol->debug & ZINT_DEBUG_PRINT) {
-        printf("Codewords (%d):", data_cw_count);
-        for (i = 0; i < data_cw_count; i++) {
-            printf(" %d", data_codewords[i]);
-        }
-        printf("\n");
+        printf("Codewords returned = %d\n", data_cw_count);
     }
 #ifdef ZINT_TEST
     if (symbol->debug & ZINT_DEBUG_TEST) {
@@ -969,17 +908,7 @@ INTERNAL int ultra(struct zint_symbol *symbol, unsigned char source[], int lengt
     }
 #endif
 
-    data_cw_count += 2 + scr_cw_count; // 2 == MCC + ACC (data codeword count includes start char)
-
-    if (symbol->option_2 > 0) {
-        if (symbol->option_2 > 2) {
-            strcpy(symbol->errtxt, "592: Revision must be 1 or 2");
-            return ZINT_ERROR_INVALID_OPTION;
-        }
-        if (symbol->option_2 == 2) { /* Revision 2, swop and inversion of DCCU/DCCL tiles */
-            revision_idx = 1;
-        }
-    }
+    data_cw_count += 2; // 2 == MCC + ACC (data codeword count includes start char)
 
     /* Default ECC level is EC2 */
     if ((symbol->option_1 <= 0) || (symbol->option_1 > 6)) {
@@ -999,36 +928,22 @@ INTERNAL int ultra(struct zint_symbol *symbol, unsigned char source[], int lengt
         }
 
     }
-    if (symbol->debug & ZINT_DEBUG_PRINT) {
-        printf("EC%d codewords: %d\n", ecc_level + 1, qcc);
-    }
-
     acc = qcc - 3;
-    if (scr_cw_count) {
-        acc += 70; /* Link1 = 1 (* 70) means SCR present */
-    }
+
     if (symbol->debug & ZINT_DEBUG_PRINT) {
-        printf("MCC: %d, ACC: %d, SCR: %d", data_cw_count, acc, scr_cw_count);
-        if (scr_cw_count) {
-            printf(", SCR0: %d", scr[0]);
-            if (scr_cw_count > 1) {
-                printf(", SCR1: %d, SCR2: %d", scr[1], scr[2]);
-            }
-        }
-        printf("\n");
+        printf("ECC codewords: %d\n", qcc);
     }
 
     /* Maximum capacity is 282 codewords */
     total_cws = data_cw_count + qcc + 3; // 3 == TCC pattern + RSEC pattern + QCC pattern
-    if (total_cws - 3 > 282) {
+    if (total_cws > 282) {
         strcpy(symbol->errtxt, "591: Data too long for selected error correction capacity");
         return ZINT_ERROR_TOO_LONG;
     }
 
     rows = 5;
     for (i = 2; i >= 0; i--) {
-        // Total codewords less 6 (+ SCR) overhead (Start + MCC + ACC (+ SCR) + 3 TCC/RSEC/QCC patterns)
-        if (total_cws - (6 + scr_cw_count) <= ultra_maxsize[i]) {
+        if (total_cws - 6 <= ultra_maxsize[i]) { // Total codewords less 6 overhead (Start + MCC + ACC + 3 TCC/RSEC/QCC patterns)
             rows--;
         }
     }
@@ -1043,33 +958,22 @@ INTERNAL int ultra(struct zint_symbol *symbol, unsigned char source[], int lengt
     columns += columns / 15; // Secondary vertical clock tracks
 
     if (symbol->debug & ZINT_DEBUG_PRINT) {
-        printf("Calculated size is %d rows by %d columns (pads %d)\n", rows, columns, pads);
+        printf("Calculated size is %d rows by %d columns\n", rows, columns);
     }
 
-    /* Insert MCC and ACC and possibly SCR into data codewords */
-    for (i = 282; i > 2 + scr_cw_count; i--) {
-        data_codewords[i] = data_codewords[i - (2 + scr_cw_count)];
+    /* Insert MCC and ACC into data codewords */
+    for (i = 282; i > 2; i--) {
+        data_codewords[i] = data_codewords[i - 2];
     }
     data_codewords[1] = data_cw_count; // MCC
     data_codewords[2] = acc; // ACC
-    for (i = 0; i < scr_cw_count; i++) { // SCR
-        data_codewords[3 + i] = scr[i];
-    }
 
+    locn = 0;
     /* Calculate error correction codewords (RSEC) */
-
+    
     ultra_gf283((short) data_cw_count, (short) qcc, data_codewords);
 
-    if (symbol->debug & ZINT_DEBUG_PRINT) {
-        printf("ECCs (%d):", qcc);
-        for (i = 0; i < qcc; i++) {
-            printf(" %d", data_codewords[(282 - qcc) + i]);
-        }
-        printf("\n");
-    }
-
     /* Rearrange to make final codeword sequence */
-    locn = 0;
     codeword[locn++] = data_codewords[282 - (data_cw_count + qcc)]; // Start Character
     codeword[locn++] = data_cw_count; // MCC
     for (i = 0; i < qcc; i++) {
@@ -1078,12 +982,8 @@ INTERNAL int ultra(struct zint_symbol *symbol, unsigned char source[], int lengt
     codeword[locn++] = data_cw_count + qcc; // TCC = C + Q - section 6.11.4
     codeword[locn++] = 283; // Separator
     codeword[locn++] = acc; // ACC
-    for (i = 0; i < scr_cw_count; i++) { // SCR
-        codeword[locn++] = scr[i];
-    }
-    dr_count = data_cw_count - (3 + scr_cw_count);
-    for (i = 0; i < dr_count; i++) {
-        codeword[locn++] = data_codewords[(282 - (dr_count + qcc)) + i]; // Data Region
+    for (i = 0; i < (data_cw_count - 3); i++) {
+        codeword[locn++] = data_codewords[(282 - ((data_cw_count - 3) + qcc)) + i]; // Data Region
     }
     for (i = 0; i < pads; i++) {
         codeword[locn++] = 284; // Pad pattern
@@ -1105,7 +1005,7 @@ INTERNAL int ultra(struct zint_symbol *symbol, unsigned char source[], int lengt
 #ifndef _MSC_VER
     char pattern[total_height * total_width];
 #else
-    pattern = (char *) _alloca(total_height * total_width);
+    pattern = (char *) _alloca(total_height * total_width * sizeof (char));
 #endif /* _MSC_VER */
 
     for (i = 0; i < (total_height * total_width); i++) {
@@ -1156,9 +1056,11 @@ INTERNAL int ultra(struct zint_symbol *symbol, unsigned char source[], int lengt
 
             if (tilex == 14) {
                 tilex++;
-            } else if (tilex == 30) {
+            }
+            if (tilex == 30) {
                 tilex++;
-            } else if (tilex == 46) {
+            }
+            if (tilex == 46) {
                 tilex++;
             }
         }
@@ -1175,7 +1077,7 @@ INTERNAL int ultra(struct zint_symbol *symbol, unsigned char source[], int lengt
     tiley = (total_height - 11) / 2;
     /* DCCU */
     for (j = 0; j < 5; j++) {
-        tilepat[4 - j] = ultra_colour[(dccu[revision_idx][dcc] >> (3 * j)) & 0x07];
+        tilepat[4 - j] = ultra_colour[(dccu[dcc] >> (3 * j)) & 0x07];
     }
     for (j = 0; j < 5; j++) {
         pattern[((tiley + j) * total_width) + tilex] = tilepat[j];
@@ -1183,7 +1085,7 @@ INTERNAL int ultra(struct zint_symbol *symbol, unsigned char source[], int lengt
     /* DCCL */
     tiley += 6;
     for (j = 0; j < 5; j++) {
-        tilepat[4 - j] = ultra_colour[(dccl[revision_idx][dcc] >> (3 * j)) & 0x07];
+        tilepat[4 - j] = ultra_colour[(dccl[dcc] >> (3 * j)) & 0x07];
     }
     for (j = 0; j < 5; j++) {
         pattern[((tiley + j) * total_width) + tilex] = tilepat[j];
@@ -1206,11 +1108,10 @@ INTERNAL int ultra(struct zint_symbol *symbol, unsigned char source[], int lengt
 
     for (i = 0; i < total_height; i++) {
         symbol->row_height[i] = 1;
-        for (j = 0; j < total_width; j++) {
+        for(j = 0; j < total_width; j++) {
             set_module_colour(symbol, i, j, posn(ultra_colour, pattern[(i * total_width) + j]));
         }
     }
-    symbol->height = total_height;
 
     return 0;
 }

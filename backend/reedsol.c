@@ -72,8 +72,8 @@ INTERNAL void rs_init_gf(rs_t *rs, const unsigned int prime_poly) {
         const unsigned char *alog;
     };
     /* To add a new prime poly of degree <= 8 add its details to this table and to the table in `test_generate()`
-       in "backend/tests/test_reedsol.c" and regenerate the log tables by running
-       "backend/tests/test_reedsol -f generate -g". Paste the result in "reedsol_logs.h" */
+     * in "backend/tests/test_reedsol.c" and regenerate the log tables by running "./test_reedsol -f generate -g".
+     * Paste the result in "reedsol_logs.h" */
     static const struct item data[] = {
         { logt_0x13, alog_0x13 },   /* 0 000- */
         { logt_0x25, alog_0x25 },   /* 0 001- */
@@ -127,6 +127,7 @@ INTERNAL void rs_init_code(rs_t *rs, const int nsym, int index) {
 
 /* rs_encode(&rs, datalen, data, res) generates nsym Reed-Solomon codes (nsym as given in rs_init_code())
  * and places them in reverse order in res */
+
 INTERNAL void rs_encode(const rs_t *rs, const int datalen, const unsigned char *data, unsigned char *res) {
     int i, k;
     const unsigned char *logt = rs->logt;
@@ -190,22 +191,14 @@ INTERNAL void rs_encode_uint(const rs_t *rs, const int datalen, const unsigned i
 // Then  call rs_uint_free(&rs_uint) to free the log tables.
 
 /* `logmod` (field characteristic) will be 2**bitlength - 1, eg 1023 for bitlength 10, 4095 for bitlength 12 */
-INTERNAL int rs_uint_init_gf(rs_uint_t *rs_uint, const unsigned int prime_poly, const int logmod) {
+INTERNAL void rs_uint_init_gf(rs_uint_t *rs_uint, const unsigned int prime_poly, const int logmod) {
     int b, p, v;
     unsigned int *logt, *alog;
 
     b = logmod + 1;
 
-    rs_uint->logt = NULL;
-    rs_uint->alog = NULL;
-
-    if (!(logt = (unsigned int *) calloc(b, sizeof(unsigned int)))) {
-        return 0;
-    }
-    if (!(alog = (unsigned int *) calloc(b * 2, sizeof(unsigned int)))) {
-        free(logt);
-        return 0;
-    }
+    logt = (unsigned int *) malloc(sizeof(unsigned int) * b);
+    alog = (unsigned int *) malloc(sizeof(unsigned int) * b * 2);
 
     // Calculate the log/alog tables
     for (p = 1, v = 0; v < logmod; v++) {
@@ -218,7 +211,6 @@ INTERNAL int rs_uint_init_gf(rs_uint_t *rs_uint, const unsigned int prime_poly, 
     }
     rs_uint->logt = logt;
     rs_uint->alog = alog;
-    return 1;
 }
 
 INTERNAL void rs_uint_init_code(rs_uint_t *rs_uint, const int nsym, int index) {
@@ -227,9 +219,6 @@ INTERNAL void rs_uint_init_code(rs_uint_t *rs_uint, const int nsym, int index) {
     const unsigned int *alog = rs_uint->alog;
     unsigned short *rspoly = rs_uint->rspoly;
 
-    if (logt == NULL || alog == NULL) {
-        return;
-    }
     rs_uint->nsym = nsym;
 
     rspoly[0] = 1;
@@ -245,8 +234,7 @@ INTERNAL void rs_uint_init_code(rs_uint_t *rs_uint, const int nsym, int index) {
     }
 }
 
-INTERNAL void rs_uint_encode(const rs_uint_t *rs_uint, const int datalen, const unsigned int *data,
-                unsigned int *res) {
+INTERNAL void rs_uint_encode(const rs_uint_t *rs_uint, const int datalen, const unsigned int *data, unsigned int *res) {
     int i, k;
     const unsigned int *logt = rs_uint->logt;
     const unsigned int *alog = rs_uint->alog;
@@ -254,9 +242,6 @@ INTERNAL void rs_uint_encode(const rs_uint_t *rs_uint, const int datalen, const 
     const int nsym = rs_uint->nsym;
 
     memset(res, 0, sizeof(unsigned int) * nsym);
-    if (logt == NULL || alog == NULL) {
-        return;
-    }
     for (i = 0; i < datalen; i++) {
         unsigned int m = res[nsym - 1] ^ data[i];
         if (m) {
@@ -276,12 +261,6 @@ INTERNAL void rs_uint_encode(const rs_uint_t *rs_uint, const int datalen, const 
 }
 
 INTERNAL void rs_uint_free(rs_uint_t *rs_uint) {
-    if (rs_uint->logt) {
-        free(rs_uint->logt);
-        rs_uint->logt = NULL;
-    }
-    if (rs_uint->alog) {
-        free(rs_uint->alog);
-        rs_uint->alog = NULL;
-    }
+    free(rs_uint->logt);
+    free(rs_uint->alog);
 }

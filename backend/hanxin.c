@@ -305,8 +305,7 @@ static int in_numeric(const unsigned int gbdata[], const int length, const int i
         return 0;
     }
     *p_end = i;
-    *p_cost = digit_cnt == 1
-                ? 60 /* 10 * HX_MULT */ : digit_cnt == 2 ? 30 /* (10 / 2) * HX_MULT */ : 20 /* (10 / 3) * HX_MULT */;
+    *p_cost = digit_cnt == 1 ? 60 /* 10 * HX_MULT */ : digit_cnt == 2 ? 30 /* (10 / 2) * HX_MULT */ : 20 /* (10 / 3) * HX_MULT */;
     return 1;
 }
 
@@ -643,7 +642,7 @@ static void calculate_binary(char binary[], const char mode[], unsigned int sour
                     bp = bin_append_posn(source[i + position], source[i + position] > 0xFF ? 16 : 8, binary, bp);
 
                     if (debug & ZINT_DEBUG_PRINT) {
-                        printf("%d ", (int) source[i + position]);
+                        printf("%d ", source[i + position]);
                     }
 
                     i++;
@@ -694,12 +693,10 @@ static void calculate_binary(char binary[], const char mode[], unsigned int sour
                 }
 
                 /* Terminator */
-                bp = bin_append_posn(position + block_length == length || mode[position + block_length] != '2'
-                                    ? 4095 : 4094, 12, binary, bp);
+                bp = bin_append_posn(position + block_length == length || mode[position + block_length] != '2' ? 4095 : 4094, 12, binary, bp);
 
                 if (debug & ZINT_DEBUG_PRINT) {
-                    printf("(TERM %x)\n", position + block_length == length || mode[position + block_length] != '2'
-                            ? 4095 : 4094);
+                    printf("(TERM %x)\n", position + block_length == length || mode[position + block_length] != '2' ? 4095 : 4094);
                 }
 
                 break;
@@ -731,12 +728,10 @@ static void calculate_binary(char binary[], const char mode[], unsigned int sour
                 }
 
                 /* Terminator */
-                bp = bin_append_posn(position + block_length == length || mode[position + block_length] != '1'
-                                    ? 4095 : 4094, 12, binary, bp);
+                bp = bin_append_posn(position + block_length == length || mode[position + block_length] != '1' ? 4095 : 4094, 12, binary, bp);
 
                 if (debug & ZINT_DEBUG_PRINT) {
-                    printf("(TERM %x)\n", position + block_length == length || mode[position + block_length] != '1'
-                            ? 4095 : 4094);
+                    printf("(TERM %x)\n", position + block_length == length || mode[position + block_length] != '1' ? 4095 : 4094);
                 }
 
                 break;
@@ -862,8 +857,7 @@ static void hx_place_finder(unsigned char *grid, const int size, const int x, co
 /* Finder pattern for bottom right of symbol */
 static void hx_place_finder_bottom_right(unsigned char *grid, const int size) {
     int xp, yp;
-    int x = size - 7;
-    int y = x;
+    int x = size - 7, y = size - 7;
     char finder[] = {0x75, 0x75, 0x75, 0x05, 0x7D, 0x01, 0x7F};
 
     for (xp = 0; xp < 7; xp++) {
@@ -889,8 +883,7 @@ static void hx_safe_plot(unsigned char *grid, const int size, const int x, const
 }
 
 /* Plot an alignment pattern around top and right of a module */
-static void hx_plot_alignment(unsigned char *grid, const int size, const int x, const int y, const int w,
-            const int h) {
+static void hx_plot_alignment(unsigned char *grid, const int size, const int x, const int y, const int w, const int h) {
     int i;
     hx_safe_plot(grid, size, x, y, 0x11);
     hx_safe_plot(grid, size, x - 1, y + 1, 0x10);
@@ -1155,8 +1148,7 @@ static void hx_set_function_info(unsigned char *grid, const int size, const int 
     }
 
     if (debug & ZINT_DEBUG_PRINT) {
-        printf("Version: %d, ECC: %d, Mask: %d, Structural Info: %.34s\n", version, ecc_level, bitmask,
-                function_information);
+        printf("Version: %d, ECC: %d, Mask: %d, Structural Info: %.34s\n", version, ecc_level, bitmask, function_information);
     }
 
     /* Add function information to symbol */
@@ -1187,8 +1179,10 @@ static void make_picket_fence(const unsigned char fullstream[], unsigned char pi
 
     for (start = 0; start < 13; start++) {
         for (i = start; i < streamsize; i += 13) {
-            picket_fence[output_position] = fullstream[i];
-            output_position++;
+            if (i < streamsize) {
+                picket_fence[output_position] = fullstream[i];
+                output_position++;
+            }
         }
     }
 }
@@ -1295,8 +1289,7 @@ static int hx_evaluate(const unsigned char *local, const int size) {
      * position of the module.” - however i being the length of the run of the
      * same colour (i.e. "block" below) in the same fashion as ISO/IEC 18004
      * makes more sense. -- Confirmed by Wang Yi */
-    /* Fixed in ISO/IEC 20830 (draft 2019-10-10) section 5.8.3.2 "In Table 12 below, i refers to the modules with
-       same color." */
+    /* Fixed in ISO/IEC 20830 (draft 2019-10-10) section 5.8.3.2 "In Table 12 below, i refers to the modules with same color." */
 
     /* Vertical */
     for (x = 0; x < size; x++) {
@@ -1358,8 +1351,8 @@ static void hx_apply_bitmask(unsigned char *grid, const int size, const int vers
     unsigned char mask[size_squared];
     unsigned char local[size_squared];
 #else
-    unsigned char *mask = (unsigned char *) _alloca(size_squared);
-    unsigned char *local = (unsigned char *) _alloca(size_squared);
+    unsigned char *mask = (unsigned char *) _alloca(size_squared * sizeof(unsigned char));
+    unsigned char *local = (unsigned char *) _alloca(size_squared * sizeof(unsigned char));
 #endif
 
     /* Perform data masking */
@@ -1448,7 +1441,7 @@ static void hx_apply_bitmask(unsigned char *grid, const int size, const int vers
 }
 
 /* Han Xin Code - main */
-INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int length) {
+INTERNAL int han_xin(struct zint_symbol *symbol, unsigned char source[], int length) {
     int est_binlen;
     int ecc_level = symbol->option_1;
     int i, j, j_max, version;
@@ -1490,7 +1483,7 @@ INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int leng
             if (error_number == 0) {
                 done = 1;
             } else if (symbol->eci) {
-                sprintf(symbol->errtxt, "545: Invalid character in input data for ECI %d", symbol->eci);
+                strcpy(symbol->errtxt, "575: Invalid characters in input data");
                 return error_number;
             }
         }
@@ -1550,7 +1543,7 @@ INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int leng
                     data_codewords = hx_data_codewords_L4[i - 1];
                 }
                 break;
-            default: /* Not reached */
+            default:
                 assert(0);
                 break;
         }
@@ -1576,8 +1569,7 @@ INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int leng
 
     /* If there is spare capacity, increase the level of ECC */
 
-    /* Unless explicitly specified (within min/max bounds) by user */
-    if (symbol->option_1 == -1 || symbol->option_1 != ecc_level) {
+    if (symbol->option_1 == -1 || symbol->option_1 != ecc_level) { /* Unless explicitly specified (within min/max bounds) by user */
         if ((ecc_level == 1) && (codewords < hx_data_codewords_L2[version - 1])) {
             ecc_level = 2;
             data_codewords = hx_data_codewords_L2[version - 1];
@@ -1603,10 +1595,10 @@ INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int leng
     unsigned char picket_fence[hx_total_codewords[version - 1]];
     unsigned char grid[size_squared];
 #else
-    datastream = (unsigned char *) _alloca(data_codewords);
-    fullstream = (unsigned char *) _alloca(hx_total_codewords[version - 1]);
-    picket_fence = (unsigned char *) _alloca(hx_total_codewords[version - 1]);
-    grid = (unsigned char *) _alloca(size_squared);
+    datastream = (unsigned char *) _alloca((data_codewords) * sizeof (unsigned char));
+    fullstream = (unsigned char *) _alloca((hx_total_codewords[version - 1]) * sizeof (unsigned char));
+    picket_fence = (unsigned char *) _alloca((hx_total_codewords[version - 1]) * sizeof (unsigned char));
+    grid = (unsigned char *) _alloca(size_squared * sizeof(unsigned char));
 #endif
 
     memset(datastream, 0, data_codewords);
@@ -1665,7 +1657,6 @@ INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int leng
         }
         symbol->row_height[i] = 1;
     }
-    symbol->height = size;
 
     return 0;
 }
