@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2009 - 2021 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009 - 2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -39,7 +39,7 @@
 
 /* "!" represents Shift 1 and "&" represents Shift 2, "*" represents FNC1 */
 
-INTERNAL int code49(struct zint_symbol *symbol, unsigned char source[], int length) {
+INTERNAL int code_49(struct zint_symbol *symbol, unsigned char source[], int length) {
     int i, j, rows, M, x_count, y_count, z_count, posn_val, local_value;
     char intermediate[170] = "";
     int codewords[170], codeword_count;
@@ -49,10 +49,9 @@ INTERNAL int code49(struct zint_symbol *symbol, unsigned char source[], int leng
     char pattern[80];
     int gs1;
     int h, len;
-    int error_number = 0;
 
     if (length > 81) {
-        strcpy(symbol->errtxt, "430: Input too long (81 character maximum)");
+        strcpy(symbol->errtxt, "430: Input too long");
         return ZINT_ERROR_TOO_LONG;
     }
     if ((symbol->input_mode & 0x07) == GS1_MODE) {
@@ -64,7 +63,7 @@ INTERNAL int code49(struct zint_symbol *symbol, unsigned char source[], int leng
 
     for (i = 0; i < length; i++) {
         if (source[i] > 127) {
-            strcpy(symbol->errtxt, "431: Invalid character in input data, extended ASCII not allowed");
+            strcpy(symbol->errtxt, "431: Invalid characters in input data");
             return ZINT_ERROR_INVALID_DATA;
         }
         if (gs1 && (source[i] == '['))
@@ -75,7 +74,7 @@ INTERNAL int code49(struct zint_symbol *symbol, unsigned char source[], int leng
 
     codeword_count = 0;
     i = 0;
-    h = (int) strlen(intermediate);
+    h = strlen(intermediate);
     do {
         if ((intermediate[i] >= '0') && (intermediate[i] <= '9')) {
             /* Numeric data */
@@ -339,7 +338,9 @@ INTERNAL int code49(struct zint_symbol *symbol, unsigned char source[], int leng
         strcat(pattern, "1111"); /* Stop character */
 
         /* Expand into symbol */
-        for (j = 0, len = (int) strlen(pattern); j < len; j++) {
+        symbol->row_height[i] = 10;
+
+        for (j = 0, len = strlen(pattern); j < len; j++) {
             if (pattern[j] == '1') {
                 set_module(symbol, i, j);
             }
@@ -347,19 +348,7 @@ INTERNAL int code49(struct zint_symbol *symbol, unsigned char source[], int leng
     }
 
     symbol->rows = rows;
-    symbol->width = (int) strlen(pattern);
-
-    if (symbol->output_options & COMPLIANT_HEIGHT) {
-        /* ANSI/AIM BC6-2000 Section 2.6 minimum 8X; use 10X as default
-           Formula 2 H = ((h + g)r + g)X = rows * row_height + (rows - 1) * separator as borders not included
-           in symbol->height (added on) */
-        const int separator = symbol->option_3 >= 1 && symbol->option_3 <= 4 ? symbol->option_3 : 1;
-        const float min_row_height = stripf((8.0f * rows + separator * (rows - 1)) / rows);
-        const float default_height = 10.0f * rows + separator * (rows - 1);
-        error_number = set_height(symbol, min_row_height, default_height, 0.0f, 0 /*no_errtxt*/);
-    } else {
-        (void) set_height(symbol, 0.0f, 10.0f * rows, 0.0f, 1 /*no_errtxt*/);
-    }
+    symbol->width = strlen(pattern);
 
     symbol->output_options |= BARCODE_BIND;
 
@@ -367,5 +356,5 @@ INTERNAL int code49(struct zint_symbol *symbol, unsigned char source[], int leng
         symbol->border_width = 1; /* ANSI/AIM BC6-2000 Section 2.1 (note change from previous default 2) */
     }
 
-    return error_number;
+    return 0;
 }

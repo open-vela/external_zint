@@ -5,8 +5,8 @@
 #include <winver.h>
 
 
-#define VER_FILEVERSION        2,10,0,9
-#define VER_FILEVERSION_STR    "2,10,0,9\0"
+#define VER_FILEVERSION        2,9,1,9
+#define VER_FILEVERSION_STR    "2,9,1,9\0"
 
 #ifdef GCC_WINDRES
 
@@ -58,7 +58,7 @@ BEGIN
 
             VALUE "InternalName", "qtZint"
 
-            VALUE "LegalCopyright", "Copyright © 2021 Robin Stuart & BogDan Vatra"
+            VALUE "LegalCopyright", "Copyright © 2020 Robin Stuart & BogDan Vatra"
 
             VALUE "License", "GNU General Public License version 3"
 
@@ -84,4 +84,4 @@ BEGIN
 
 END
 
-100 ICON MOVEABLE PURE LOADONCALL DISCARDABLE "zint-qt.ico"
+100 ICON MOVEABLE PURE LOADONCALL DISCARDABLE "zint.ico"

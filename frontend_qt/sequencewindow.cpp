@@ -183,8 +183,7 @@ void SequenceWindow::import()
     QByteArray outstream;
 
     import_dialog.setWindowTitle("Import File");
-    import_dialog.setDirectory(settings.value("studio/default_dir",
-                                QDir::toNativeSeparators(QDir::homePath())).toString());
+    import_dialog.setDirectory(settings.value("studio/default_dir", QDir::toNativeSeparators(QDir::homePath())).toString());
 
     if (import_dialog.exec()) {
         filename = import_dialog.selectedFiles().at(0);

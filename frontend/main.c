@@ -29,29 +29,26 @@
 #include <zint.h>
 #else
 #include <malloc.h>
-#include "../getopt/getopt.h"
+#include "getopt.h"
 #include "zint.h"
-#if _MSC_VER != 1200 /* VC6 */
-#pragma warning(disable: 4996) /* function or variable may be unsafe */
 #endif
-#endif /* _MSC_VER */
 
 /* It's assumed that int is at least 32 bits, the following will compile-time fail if not
- * https://stackoverflow.com/a/1980056 */
+ * https://stackoverflow.com/a/1980056/664741 */
 typedef int static_assert_int_at_least_32bits[CHAR_BIT != 8 || sizeof(int) < 4 ? -1 : 1];
 
 #ifndef ARRAY_SIZE
-#define ARRAY_SIZE(x) ((int) (sizeof(x) / sizeof((x)[0])))
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #endif
 
 /* Print list of supported symbologies */
 static void types(void) {
     printf( " 1 CODE11      Code 11                  74 CODABLOCKF     Codablock-F\n"
-            " 2 C25STANDARD Standard 2 of 5          75 NVE18          NVE-18\n"
-            " 3 C25INTER    Interleaved 2 of 5       76 JAPANPOST      Japanese Post\n"
-            " 4 C25IATA     IATA 2 of 5              77 KOREAPOST      Korea Post\n"
-            " 6 C25LOGIC    Data Logic 2 of 5        79 DBAR_STK       GS1 DataBar Stacked\n"
-            " 7 C25IND      Industrial 2 of 5        80 DBAR_OMNSTK    GS1 DataBar Stack Omni\n"
+            " 2 C25STANDARD Standard 2of5            75 NVE18          NVE-18\n"
+            " 3 C25INTER    Interleaved 2of5         76 JAPANPOST      Japanese Post\n"
+            " 4 C25IATA     IATA 2of5                77 KOREAPOST      Korea Post\n"
+            " 6 C25LOGIC    Data Logic 2of5          79 DBAR_STK       GS1 DataBar Stacked\n"
+            " 7 C25IND      Industrial 2of5          80 DBAR_OMNSTK    GS1 DataBar Stack Omni\n"
             " 8 CODE39      Code 39                  81 DBAR_EXPSTK    GS1 DataBar Exp Stack\n"
             " 9 EXCODE39    Extended Code 39         82 PLANET         USPS PLANET\n"
             "13 EANX        EAN                      84 MICROPDF417    MicroPDF417\n"
@@ -98,36 +95,36 @@ static void types(void) {
 }
 
 /* Output usage information */
+
 static void usage(void) {
     int zint_version = ZBarcode_Version();
     int version_major = zint_version / 10000;
     int version_minor = (zint_version % 10000) / 100;
     int version_release = zint_version % 100;
     int version_build;
-
-    if (version_release >= 9) {
+    
+    if (version_release > 10) {
         /* This is a test release */
         version_release = version_release / 10;
         version_build = zint_version % 10;
-        printf( "Zint version %d.%d.%d.%d (dev)\n", version_major, version_minor, version_release, version_build);
+        printf( "Zint version %d.%d.%d.%d\n", version_major, version_minor, version_release, version_build);
     } else {
         /* This is a stable release */
         printf( "Zint version %d.%d.%d\n", version_major, version_minor, version_release);
     }
-
+    
     printf( "Encode input data in a barcode and save as BMP/EMF/EPS/GIF/PCX/PNG/SVG/TIF/TXT\n\n"
             "  -b, --barcode=TYPE    Number or name of barcode type. Default is 20 (CODE128)\n"
             "  --addongap=NUMBER     Set add-on gap in multiples of X-dimension for UPC/EAN\n"
             "  --batch               Treat each line of input file as a separate data set\n"
-            "  --bg=COLOUR           Specify a background colour (in hex RGB/RGBA)\n"
+            "  --bg=COLOUR           Specify a background colour (in hex)\n"
             "  --binary              Treat input as raw binary data\n"
             "  --bind                Add boundary bars\n"
             "  --bold                Use bold text\n"
             "  --border=NUMBER       Set width of border in multiples of X-dimension\n"
             "  --box                 Add a box around the symbol\n"
-            "  --cmyk                Use CMYK colour space in EPS/TIF symbols\n"
+            "  --cmyk                Use CMYK colour space in EPS symbols\n"
             "  --cols=NUMBER         Set the number of data columns in symbol\n"
-            "  --compliantheight     Warn if height not compliant, and use standard default\n"
             "  -d, --data=DATA       Set the symbol content\n"
             "  --direct              Send output to stdout\n"
             "  --dmre                Allow Data Matrix Rectangular Extended\n"
@@ -137,14 +134,11 @@ static void usage(void) {
             "  -e, --ecinos          Display table of ECI character encodings\n"
             "  --eci=NUMBER          Set the ECI (Extended Channel Interpretation) code\n"
             "  --esc                 Process escape characters in input data\n"
-            "  --fg=COLOUR           Specify a foreground colour (in hex RGB/RGBA)\n"
+            "  --fg=COLOUR           Specify a foreground colour (in hex)\n"
             "  --filetype=TYPE       Set output file type BMP/EMF/EPS/GIF/PCX/PNG/SVG/TIF/TXT\n"
             "  --fullmultibyte       Use multibyte for binary/Latin (QR/Han Xin/Grid Matrix)\n"
             "  --gs1                 Treat input as GS1 compatible data\n"
-            "  --gs1nocheck          Do not check validity of GS1 data\n"
-            "  --gs1parens           Process parentheses \"()\" as GS1 AI delimiters, not \"[]\"\n"
             "  --gssep               Use separator GS for GS1 (Data Matrix)\n"
-            "  --guarddescent=NUMBER Set height of guard bar descent in X-dims (UPC/EAN)\n"
             "  -h, --help            Display help message\n"
             "  --height=NUMBER       Set height of symbol in multiples of X-dimension\n"
             "  -i, --input=FILE      Read input data from FILE\n"
@@ -152,27 +146,24 @@ static void usage(void) {
             "  --mask=NUMBER         Set masking pattern to use (QR/Han Xin/DotCode)\n"
             "  --mirror              Use batch data to determine filename\n"
             "  --mode=NUMBER         Set encoding mode (MaxiCode/Composite)\n"
-            "  --nobackground        Remove background (EMF/EPS/GIF/PNG/SVG/TIF only)\n"
-            "  --noquietzones        Disable default quiet zones\n"
+            "  --nobackground        Remove background (PNG/SVG/EPS only)\n"
             "  --notext              Remove human readable text\n"
             "  -o, --output=FILE     Send output to FILE. Default is out.png\n"
             "  --primary=STRING      Set structured primary message (MaxiCode/Composite)\n"
-            "  --quietzones          Add compliant quiet zones\n"
             "  -r, --reverse         Reverse colours (white on black)\n"
             "  --rotate=NUMBER       Rotate symbol by NUMBER degrees\n"
             "  --rows=NUMBER         Set number of rows (Codablock-F)\n"
             "  --scale=NUMBER        Adjust size of X-dimension\n"
-            "  --scmvv=NUMBER        Prefix SCM with \"[)>\\R01\\Gvv\" (vv is NUMBER) (MaxiCode)\n"
+            "  --scmvv=NUMBER        Prefix SCM with [)>\\R01\\Gvv (vv is NUMBER) (MaxiCode)\n"
             "  --secure=NUMBER       Set error correction level (ECC)\n"
             "  --separator=NUMBER    Set height of row separator bars (stacked symbologies)\n"
             "  --small               Use small text\n"
             "  --square              Force Data Matrix symbols to be square\n"
-            "  --structapp=I,C[,ID]  Set Structured Append info (I index, C count)\n"
             "  -t, --types           Display table of barcode types\n"
             "  --vers=NUMBER         Set symbol version (size, check digits, other options)\n"
-            "  --vwhitesp=NUMBER     Set height of vertical whitespace in multiples of X-dim\n"
-            "  -w, --whitesp=NUMBER  Set width of horizontal whitespace in multiples of X-dim\n"
+            "  -w, --whitesp=NUMBER  Set width of whitespace in multiples of X-dimension\n"
             "  --werror              Convert all warnings into errors\n"
+            "  --wzpl                ZPL compatibility mode (allows non-standard symbols)\n"
             );
 }
 
@@ -297,10 +288,7 @@ static int get_barcode_name(const char *barcode_name) {
         { BARCODE_DPD, "dpd" },
         { BARCODE_DPIDENT, "dpident" },
         { BARCODE_DPLEIT, "dpleit" },
-        { BARCODE_EANX, "ean" }, /* Synonym */
         { BARCODE_EAN14, "ean14" },
-        { BARCODE_EANX_CC, "eancc" }, /* Synonym */
-        { BARCODE_EANX_CHK, "eanchk" }, /* Synonym */
         { BARCODE_EANX, "eanx" },
         { BARCODE_EANX_CC, "eanxcc" },
         { BARCODE_EANX_CHK, "eanxchk" },
@@ -337,7 +325,6 @@ static int get_barcode_name(const char *barcode_name) {
         { BARCODE_MAXICODE, "maxicode" },
         { BARCODE_MICROPDF417, "micropdf417" },
         { BARCODE_MICROQR, "microqr" },
-        { BARCODE_MSI_PLESSEY, "msi" }, /* Synonym */
         { BARCODE_MSI_PLESSEY, "msiplessey" },
         { BARCODE_NVE18, "nve18" },
         { BARCODE_PDF417, "pdf417" },
@@ -395,12 +382,13 @@ static int get_barcode_name(const char *barcode_name) {
     while (s <= e) {
         int m = (s + e) / 2;
         int cmp = strcmp(names[m].n, n);
+        if (cmp == 0) {
+            return names[m].symbology;
+        }
         if (cmp < 0) {
             s = m + 1;
-        } else if (cmp > 0) {
-            e = m - 1;
         } else {
-            return names[m].symbology;
+            e = m - 1;
         }
     }
 
@@ -428,7 +416,7 @@ static int supported_filetype(const char *filetype, const int no_png, int *png_r
         return 0;
     }
 
-    for (i = 0; i < ARRAY_SIZE(filetypes); i++) {
+    for (i = 0; i < (int) ARRAY_SIZE(filetypes); i++) {
         if (strcmp(lc_filetype, filetypes[i]) == 0) {
             return 1;
         }
@@ -491,67 +479,12 @@ static int is_raster(const char *filetype, const int no_png) {
         return 0;
     }
 
-    for (i = 0; i < ARRAY_SIZE(raster_filetypes); i++) {
+    for (i = 0; i < (int) ARRAY_SIZE(raster_filetypes); i++) {
         if (strcmp(lc_filetype, raster_filetypes[i]) == 0) {
             return 1;
         }
     }
     return 0;
-}
-
-/* Parse and validate Structured Append argument "index,count[,ID]" to "--structapp" */
-int validate_structapp(const char *optarg, struct zint_structapp *structapp) {
-    char index[10] = {0}, count[10] = {0};
-    const char *comma = strchr(optarg, ',');
-    const char *comma2;
-    if (!comma) {
-        fprintf(stderr, "Error 155: Invalid Structured Append argument, expect \"index,count[,ID]\"\n");
-        return 0;
-    }
-    if (comma == optarg || comma - optarg > 9) {
-        fprintf(stderr, "Error 156: Structured Append index too %s\n", comma == optarg ? "short" : "long");
-        return 0;
-    }
-    strncpy(index, optarg, comma - optarg);
-    comma++;
-    comma2 = strchr(comma, ',');
-    if (comma2) {
-        if (comma2 == comma || comma2 - comma > 9) {
-            fprintf(stderr, "Error 157: Structured Append count too %s\n", comma2 == comma ? "short" : "long");
-            return 0;
-        }
-        strncpy(count, comma, comma2 - comma);
-        comma2++;
-        if (!*comma2 || strlen(comma2) > 32) {
-            fprintf(stderr, "Error 158: Structured Append ID too %s\n", !*comma2 ? "short" : "long");
-            return 0;
-        }
-        strncpy(structapp->id, comma2, 32);
-    } else {
-        if (!*comma || strlen(comma) > 9) {
-            fprintf(stderr, "Error 159: Structured Append count too %s\n", !*comma ? "short" : "long");
-            return 0;
-        }
-        strcpy(count, comma);
-    }
-    if (!validate_int(index, &structapp->index)) {
-        fprintf(stderr, "Error 160: Invalid Structured Append index (digits only)\n");
-        return 0;
-    }
-    if (!validate_int(count, &structapp->count)) {
-        fprintf(stderr, "Error 161: Invalid Structured Append count (digits only)\n");
-        return 0;
-    }
-    if (structapp->count < 2) {
-        fprintf(stderr, "Error 162: Invalid Structured Append count, must be >= 2\n");
-        return 0;
-    }
-    if (structapp->index < 1 || structapp->index > structapp->count) {
-        fprintf(stderr, "Error 163: Structured Append index out of range (1-%d)\n", structapp->count);
-        return 0;
-    }
-
-    return 1;
 }
 
 /* Batch mode - output symbol for each line of text in `filename` */
@@ -581,7 +514,7 @@ static int batch_process(struct zint_symbol *symbol, const char *filename, const
     } else {
         file = fopen(filename, "rb");
         if (!file) {
-            sprintf(symbol->errtxt, "102: Unable to read input file '%s'", filename);
+            strcpy(symbol->errtxt, "102: Unable to read input file");
             return ZINT_ERROR_INVALID_DATA;
         }
     }
@@ -738,10 +671,10 @@ static int batch_process(struct zint_symbol *symbol, const char *filename, const
 }
 
 /* Stuff to convert args on Windows command line to UTF-8 */
-#ifdef _WIN32
+#if defined(__WIN32__) || defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(_MSC_VER)
+#define ZINT_WIN
 #include <windows.h>
 #include <shellapi.h>
-
 #ifndef WC_ERR_INVALID_CHARS
 #define WC_ERR_INVALID_CHARS    0x00000080
 #endif
@@ -796,11 +729,11 @@ static void win_args(int *p_argc, char ***p_argv) {
         }
     }
 }
-#endif /* _WIN32 */
+#endif
 
 /* Helper to free Windows args on exit */
 static int do_exit(int error_number) {
-#ifdef _WIN32
+#ifdef ZINT_WIN
     win_free_args();
 #endif
     exit(error_number);
@@ -830,13 +763,11 @@ int main(int argc, char **argv) {
     int ret;
     char *outfile_extension;
     int data_arg_num = 0;
-    float float_opt;
 #ifndef _MSC_VER
     arg_opt arg_opts[argc];
 #else
     arg_opt *arg_opts = (arg_opt *) _alloca(argc * sizeof(arg_opt));
 #endif
-    int no_getopt_error = 1;
 
     if (argc == 1) {
         usage();
@@ -851,21 +782,19 @@ int main(int argc, char **argv) {
     no_png = strcmp(my_symbol->outfile, "out.gif") == 0;
     my_symbol->input_mode = UNICODE_MODE;
 
-#ifdef _WIN32
+#ifdef ZINT_WIN
     win_args(&argc, &argv);
 #endif
 
-    while (no_getopt_error) {
+    while (1) {
         enum options {
-            OPT_ADDONGAP = 128, OPT_BATCH, OPT_BINARY, OPT_BG, OPT_BIND, OPT_BOLD, OPT_BORDER, OPT_BOX,
-            OPT_CMYK, OPT_COLS, OPT_COMPLIANTHEIGHT, OPT_DIRECT, OPT_DMRE, OPT_DOTSIZE, OPT_DOTTY, OPT_DUMP,
+            OPT_ADDONGAP = 128, OPT_BATCH, OPT_BINARY, OPT_BG, OPT_BIND, OPT_BOLD, OPT_BORDER,
+            OPT_BOX, OPT_CMYK, OPT_COLS, OPT_DIRECT, OPT_DMRE, OPT_DOTSIZE, OPT_DOTTY, OPT_DUMP,
             OPT_ECI, OPT_ESC, OPT_FG, OPT_FILETYPE, OPT_FONTSIZE, OPT_FULLMULTIBYTE,
-            OPT_GS1, OPT_GS1NOCHECK, OPT_GS1PARENS, OPT_GSSEP, OPT_GUARDDESCENT,
-            OPT_HEIGHT, OPT_INIT, OPT_MIRROR, OPT_MASK, OPT_MODE,
-            OPT_NOBACKGROUND, OPT_NOQUIETZONES, OPT_NOTEXT, OPT_PRIMARY, OPT_QUIETZONES,
-            OPT_ROTATE, OPT_ROWS, OPT_SCALE, OPT_SCMVV,
-            OPT_SECURE, OPT_SEPARATOR, OPT_SMALL, OPT_SQUARE, OPT_STRUCTAPP,
-            OPT_VERBOSE, OPT_VERS, OPT_VWHITESP, OPT_WERROR,
+            OPT_GS1, OPT_GSSEP, OPT_HEIGHT, OPT_INIT, OPT_MIRROR, OPT_MASK, OPT_MODE,
+            OPT_NOBACKGROUND, OPT_NOTEXT, OPT_PRIMARY, OPT_ROTATE, OPT_ROWS, OPT_SCALE,
+            OPT_SCMVV, OPT_SECURE, OPT_SEPARATOR, OPT_SMALL, OPT_SQUARE, OPT_VERBOSE, OPT_VERS,
+            OPT_WERROR, OPT_WZPL,
         };
         int option_index = 0;
         static struct option long_options[] = {
@@ -880,7 +809,6 @@ int main(int argc, char **argv) {
             {"box", 0, NULL, OPT_BOX},
             {"cmyk", 0, NULL, OPT_CMYK},
             {"cols", 1, NULL, OPT_COLS},
-            {"compliantheight", 0, NULL, OPT_COMPLIANTHEIGHT},
             {"data", 1, NULL, 'd'},
             {"direct", 0, NULL, OPT_DIRECT},
             {"dmre", 0, NULL, OPT_DMRE},
@@ -895,10 +823,7 @@ int main(int argc, char **argv) {
             {"fontsize", 1, NULL, OPT_FONTSIZE},
             {"fullmultibyte", 0, NULL, OPT_FULLMULTIBYTE},
             {"gs1", 0, 0, OPT_GS1},
-            {"gs1nocheck", 0, NULL, OPT_GS1NOCHECK},
-            {"gs1parens", 0, NULL, OPT_GS1PARENS},
             {"gssep", 0, NULL, OPT_GSSEP},
-            {"guarddescent", 1, NULL, OPT_GUARDDESCENT},
             {"height", 1, NULL, OPT_HEIGHT},
             {"help", 0, NULL, 'h'},
             {"init", 0, NULL, OPT_INIT},
@@ -907,11 +832,9 @@ int main(int argc, char **argv) {
             {"mask", 1, NULL, OPT_MASK},
             {"mode", 1, NULL, OPT_MODE},
             {"nobackground", 0, NULL, OPT_NOBACKGROUND},
-            {"noquietzones", 0, NULL, OPT_NOQUIETZONES},
             {"notext", 0, NULL, OPT_NOTEXT},
             {"output", 1, NULL, 'o'},
             {"primary", 1, NULL, OPT_PRIMARY},
-            {"quietzones", 0, NULL, OPT_QUIETZONES},
             {"reverse", 0, NULL, 'r'},
             {"rotate", 1, NULL, OPT_ROTATE},
             {"rows", 1, NULL, OPT_ROWS},
@@ -921,28 +844,27 @@ int main(int argc, char **argv) {
             {"separator", 1, NULL, OPT_SEPARATOR},
             {"small", 0, NULL, OPT_SMALL},
             {"square", 0, NULL, OPT_SQUARE},
-            {"structapp", 1, NULL, OPT_STRUCTAPP},
             {"types", 0, NULL, 't'},
             {"verbose", 0, NULL, OPT_VERBOSE}, // Currently undocumented, output some debug info
             {"vers", 1, NULL, OPT_VERS},
-            {"vwhitesp", 1, NULL, OPT_VWHITESP},
             {"werror", 0, NULL, OPT_WERROR},
             {"whitesp", 1, NULL, 'w'},
+            {"wzpl", 0, NULL, OPT_WZPL},
             {NULL, 0, NULL, 0}
         };
-        int c = getopt_long_only(argc, argv, "b:d:ehi:o:rtw:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "b:d:ehi:o:rtw:", long_options, &option_index);
         if (c == -1) break;
 
         switch (c) {
             case OPT_ADDONGAP:
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 139: Invalid add-on gap value (digits only)\n");
+                    fprintf(stderr, "Error 139: Invalid add-on gap value\n");
                     return do_exit(1);
                 }
                 if (val >= 7 && val <= 12) {
                     addon_gap = val;
                 } else {
-                    fprintf(stderr, "Warning 140: Add-on gap out of range (7 to 12), ignoring\n");
+                    fprintf(stderr, "Warning 140: Invalid add-on gap value\n");
                     fflush(stderr);
                 }
                 break;
@@ -969,13 +891,13 @@ int main(int argc, char **argv) {
                 break;
             case OPT_BORDER:
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 107: Invalid border width value (digits only)\n");
+                    fprintf(stderr, "Error 107: Invalid border width value\n");
                     return do_exit(1);
                 }
                 if (val <= 1000) { /* `val` >= 0 always */
                     my_symbol->border_width = val;
                 } else {
-                    fprintf(stderr, "Warning 108: Border width out of range (0 to 1000), ignoring\n");
+                    fprintf(stderr, "Warning 108: Border width out of range\n");
                     fflush(stderr);
                 }
                 break;
@@ -987,18 +909,15 @@ int main(int argc, char **argv) {
                 break;
             case OPT_COLS:
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 131: Invalid columns value (digits only)\n");
+                    fprintf(stderr, "Error 131: Invalid columns value\n");
                     return do_exit(1);
                 }
-                if ((val >= 1) && (val <= 200)) {
+                if ((val >= 1) && (val <= 108)) {
                     my_symbol->option_2 = val;
                 } else {
-                    fprintf(stderr, "Warning 111: Number of columns out of range (1 to 200), ignoring\n");
+                    fprintf(stderr, "Warning 111: Number of columns out of range\n");
                     fflush(stderr);
                 }
-                break;
-            case OPT_COMPLIANTHEIGHT:
-                my_symbol->output_options |= COMPLIANT_HEIGHT;
                 break;
             case OPT_DIRECT:
                 my_symbol->output_options |= BARCODE_STDOUT;
@@ -1013,7 +932,7 @@ int main(int argc, char **argv) {
                 my_symbol->dot_size = (float) (atof(optarg));
                 if (my_symbol->dot_size < 0.01f) {
                     /* Zero and negative values are not permitted */
-                    fprintf(stderr, "Warning 106: Invalid dot radius value (less than 0.01), ignoring\n");
+                    fprintf(stderr, "Warning 106: Invalid dot radius value\n");
                     fflush(stderr);
                     my_symbol->dot_size = 4.0f / 5.0f;
                 }
@@ -1027,13 +946,13 @@ int main(int argc, char **argv) {
                 break;
             case OPT_ECI:
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 138: Invalid ECI value (digits only)\n");
+                    fprintf(stderr, "Error 138: Invalid ECI value\n");
                     return do_exit(1);
                 }
                 if (val <= 999999) { /* `val` >= 0 always */
                     my_symbol->eci = val;
                 } else {
-                    fprintf(stderr, "Warning 118: ECI code out of range (0 to 999999), ignoring\n");
+                    fprintf(stderr, "Warning 118: Invalid ECI code\n");
                     fflush(stderr);
                 }
                 break;
@@ -1058,13 +977,13 @@ int main(int argc, char **argv) {
                 break;
             case OPT_FONTSIZE:
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 130: Invalid font size value (digits only)\n");
+                    fprintf(stderr, "Error 130: Invalid font size value\n");
                     return do_exit(1);
                 }
                 if (val <= 100) { /* `val` >= 0 always */
                     my_symbol->fontsize = val;
                 } else {
-                    fprintf(stderr, "Warning 126: Font size out of range (0 to 100), ignoring\n");
+                    fprintf(stderr, "Warning 126: Invalid font size\n");
                     fflush(stderr);
                 }
                 break;
@@ -1074,32 +993,18 @@ int main(int argc, char **argv) {
             case OPT_GS1:
                 my_symbol->input_mode = (my_symbol->input_mode & ~0x07) | GS1_MODE;
                 break;
-            case OPT_GS1NOCHECK:
-                my_symbol->input_mode |= GS1NOCHECK_MODE;
-                break;
-            case OPT_GS1PARENS:
-                my_symbol->input_mode |= GS1PARENS_MODE;
-                break;
             case OPT_GSSEP:
                 my_symbol->output_options |= GS1_GS_SEPARATOR;
                 break;
-            case OPT_GUARDDESCENT:
-                float_opt = (float) atof(optarg);
-                if (float_opt >= 0.0f && float_opt <= 50.0f) {
-                    my_symbol->guard_descent = float_opt;
-                } else {
-                    fprintf(stderr, "Warning 155: Guard bar descent '%g' out of range (0 to 50), ignoring\n",
-                            float_opt);
-                    fflush(stderr);
-                }
-                break;
             case OPT_HEIGHT:
-                float_opt = (float) atof(optarg);
-                if (float_opt >= 0.5f && float_opt <= 1000.0f) {
-                    my_symbol->height = float_opt;
+                if (!validate_int(optarg, &val)) {
+                    fprintf(stderr, "Error 109: Invalid symbol height value\n");
+                    return do_exit(1);
+                }
+                if ((val >= 1) && (val <= 1000)) {
+                    my_symbol->height = val;
                 } else {
-                    fprintf(stderr, "Warning 110: Symbol height '%g' out of range (0.5 to 1000), ignoring\n",
-                            float_opt);
+                    fprintf(stderr, "Warning 110: Symbol height out of range\n");
                     fflush(stderr);
                 }
                 break;
@@ -1112,12 +1017,12 @@ int main(int argc, char **argv) {
                 break;
             case OPT_MASK:
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 148: Invalid mask value (digits only)\n");
+                    fprintf(stderr, "Error 148: Invalid mask value\n");
                     return do_exit(1);
                 }
                 if (val > 7) { /* `val` >= 0 always */
                     /* mask pattern >= 0 and <= 7 (i.e. values >= 1 and <= 8) only permitted */
-                    fprintf(stderr, "Warning 147: Mask value out of range (0 to 7), ignoring\n");
+                    fprintf(stderr, "Warning 147: Invalid mask value\n");
                     fflush(stderr);
                 } else {
                     mask = val + 1;
@@ -1125,21 +1030,18 @@ int main(int argc, char **argv) {
                 break;
             case OPT_MODE:
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 136: Invalid mode value (digits only)\n");
+                    fprintf(stderr, "Error 136: Invalid mode value\n");
                     return do_exit(1);
                 }
                 if (val <= 6) { /* `val` >= 0 always */
                     my_symbol->option_1 = val;
                 } else {
-                    fprintf(stderr, "Warning 116: Mode value out of range (0 to 6), ignoring\n");
+                    fprintf(stderr, "Warning 116: Invalid mode\n");
                     fflush(stderr);
                 }
                 break;
             case OPT_NOBACKGROUND:
                 strcpy(my_symbol->bgcolour, "ffffff00");
-                break;
-            case OPT_NOQUIETZONES:
-                my_symbol->output_options |= BARCODE_NO_QUIET_ZONES;
                 break;
             case OPT_NOTEXT:
                 my_symbol->show_hrt = 0;
@@ -1148,17 +1050,14 @@ int main(int argc, char **argv) {
                 if (strlen(optarg) <= 127) {
                     strcpy(my_symbol->primary, optarg);
                 } else {
-                    fprintf(stderr, "Warning 115: Primary data string too long (127 character maximum), ignoring\n");
+                    fprintf(stderr, "Warning 115: Primary data string too long, ignoring\n");
                     fflush(stderr);
                 }
-                break;
-            case OPT_QUIETZONES:
-                my_symbol->output_options |= BARCODE_QUIET_ZONES;
                 break;
             case OPT_ROTATE:
                 /* Only certain inputs allowed */
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 117: Invalid rotation value (digits only)\n");
+                    fprintf(stderr, "Error 117: Invalid rotation value\n");
                     return do_exit(1);
                 }
                 switch (val) {
@@ -1171,21 +1070,20 @@ int main(int argc, char **argv) {
                     case 0: rotate_angle = 0;
                         break;
                     default:
-                        fprintf(stderr,
-                                "Warning 137: Invalid rotation parameter (0, 90, 180 or 270 only), ignoring\n");
+                        fprintf(stderr, "Warning 137: Invalid rotation parameter\n");
                         fflush(stderr);
                         break;
                 }
                 break;
             case OPT_ROWS:
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 132: Invalid rows value (digits only)\n");
+                    fprintf(stderr, "Error 132: Invalid rows value\n");
                     return do_exit(1);
                 }
                 if ((val >= 1) && (val <= 44)) {
                     my_symbol->option_1 = val;
                 } else {
-                    fprintf(stderr, "Warning 112: Number of rows out of range (1 to 44), ignoring\n");
+                    fprintf(stderr, "Warning 112: Number of rows out of range\n");
                     fflush(stderr);
                 }
                 break;
@@ -1193,47 +1091,46 @@ int main(int argc, char **argv) {
                 my_symbol->scale = (float) (atof(optarg));
                 if (my_symbol->scale < 0.01f) {
                     /* Zero and negative values are not permitted */
-                    fprintf(stderr, "Warning 105: Invalid scale value (less than 0.01), ignoring\n");
+                    fprintf(stderr, "Warning 105: Invalid scale value\n");
                     fflush(stderr);
                     my_symbol->scale = 1.0f;
                 }
                 break;
             case OPT_SCMVV:
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 149: Invalid Structured Carrier Message version value (digits only)\n");
+                    fprintf(stderr, "Error 149: Invalid Structured Carrier Message version value\n");
                     return do_exit(1);
                 }
                 if (val <= 99) { /* `val` >= 0 always */
                     my_symbol->option_2 = val + 1;
                 } else {
                     /* Version 00-99 only */
-                    fprintf(stderr,
-                            "Warning 150: Structured Carrier Message version out of range (0 to 99), ignoring\n");
+                    fprintf(stderr, "Warning 150: Invalid version (vv) for Structured Carrier Message, ignoring\n");
                     fflush(stderr);
                 }
                 break;
             case OPT_SECURE:
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 134: Invalid ECC value (digits only)\n");
+                    fprintf(stderr, "Error 134: Invalid ECC value\n");
                     return do_exit(1);
                 }
                 if (val <= 8) { /* `val` >= 0 always */
                     my_symbol->option_1 = val;
                 } else {
-                    fprintf(stderr, "Warning 114: ECC level out of range (0 to 8), ignoring\n");
+                    fprintf(stderr, "Warning 114: ECC level out of range\n");
                     fflush(stderr);
                 }
                 break;
             case OPT_SEPARATOR:
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 128: Invalid separator value (digits only)\n");
+                    fprintf(stderr, "Error 128: Invalid separator value\n");
                     return do_exit(1);
                 }
                 if (val <= 4) { /* `val` >= 0 always */
                     separator = val;
                 } else {
                     /* Greater than 4 values are not permitted */
-                    fprintf(stderr, "Warning 127: Separator value out of range (0 to 4), ignoring\n");
+                    fprintf(stderr, "Warning 127: Invalid separator value\n");
                     fflush(stderr);
                 }
                 break;
@@ -1243,41 +1140,26 @@ int main(int argc, char **argv) {
             case OPT_SQUARE:
                 my_symbol->option_3 = DM_SQUARE;
                 break;
-            case OPT_STRUCTAPP:
-                memset(&my_symbol->structapp, 0, sizeof(my_symbol->structapp));
-                if (!validate_structapp(optarg, &my_symbol->structapp)) {
-                    return do_exit(1);
-                }
-                break;
             case OPT_VERBOSE:
                 my_symbol->debug = 1;
                 break;
             case OPT_VERS:
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 133: Invalid version value (digits only)\n");
+                    fprintf(stderr, "Error 133: Invalid version value\n");
                     return do_exit(1);
                 }
                 if ((val >= 1) && (val <= 84)) {
                     my_symbol->option_2 = val;
                 } else {
-                    fprintf(stderr, "Warning 113: Version value out of range (1 to 84), ignoring\n");
-                    fflush(stderr);
-                }
-                break;
-            case OPT_VWHITESP:
-                if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 153: Invalid vertical whitespace value '%s' (digits only)\n", optarg);
-                    return do_exit(1);
-                }
-                if (val <= 1000) { /* `val` >= 0 always */
-                    my_symbol->whitespace_height = val;
-                } else {
-                    fprintf(stderr, "Warning 154: Vertical whitespace value out of range (0 to 1000), ignoring\n");
+                    fprintf(stderr, "Warning 113: Invalid version\n");
                     fflush(stderr);
                 }
                 break;
             case OPT_WERROR:
                 my_symbol->warn_level = WARN_FAIL_ALL;
+                break;
+            case OPT_WZPL:
+                my_symbol->warn_level = WARN_ZPL_COMPAT;
                 break;
 
             case 'h':
@@ -1305,13 +1187,13 @@ int main(int argc, char **argv) {
 
             case 'w':
                 if (!validate_int(optarg, &val)) {
-                    fprintf(stderr, "Error 120: Invalid horizontal whitespace value '%s' (digits only)\n", optarg);
+                    fprintf(stderr, "Error 120: Invalid whitespace value '%s'\n", optarg);
                     return do_exit(1);
                 }
                 if (val <= 1000) { /* `val` >= 0 always */
                     my_symbol->whitespace_width = val;
                 } else {
-                    fprintf(stderr, "Warning 121: Horizontal whitespace value out of range (0 to 1000), ignoring\n");
+                    fprintf(stderr, "Warning 121: Whitespace value out of range\n");
                     fflush(stderr);
                 }
                 break;
@@ -1351,13 +1233,11 @@ int main(int argc, char **argv) {
                 break;
 
             case '?':
-                no_getopt_error = 0;
                 break;
 
-            default: /* Shouldn't happen */
-                fprintf(stderr, "Error 123: ?? getopt error 0%o\n", c); /* Not reached */
+            default:
+                fprintf(stderr, "Error 123: ?? getopt error 0%o\n", c);
                 fflush(stderr);
-                no_getopt_error = 0;
                 break;
         }
     }
@@ -1400,11 +1280,8 @@ int main(int argc, char **argv) {
                     strcpy(filetype, no_png ? "gif" : "png");
                 }
             }
-            if (((my_symbol->symbology != BARCODE_MAXICODE && my_symbol->scale < 0.5f) || my_symbol->scale < 0.2f)
-                    && is_raster(filetype, no_png)) {
-                const int min = my_symbol->symbology != BARCODE_MAXICODE ? 5 : 2;
-                fprintf(stderr, "Warning 145: Scaling less than 0.%d will be set to 0.%d for '%s' output\n", min, min,
-                    filetype);
+            if (my_symbol->scale < 0.5f && is_raster(filetype, no_png)) {
+                fprintf(stderr, "Warning 145: Scaling less than 0.5 will be set to 0.5 for '%s' output\n", filetype);
                 fflush(stderr);
             }
             error_number = batch_process(my_symbol, arg_opts[0].arg, mirror_mode, filetype, rotate_angle);
@@ -1416,10 +1293,8 @@ int main(int argc, char **argv) {
             if (filetype[0] != '\0') {
                 set_extension(my_symbol->outfile, filetype);
             }
-            if (((my_symbol->symbology != BARCODE_MAXICODE && my_symbol->scale < 0.5f) || my_symbol->scale < 0.2f)
-                    && is_raster(get_extension(my_symbol->outfile), no_png)) {
-                const int min = my_symbol->symbology != BARCODE_MAXICODE ? 5 : 2;
-                fprintf(stderr, "Warning 146: Scaling less than 0.%d will be set to 0.%d for '%s' output\n", min, min,
+            if (my_symbol->scale < 0.5f && is_raster(get_extension(my_symbol->outfile), no_png)) {
+                fprintf(stderr, "Warning 146: Scaling less than 0.5 will be set to 0.5 for '%s' output\n",
                     get_extension(my_symbol->outfile));
                 fflush(stderr);
             }

@@ -29,91 +29,29 @@
  */
 /* vim: set ts=4 sw=4 et : */
 
+#include <errno.h>
 #include "testcommon.h"
-
-#ifdef _WIN32
-/* Hacks to stop popen() mangling input on Windows */
-static int utf8_to_wchar(const char *str, wchar_t *out) {
-    unsigned int codepoint, state = 0;
-
-    while (*str) {
-        do {
-            decode_utf8(&state, &codepoint, *str++);
-        } while (*str && state != 0 && state != 12);
-        if (state != 0) {
-            fprintf(stderr, "utf8_to_wchar: warning: invalid UTF-8\n");
-            return 0;
-        }
-        *out++ = codepoint;
-    }
-    *out = L'\0';
-
-    return 1;
-}
-
-static int escape_cmd(const char *str, char *buf) {
-    int ret = 0;
-    char *out = buf;
-    const unsigned char *ustr;
-
-    for (ustr = (const unsigned char *) str; *ustr; ustr++) {
-        if (*ustr >= 0x80 || *ustr < 0x20 || *ustr == '\\') {
-            sprintf(out, "\\x%02X", *ustr);
-            out += 4;
-            ret = 1;
-        } else {
-            *out++ = *ustr;
-        }
-    }
-    *out = '\0';
-    if (ret) {
-        if (out - buf > 5 && strcmp(out - 5, " 2>&1") == 0) {
-            strcpy(out - 5, " --esc 2>&1");
-        } else {
-            strcpy(out, " --esc");
-        }
-    }
-
-    return ret;
-}
-#endif
 
 static char *exec(const char *cmd, char *buf, int buf_size, int debug, int index) {
     FILE *fp;
     int cnt;
-#ifdef _WIN32
-    wchar_t wchar_cmd[8192];
-    char esc_cmd[16384];
-    int is_binary = strstr(cmd, " --binary") != NULL;
-    int is_escaped = strstr(cmd, " --esc") != NULL;
-#endif
 
     if (debug & ZINT_DEBUG_TEST_PRINT) printf("%d: %s\n", index, cmd);
 
     *buf = '\0';
 
-#ifdef _WIN32
-    if (!is_binary && utf8_to_wchar(cmd, wchar_cmd)) {
-        fp = _wpopen(wchar_cmd, L"r");
-    } else if (!is_escaped && is_binary && escape_cmd(cmd, esc_cmd)) {
-        fp = testutil_popen(esc_cmd, "r");
-    } else {
-        fp = testutil_popen(cmd, "r");
-    }
-#else
-    fp = testutil_popen(cmd, "r");
-#endif
+    fp = popen(cmd, "r");
     if (!fp) {
         fprintf(stderr, "exec: failed to run '%s'\n", cmd);
         return NULL;
     }
-    cnt = (int) fread(buf, 1, buf_size, fp);
+    cnt = fread(buf, 1, buf_size, fp);
     if (fgetc(fp) != EOF) {
         fprintf(stderr, "exec: failed to read full stream (%s)\n", cmd);
-        testutil_pclose(fp);
+        pclose(fp);
         return NULL;
     }
-    testutil_pclose(fp);
+    pclose(fp);
 
     if (cnt) {
         if (buf[cnt - 1] == '\r' || buf[cnt - 1] == '\n') {
@@ -147,7 +85,7 @@ static void arg_double(char *cmd, const char *opt, double val) {
 
 static void arg_data(char *cmd, const char *opt, const char *data) {
     if (data != NULL) {
-        sprintf(cmd + (int) strlen(cmd), "%s%s\"%s\"", strlen(cmd) ? " " : "", opt, data);
+        sprintf(cmd + (int) strlen(cmd), "%s%s'%s'", strlen(cmd) ? " " : "", opt, data);
     }
 }
 
@@ -161,7 +99,7 @@ static int arg_input(char *cmd, const char *filename, const char *input) {
                 fprintf(stderr, "arg_input: failed to open '%s' for writing\n", filename);
                 return 0;
             }
-            cnt = (int) fwrite(input, 1, strlen(input), fp);
+            cnt = fwrite(input, 1, strlen(input), fp);
             if (cnt != (int) strlen(input)) {
                 fprintf(stderr, "arg_input: failed to write %d bytes, cnt %d written (%s)\n", (int) strlen(input), cnt, filename);
                 fclose(fp);
@@ -169,7 +107,7 @@ static int arg_input(char *cmd, const char *filename, const char *input) {
             }
             fclose(fp);
         }
-        sprintf(cmd + (int) strlen(cmd), "%s-i \"%s\"", strlen(cmd) ? " " : "", filename);
+        sprintf(cmd + (int) strlen(cmd), "%s-i '%s'", strlen(cmd) ? " " : "", filename);
         return 1;
     }
     return 0;
@@ -184,9 +122,6 @@ static void arg_input_mode(char *cmd, int input_mode) {
         }
         if (input_mode & ESCAPE_MODE) {
             sprintf(cmd + (int) strlen(cmd), "%s--esc", strlen(cmd) ? " " : "");
-        }
-        if (input_mode & GS1PARENS_MODE) {
-            sprintf(cmd + (int) strlen(cmd), "%s--gs1parens", strlen(cmd) ? " " : "");
         }
     }
 }
@@ -220,20 +155,13 @@ static void arg_output_options(char *cmd, int output_options) {
         if (output_options & GS1_GS_SEPARATOR) {
             sprintf(cmd + (int) strlen(cmd), "%s--gssep", strlen(cmd) ? " " : "");
         }
-        if (output_options & BARCODE_QUIET_ZONES) {
-            sprintf(cmd + (int) strlen(cmd), "%s--quietzones", strlen(cmd) ? " " : "");
-        }
-        if (output_options & BARCODE_NO_QUIET_ZONES) {
-            sprintf(cmd + (int) strlen(cmd), "%s--noquietzones", strlen(cmd) ? " " : "");
-        }
-        if (output_options & COMPLIANT_HEIGHT) {
-            sprintf(cmd + (int) strlen(cmd), "%s--compliantheight", strlen(cmd) ? " " : "");
-        }
     }
 }
 
 // Tests args that can be detected with `--dump`
 static void test_dump_args(int index, int debug) {
+
+    testStart("");
 
     struct item {
         int b;
@@ -280,29 +208,27 @@ static void test_dump_args(int index, int debug) {
         /* 17*/ { BARCODE_PDF417, "123", NULL, NULL, NULL,        -1, -1, 0, -1, 0, -1, 0, -1, -1, NULL,  1,  0, 0, -1, "FF 54 7A BC 3D 4F 1D 5C 0F E8 A4\nFF 54 7A 90 2F D3 1F AB 8F E8 A4\nFF 54 6A F8 3A BF 15 3C 0F E8 A4\nFF 54 57 9E 24 E7 1A F7 CF E8 A4\nFF 54 7A E7 3D 0D 9D 73 0F E8 A4\nFF 54 7D 70 B9 CB DF 5E CF E8 A4" },
         /* 18*/ { BARCODE_DATAMATRIX, "ABC", NULL, NULL, NULL, -1,          -1, 0, -1, 0, -1, 0, -1, -1, NULL, -1, -1, 0, -1, "AA 8\nB3 4\n8F 0\nB2 C\nA6 0\nBA C\nD6 0\nEB 4\nE2 8\nFF C" },
         /* 19*/ { BARCODE_DATAMATRIX, "ABC", NULL, NULL, NULL, -1, READER_INIT, 0, -1, 0, -1, 0, -1, -1, NULL, -1, -1, 0, -1, "AA A\nAC 7\n8A 4\nA0 3\nC2 2\nB5 1\n82 2\nBA 7\n8C C\nA0 5\n86 A\nFF F" },
-        /* 20*/ { BARCODE_DATAMATRIX, "ABCDEFGHIJK", NULL, NULL, NULL, -1, -1, 0, -1, 0, -1, 0, -1, -1, NULL, -1, -1, 0, -1, "AA AA AA AA\nA6 ED A9 D1\nB2 FE 92 7E\n98 E7 C3 FF\nE8 D0 90 CC\nC7 EB 8D 63\nC5 48 D3 C4\nFF FF FF FF" },
-        /* 21*/ { BARCODE_DATAMATRIX, "ABCDEFGHIJK", NULL, NULL, NULL, -1, -1, 0, -1, 0, -1, 0, -1, -1, NULL, -1, -1, 1, -1, "AA AA\nA6 FF\nB2 C0\n99 19\nA8 BA\n84 EF\nC0 9C\nE9 47\nE5 90\nB3 49\n91 36\nB3 7D\nD4 56\nF7 DD\nC5 62\nFF FF" },
-        /* 22*/ { BARCODE_DATAMATRIX, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF", NULL, NULL, NULL, -1, -1, 0, -1, 0, -1, 0, -1, -1, NULL, -1, -1, 0, -1, "AA AA A8\nA6 94 A4\nB2 AD 98\n99 09 3C\nA9 E1 00\n86 80 F4\nC2 F5 68\nF5 D5 1C\nF2 68 70\nDA 7A 1C\nB7 FA 30\nA8 E0 F4\n91 74 D8\nD6 1D 74\nD2 31 08\nF1 E9 74\nC2 BF A8\nA6 8B 6C\n83 3D D8\nF9 ED CC\nAB 5A 58\nFF FF FC" },
-        /* 23*/ { BARCODE_DATAMATRIX, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF", NULL, NULL, NULL, -1, -1, 0, -1, 1, -1, 0, -1, -1, NULL, -1, -1, 0, -1, "AA AA AA AA AA AA AA AA\nA6 D9 C8 0F 82 EB 81 97\nB2 BA A7 C8 F5 64 BD 2E\n99 2F EF 29 84 07 9F C7\nA8 84 99 C2 F2 1A 9F 44\n86 D5 D9 8B EF 41 BB 7F\n85 44 BF 28 F7 80 99 76\nFF FF FF FF FF FF FF FF" },
-        /* 24*/ { BARCODE_DATAMATRIX, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF", NULL, NULL, NULL, -1, -1, 0, -1, 1, -1, 0, -1, -1, NULL, -1, -1, 1, -1, "AA AA A8\nA6 94 A4\nB2 AD 98\n99 09 3C\nA9 E1 00\n86 80 F4\nC2 F5 68\nF5 D5 1C\nF2 68 70\nDA 7A 1C\nB7 FA 30\nA8 E0 F4\n91 74 D8\nD6 1D 74\nD2 31 08\nF1 E9 74\nC2 BF A8\nA6 8B 6C\n83 3D D8\nF9 ED CC\nAB 5A 58\nFF FF FC" },
+        /* 20*/ { BARCODE_DATAMATRIX, "ABCDEFGHIJK", NULL, NULL, NULL, -1, -1, 0, -1, 0, -1, 0, -1, -1, NULL, -1, -1, 0, -1, "AA AA AA AA\nA6 C7 FA F9\nB2 AA C7 BA\n98 BF F4 0F\nE8 DA 90 C8\nC7 D5 B6 DF\nC5 50 B0 2C\nFF FF FF FF" },
+        /* 21*/ { BARCODE_DATAMATRIX, "ABCDEFGHIJK", NULL, NULL, NULL, -1, -1, 0, -1, 0, -1, 0, -1, -1, NULL, -1, -1, 1, -1, "AA AA\nA6 D3\nB2 DA\n99 19\nA8 A6\n84 F7\nC0 8C\nF9 87\nFC 4C\nD8 A5\n83 E6\n99 75\nF7 82\nAE 65\n8D 6A\nFF FF" },
+        /* 22*/ { BARCODE_DATAMATRIX, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF", NULL, NULL, NULL, -1, -1, 0, -1, 0, -1, 0, -1, -1, NULL, -1, -1, 0, -1, "AA AA A8\nA6 94 BC\nB2 AD F0\n99 08 F4\nA9 E1 B8\n86 81 CC\nC2 F5 88\nF5 D5 3C\nF2 68 30\nDA 7A BC\nB7 FE 70\nA8 E7 34\n91 40 88\nD6 33 DC\nD2 89 20\nD1 6A 94\nE2 71 A8\nE4 3E EC\nF2 9D 70\nE5 8D FC\nB9 56 50\nFF FF FC" },
+        /* 23*/ { BARCODE_DATAMATRIX, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF", NULL, NULL, NULL, -1, -1, 0, -1, 1, -1, 0, -1, -1, NULL, -1, -1, 0, -1, "AA AA AA AA AA AA AA AA\nA6 D9 C8 0B FC 57 F3 17\nB2 BA A7 CA C9 18 87 BE\n99 2F EF 2B F1 A1 B9 DF\nA8 84 99 CA CF 4A BF 14\n86 D5 D9 87 A4 EF F4 9F\n85 44 BF 22 E7 58 C6 8A\nFF FF FF FF FF FF FF FF" },
+        /* 24*/ { BARCODE_DATAMATRIX, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF", NULL, NULL, NULL, -1, -1, 0, -1, 1, -1, 0, -1, -1, NULL, -1, -1, 1, -1, "AA AA A8\nA6 94 BC\nB2 AD F0\n99 08 F4\nA9 E1 B8\n86 81 CC\nC2 F5 88\nF5 D5 3C\nF2 68 30\nDA 7A BC\nB7 FE 70\nA8 E7 34\n91 40 88\nD6 33 DC\nD2 89 20\nD1 6A 94\nE2 71 A8\nE4 3E EC\nF2 9D 70\nE5 8D FC\nB9 56 50\nFF FF FC" },
         /* 25*/ { BARCODE_DATAMATRIX, "[91]12[92]34", NULL, NULL, NULL, GS1_MODE, -1, 0, -1, 0, -1, 0, -1, -1, NULL, -1, -1, 0, -1, "AA A8\nFA 9C\nBC 00\nD7 84\nED E0\nA4 E4\nA7 40\n9D 3C\nBF 50\nFA 24\nB1 68\nE5 04\n92 70\nFF FC" },
         /* 26*/ { BARCODE_DATAMATRIX, "[91]12[92]34", NULL, NULL, NULL, GS1_MODE, GS1_GS_SEPARATOR, 0, -1, 0, -1, 0, -1, -1, NULL, -1, -1, 0, -1, "AA A8\nF9 DC\nBF 20\nD6 C4\nED 10\nA0 0C\nA7 C0\n96 5C\nBA 70\nBB A4\nE2 18\nDD 14\n9C 40\nFF FC" },
         /* 27*/ { BARCODE_DATAMATRIX, "[9\\x31]12[92]34", NULL, NULL, NULL, GS1_MODE | ESCAPE_MODE, GS1_GS_SEPARATOR, 0, -1, 0, -1, 0, -1, -1, NULL, -1, -1, 0, -1, "AA A8\nF9 DC\nBF 20\nD6 C4\nED 10\nA0 0C\nA7 C0\n96 5C\nBA 70\nBB A4\nE2 18\nDD 14\n9C 40\nFF FC" },
-        /* 28*/ { BARCODE_DATAMATRIX, "(9\\x31)12(92)34", NULL, NULL, NULL, GS1_MODE | ESCAPE_MODE | GS1PARENS_MODE, GS1_GS_SEPARATOR, 0, -1, 0, -1, 0, -1, -1, NULL, -1, -1, 0, -1, "AA A8\nF9 DC\nBF 20\nD6 C4\nED 10\nA0 0C\nA7 C0\n96 5C\nBA 70\nBB A4\nE2 18\nDD 14\n9C 40\nFF FC" },
-        /* 29*/ { BARCODE_EANX_CC, "[91]12", NULL, NULL, NULL,    -1, -1, 0, -1, 0, -1, 0, -1, -1, "12345678+12", -1, -1, 0, -1, "DB BC D3 9C 44 E9 D2 2C 19 E7 A2 D8 A0 00 00 00\nDB 31 1C 9C C7 29 92 47 D9 E9 40 C8 A0 00 00 00\nDA 3B EB 10 AF 09 9A 18 9D 7D 82 E8 A0 00 00 00\n10 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00\n20 00 00 00 00 00 00 00 00 00 00 00 20 00 00 00\n10 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00\n14 68 D1 A6 49 BD 55 C9 D4 22 48 B9 40 59 94 98" },
-        /* 30*/ { BARCODE_EANX_CC, "[91]12", NULL, NULL, NULL,    -1, -1, 0, -1, 0, -1, 0, -1,  2, "12345678+12", -1, -1, 0, -1, "D3 A3 E9 DB F5 C9 DB 43 D9 CB 98 D2 20 00 00 00\nD3 25 0F 11 E4 49 D3 51 F1 AC FC D6 20 00 00 00\nD1 33 48 19 39 E9 93 18 49 D8 98 D7 20 00 00 00\nD1 A6 FC DA 1C 49 9B C5 05 E2 84 D7 A0 00 00 00\n10 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00\n20 00 00 00 00 00 00 00 00 00 00 00 20 00 00 00\n10 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00\n14 68 D1 A6 49 BD 55 C9 D4 22 48 B9 40 59 94 98" },
-        /* 31*/ { BARCODE_QRCODE, "点", NULL, NULL, NULL,         -1, -1, 0, -1, 0, -1, 0, -1, -1, NULL, -1,  1, 0, -1, "FE 2B F8\n82 AA 08\nBA B2 E8\nBA 0A E8\nBA FA E8\n82 E2 08\nFE AB F8\n00 80 00\nD3 3B B0\n60 95 68\n7A B3 A0\n1D 0F 98\nAA D7 30\n00 E6 A8\nFE DA D0\n82 42 20\nBA 0E 38\nBA C7 18\nBA 17 68\n82 B9 40\nFE C5 28" },
-        /* 32*/ { BARCODE_QRCODE, "点", NULL, NULL, NULL,         -1, -1, 0, -1, 0, 26, 0, -1, -1, NULL, -1,  1, 0, -1, "FE 5B F8\n82 72 08\nBA DA E8\nBA 52 E8\nBA 2A E8\n82 0A 08\nFE AB F8\n00 D8 00\nEF F6 20\nB5 C2 28\n36 28 88\nFD 42 10\n62 2A C8\n00 95 70\nFE B7 38\n82 FD D8\nBA 97 00\nBA 43 60\nBA C8 C8\n82 C3 68\nFE EA F8" },
-        /* 33*/ { BARCODE_QRCODE, "\223\137", NULL, NULL, NULL, DATA_MODE, -1, 0, -1, 0, -1, 0, -1, -1, NULL, -1,  1, 0, -1, "FE 2B F8\n82 0A 08\nBA A2 E8\nBA 0A E8\nBA 5A E8\n82 72 08\nFE AB F8\n00 A0 00\nEF AE 20\n75 B5 20\n82 F7 58\nF4 9D C8\n5E 17 28\n00 C2 20\nFE 88 80\n82 82 38\nBA EA A8\nBA 55 50\nBA D7 68\n82 BD D0\nFE B7 78" },
-        /* 34*/ { BARCODE_QRCODE, "\223\137", NULL, NULL, NULL, DATA_MODE, -1, 0, -1, 0, -1, 1, -1, -1, NULL, -1,  1, 0, -1, "FE 2B F8\n82 AA 08\nBA B2 E8\nBA 0A E8\nBA FA E8\n82 E2 08\nFE AB F8\n00 80 00\nD3 3B B0\n60 95 68\n7A B3 A0\n1D 0F 98\nAA D7 30\n00 E6 A8\nFE DA D0\n82 42 20\nBA 0E 38\nBA C7 18\nBA 17 68\n82 B9 40\nFE C5 28" },
-        /* 35*/ { BARCODE_QRCODE, "\\x93\\x5F", NULL, NULL, NULL, DATA_MODE | ESCAPE_MODE, -1, 0, -1, 0, -1, 1, -1, -1, NULL, -1,  1, 0, -1, "FE 2B F8\n82 AA 08\nBA B2 E8\nBA 0A E8\nBA FA E8\n82 E2 08\nFE AB F8\n00 80 00\nD3 3B B0\n60 95 68\n7A B3 A0\n1D 0F 98\nAA D7 30\n00 E6 A8\nFE DA D0\n82 42 20\nBA 0E 38\nBA C7 18\nBA 17 68\n82 B9 40\nFE C5 28" },
-        /* 36*/ { BARCODE_QRCODE, "点", NULL, NULL, NULL,         -1, -1, 0, -1, 0, -1, 0, 2, -1, NULL, -1,  1, 0, -1, "FE 4B F8\n82 92 08\nBA 42 E8\nBA 92 E8\nBA 3A E8\n82 EA 08\nFE AB F8\n00 38 00\nFB CD 50\nA5 89 18\n0B 74 B8\nFC 81 A0\n92 34 B8\n00 DE 48\nFE AB 10\n82 5E 50\nBA C9 20\nBA C9 20\nBA F4 E0\n82 81 A0\nFE B4 E8" },
-        /* 37*/ { BARCODE_HANXIN, "é", NULL, NULL, NULL,  DATA_MODE, -1, 0, -1, 0, -1, 1, -1, -1, NULL, -1, -1, 0, -1, "FE 8A FE\n80 28 02\nBE E8 FA\nA0 94 0A\nAE 3E EA\nAE D2 EA\nAE 74 EA\n00 AA 00\n15 B4 AA\n0B 48 74\nA2 4A A4\nB5 56 2C\nA8 5A A8\n9F 18 50\nAA 07 50\n00 A6 00\nFE 20 EA\n02 C2 EA\nFA C4 EA\n0A 42 0A\nEA 52 FA\nEA 24 02\nEA AA FE" },
-        /* 38*/ { BARCODE_HANXIN, "é", NULL, NULL, NULL,  DATA_MODE, -1, 0, -1, 0, -1, 1, 3, -1, NULL, -1, -1, 0, -1, "FE 16 FE\n80 E2 02\nBE C2 FA\nA0 A0 0A\nAE F6 EA\nAE 98 EA\nAE BA EA\n00 E0 00\n15 83 AA\n44 7E AE\n92 9C 78\n25 BF 08\n47 4B 8C\n0D F9 74\nAB E7 50\n00 3A 00\nFE C2 EA\n02 22 EA\nFA DA EA\n0A 22 0A\nEA B2 FA\nEA 9A 02\nEA E8 FE" },
-        /* 39*/ { BARCODE_HANXIN, "é", NULL, NULL, NULL,  DATA_MODE, -1, 0, -1, 0, -1, 1, 4, -1, NULL, -1, -1, 0, -1, "FE 8A FE\n80 28 02\nBE E8 FA\nA0 94 0A\nAE 3E EA\nAE D2 EA\nAE 74 EA\n00 AA 00\n15 B4 AA\n0B 48 74\nA2 4A A4\nB5 56 2C\nA8 5A A8\n9F 18 50\nAA 07 50\n00 A6 00\nFE 20 EA\n02 C2 EA\nFA C4 EA\n0A 42 0A\nEA 52 FA\nEA 24 02\nEA AA FE" },
+        /* 28*/ { BARCODE_EANX_CC, "[91]12", NULL, NULL, NULL,    -1, -1, 0, -1, 0, -1, 0, -1, -1, "12345678+12", -1, -1, 0, -1, "DB BC D3 9C 44 E9 D2 2C 19 E7 A2 D8 A0 00 00 00\nDB 31 1C 9C C7 29 92 47 D9 E9 40 C8 A0 00 00 00\nDA 3B EB 10 AF 09 9A 18 9D 7D 82 E8 A0 00 00 00\n10 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00\n20 00 00 00 00 00 00 00 00 00 00 00 20 00 00 00\n10 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00\n14 68 D1 A6 49 BD 55 C9 D4 22 48 B9 40 59 94 98" },
+        /* 29*/ { BARCODE_EANX_CC, "[91]12", NULL, NULL, NULL,    -1, -1, 0, -1, 0, -1, 0, -1,  2, "12345678+12", -1, -1, 0, -1, "D3 A3 E9 DB F5 C9 DB 43 D9 CB 98 D2 20 00 00 00\nD3 25 0F 11 E4 49 D3 51 F1 AC FC D6 20 00 00 00\nD1 33 48 19 39 E9 93 18 49 D8 98 D7 20 00 00 00\nD1 A6 FC DA 1C 49 9B C5 05 E2 84 D7 A0 00 00 00\n10 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00\n20 00 00 00 00 00 00 00 00 00 00 00 20 00 00 00\n10 00 00 00 00 00 00 00 00 00 00 00 40 00 00 00\n14 68 D1 A6 49 BD 55 C9 D4 22 48 B9 40 59 94 98" },
+        /* 30*/ { BARCODE_QRCODE, "点", NULL, NULL, NULL,         -1, -1, 0, -1, 0, -1, 0, -1, -1, NULL, -1,  1, 0, -1, "FE 2B F8\n82 AA 08\nBA B2 E8\nBA 0A E8\nBA FA E8\n82 E2 08\nFE AB F8\n00 80 00\nD3 3B B0\n60 95 68\n7A B3 A0\n1D 0F 98\nAA D7 30\n00 E6 A8\nFE DA D0\n82 42 20\nBA 0E 38\nBA C7 18\nBA 17 68\n82 B9 40\nFE C5 28" },
+        /* 31*/ { BARCODE_QRCODE, "点", NULL, NULL, NULL,         -1, -1, 0, -1, 0, 26, 0, -1, -1, NULL, -1,  1, 0, -1, "FE 5B F8\n82 72 08\nBA DA E8\nBA 52 E8\nBA 2A E8\n82 0A 08\nFE AB F8\n00 D8 00\nEF F6 20\nB5 C2 28\n36 28 88\nFD 42 10\n62 2A C8\n00 95 70\nFE B7 38\n82 FD D8\nBA 97 00\nBA 43 60\nBA C8 C8\n82 C3 68\nFE EA F8" },
+        /* 32*/ { BARCODE_QRCODE, "\223\137", NULL, NULL, NULL, DATA_MODE, -1, 0, -1, 0, -1, 0, -1, -1, NULL, -1,  1, 0, -1, "FE 2B F8\n82 0A 08\nBA A2 E8\nBA 0A E8\nBA 5A E8\n82 72 08\nFE AB F8\n00 A0 00\nEF AE 20\n75 B5 20\n82 F7 58\nF4 9D C8\n5E 17 28\n00 C2 20\nFE 88 80\n82 82 38\nBA EA A8\nBA 55 50\nBA D7 68\n82 BD D0\nFE B7 78" },
+        /* 33*/ { BARCODE_QRCODE, "\223\137", NULL, NULL, NULL, DATA_MODE, -1, 0, -1, 0, -1, 1, -1, -1, NULL, -1,  1, 0, -1, "FE 2B F8\n82 AA 08\nBA B2 E8\nBA 0A E8\nBA FA E8\n82 E2 08\nFE AB F8\n00 80 00\nD3 3B B0\n60 95 68\n7A B3 A0\n1D 0F 98\nAA D7 30\n00 E6 A8\nFE DA D0\n82 42 20\nBA 0E 38\nBA C7 18\nBA 17 68\n82 B9 40\nFE C5 28" },
+        /* 34*/ { BARCODE_QRCODE, "\\x93\\x5F", NULL, NULL, NULL, DATA_MODE | ESCAPE_MODE, -1, 0, -1, 0, -1, 1, -1, -1, NULL, -1,  1, 0, -1, "FE 2B F8\n82 AA 08\nBA B2 E8\nBA 0A E8\nBA FA E8\n82 E2 08\nFE AB F8\n00 80 00\nD3 3B B0\n60 95 68\n7A B3 A0\n1D 0F 98\nAA D7 30\n00 E6 A8\nFE DA D0\n82 42 20\nBA 0E 38\nBA C7 18\nBA 17 68\n82 B9 40\nFE C5 28" },
+        /* 35*/ { BARCODE_QRCODE, "点", NULL, NULL, NULL,         -1, -1, 0, -1, 0, -1, 0, 2, -1, NULL, -1,  1, 0, -1, "FE 4B F8\n82 92 08\nBA 42 E8\nBA 92 E8\nBA 3A E8\n82 EA 08\nFE AB F8\n00 38 00\nFB CD 50\nA5 89 18\n0B 74 B8\nFC 81 A0\n92 34 B8\n00 DE 48\nFE AB 10\n82 5E 50\nBA C9 20\nBA C9 20\nBA F4 E0\n82 81 A0\nFE B4 E8" },
+        /* 36*/ { BARCODE_HANXIN, "é", NULL, NULL, NULL,  DATA_MODE, -1, 0, -1, 0, -1, 1, -1, -1, NULL, -1, -1, 0, -1, "FE 8A FE\n80 28 02\nBE E8 FA\nA0 94 0A\nAE 3E EA\nAE D2 EA\nAE 74 EA\n00 AA 00\n15 B4 AA\n0B 48 74\nA2 4A A4\nB5 56 2C\nA8 5A A8\n9F 18 50\nAA 07 50\n00 A6 00\nFE 20 EA\n02 C2 EA\nFA C4 EA\n0A 42 0A\nEA 52 FA\nEA 24 02\nEA AA FE" },
+        /* 37*/ { BARCODE_HANXIN, "é", NULL, NULL, NULL,  DATA_MODE, -1, 0, -1, 0, -1, 1, 3, -1, NULL, -1, -1, 0, -1, "FE 16 FE\n80 E2 02\nBE C2 FA\nA0 A0 0A\nAE F6 EA\nAE 98 EA\nAE BA EA\n00 E0 00\n15 83 AA\n44 7E AE\n92 9C 78\n25 BF 08\n47 4B 8C\n0D F9 74\nAB E7 50\n00 3A 00\nFE C2 EA\n02 22 EA\nFA DA EA\n0A 22 0A\nEA B2 FA\nEA 9A 02\nEA E8 FE" },
+        /* 38*/ { BARCODE_HANXIN, "é", NULL, NULL, NULL,  DATA_MODE, -1, 0, -1, 0, -1, 1, 4, -1, NULL, -1, -1, 0, -1, "FE 8A FE\n80 28 02\nBE E8 FA\nA0 94 0A\nAE 3E EA\nAE D2 EA\nAE 74 EA\n00 AA 00\n15 B4 AA\n0B 48 74\nA2 4A A4\nB5 56 2C\nA8 5A A8\n9F 18 50\nAA 07 50\n00 A6 00\nFE 20 EA\n02 C2 EA\nFA C4 EA\n0A 42 0A\nEA 52 FA\nEA 24 02\nEA AA FE" },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char cmd[4096];
     char buf[4096];
@@ -312,9 +238,7 @@ static void test_dump_args(int index, int debug) {
     int have_input1;
     int have_input2;
 
-    testStart("test_dump_args");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
@@ -349,10 +273,10 @@ static void test_dump_args(int index, int debug) {
         assert_zero(strcmp(buf, data[i].expected), "i:%d buf (%s) != expected (%s) (%s)\n", i, buf, data[i].expected, cmd);
 
         if (have_input1) {
-            assert_zero(remove(input1_filename), "i:%d remove(%s) != 0 (%d: %s)\n", i, input1_filename, errno, strerror(errno));
+            assert_zero(remove(input1_filename), "i:%d remove(%s) != 0 (%d)\n", i, input1_filename, errno);
         }
         if (have_input2) {
-            assert_zero(remove(input2_filename), "i:%d remove(%s) != 0 (%d: %s)\n", i, input2_filename, errno, strerror(errno));
+            assert_zero(remove(input2_filename), "i:%d remove(%s) != 0\n", i, input2_filename);
         }
     }
 
@@ -361,7 +285,7 @@ static void test_dump_args(int index, int debug) {
 
 static void test_input(int index, int debug) {
 
-#define TEST_INPUT_LONG "test_67890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
+    testStart("");
 
     struct item {
         int b;
@@ -377,25 +301,24 @@ static void test_input(int index, int debug) {
     };
     // s/\/\*[ 0-9]*\*\//\=printf("\/*%3d*\/", line(".") - line("'<"))
     struct item data[] = {
-        /*  0*/ { BARCODE_CODE128, 1, -1, 0, "gif", "123\n456\n", "test_batch~.gif", 2, "test_batch1.gif\000test_batch2.gif" },
-        /*  1*/ { BARCODE_CODE128, 1, -1, 1, "gif", "123\n456\n7890123456789\n", NULL, 3, "123.gif\000456.gif\0007890123456789.gif" },
+        /*  0*/ { BARCODE_CODE128, 1, -1, 0, NULL, "123\n456\n", "test_batch~.png", 2, "test_batch1.png\000test_batch2.png" },
+        /*  1*/ { BARCODE_CODE128, 1, -1, 1, NULL, "123\n456\n7890123456789\n", NULL, 3, "123.png\000456.png\0007890123456789.png" },
         /*  2*/ { BARCODE_CODE128, 1, -1, 1, "svg", "123\n456\n7890123456789\n", NULL, 3, "123.svg\000456.svg\0007890123456789.svg" },
-        /*  3*/ { BARCODE_CODE128, 1, -1, 1, "gif", "123\n456\n7890123456789\nA\\xA0B\n", NULL, 4, "123.gif\000456.gif\0007890123456789.gif\000A_xA0B.gif" },
-        /*  4*/ { BARCODE_CODE128, 1, ESCAPE_MODE, 1, "gif", "123\n456\n7890123456789\nA\\xA0B\n", NULL, 4, "123.gif\000456.gif\0007890123456789.gif\000A_B.gif" },
-        /*  5*/ { BARCODE_CODE128, 1, -1, 1, "gif", "123\n456\n7890123456789\nA\\u00A0B\n", NULL, 4, "123.gif\000456.gif\0007890123456789.gif\000A_u00A0B.gif" },
-        /*  6*/ { BARCODE_CODE128, 1, ESCAPE_MODE, 1, "gif", "123\n456\n7890123456789\nA\\u00A0B\n", NULL, 4, "123.gif\000456.gif\0007890123456789.gif\000A_B.gif" },
-        /*  7*/ { BARCODE_CODE128, 1, -1, 0, "gif", "\n", "test_batch.gif", 0, NULL },
-        /*  8*/ { BARCODE_CODE128, 1, -1, 0, "gif", "123\n456\n", TEST_INPUT_LONG "~.gif", 2, TEST_INPUT_LONG "1.gif\000" TEST_INPUT_LONG "2.gif" },
-        /*  9*/ { BARCODE_CODE128, 0, -1, 0, "svg", "123", TEST_INPUT_LONG "1.gif", 1, TEST_INPUT_LONG "1.svg" },
-        /* 10*/ { BARCODE_CODE128, 1, -1, 0, "svg", "123\n", TEST_INPUT_LONG "1.gif", 1, TEST_INPUT_LONG "1.svg" },
-        /* 11*/ { BARCODE_CODE128, 1, -1, 0, "gif", "123\n", "test_batch.jpeg", 1, "test_batch.jpeg.gif" },
-        /* 12*/ { BARCODE_CODE128, 1, -1, 0, "gif", "123\n", "test_batch.jpg", 1, "test_batch.gif" },
+        /*  3*/ { BARCODE_CODE128, 1, -1, 1, NULL, "123\n456\n7890123456789\nA\\xA0B\n", NULL, 4, "123.png\000456.png\0007890123456789.png\000A_xA0B.png" },
+        /*  4*/ { BARCODE_CODE128, 1, ESCAPE_MODE, 1, NULL, "123\n456\n7890123456789\nA\\xA0B\n", NULL, 4, "123.png\000456.png\0007890123456789.png\000A_B.png" },
+        /*  5*/ { BARCODE_CODE128, 1, -1, 1, NULL, "123\n456\n7890123456789\nA\\u00A0B\n", NULL, 4, "123.png\000456.png\0007890123456789.png\000A_u00A0B.png" },
+        /*  6*/ { BARCODE_CODE128, 1, ESCAPE_MODE, 1, NULL, "123\n456\n7890123456789\nA\\u00A0B\n", NULL, 4, "123.png\000456.png\0007890123456789.png\000A_B.png" },
+        /*  7*/ { BARCODE_CODE128, 1, -1, 0, NULL, "\n", "test_batch.png", 0, NULL },
+        /*  8*/ { BARCODE_CODE128, 1, -1, 0, NULL, "123\n456\n", "test_67890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890~.png", 2, "test_678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901.png\000test_678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678902.png" },
+        /*  9*/ { BARCODE_CODE128, 0, -1, 0, "svg", "123", "test_678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901.png", 1, "test_678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901.svg" },
+        /* 10*/ { BARCODE_CODE128, 1, -1, 0, "svg", "123\n", "test_678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901.png", 1, "test_678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901.svg" },
+        /* 11*/ { BARCODE_CODE128, 1, -1, 0, NULL, "123\n", "test_batch.jpeg", 1, "test_batch.jpeg.png" },
+        /* 12*/ { BARCODE_CODE128, 1, -1, 0, NULL, "123\n", "test_batch.jpg", 1, "test_batch.png" },
         /* 13*/ { BARCODE_CODE128, 1, -1, 0, "emf", "123\n", "test_batch.jpeg", 1, "test_batch.jpeg.emf" },
         /* 14*/ { BARCODE_CODE128, 1, -1, 0, "emf", "123\n", "test_batch.jpg", 1, "test_batch.emf" },
         /* 15*/ { BARCODE_CODE128, 1, -1, 0, "eps", "123\n", "test_batch.ps", 1, "test_batch.eps" },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char cmd[4096];
     char buf[4096];
@@ -403,19 +326,10 @@ static void test_input(int index, int debug) {
     char *input_filename = "test_input.txt";
     char *outfile;
 
-    testStart("test_input");
-
-    for (i = 0; i < data_size; i++) {
-        int j;
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
         if ((debug & ZINT_DEBUG_TEST_PRINT) && !(debug & ZINT_DEBUG_TEST_LESS_NOISY)) printf("i:%d\n", i);
-#ifdef _WIN32
-        if (data[i].outfile && (int) strlen(data[i].outfile) > 50) {
-            if (debug & ZINT_DEBUG_TEST_PRINT) printf("%d not Windows compatible (outfile length %d > 50)\n", i, (int) strlen(data[i].outfile));
-            continue;
-        }
-#endif
 
         strcpy(cmd, "zint");
         if (debug & ZINT_DEBUG_PRINT) {
@@ -433,19 +347,21 @@ static void test_input(int index, int debug) {
         assert_nonnull(exec(cmd, buf, sizeof(buf) - 1, debug, i), "i:%d exec(%s) NULL\n", i, cmd);
 
         outfile = data[i].expected;
-        for (j = 0; j < data[i].num_expected; j++) {
+        for (int j = 0; j < data[i].num_expected; j++) {
             assert_nonzero(testUtilExists(outfile), "i:%d j:%d testUtilExists(%s) != 1\n", i, j, outfile);
-            assert_zero(remove(outfile), "i:%d j:%d remove(%s) != 0 (%d: %s)\n", i, j, outfile, errno, strerror(errno));
+            assert_zero(remove(outfile), "i:%d j:%d remove(%s) != 0 (%d)\n", i, j, outfile, errno);
             outfile += strlen(outfile) + 1;
         }
 
-        assert_zero(remove(input_filename), "i:%d remove(%s) != 0 (%d: %s)\n", i, input_filename, errno, strerror(errno));
+        assert_zero(remove(input_filename), "i:%d remove(%s) != 0 (%d)\n", i, input_filename, errno);
     }
 
     testFinish();
 }
 
 static void test_stdin_input(int index, int debug) {
+
+    testStart("");
 
     struct item {
         int b;
@@ -455,19 +371,16 @@ static void test_stdin_input(int index, int debug) {
     };
     // s/\/\*[ 0-9]*\*\//\=printf("\/*%3d*\/", line(".") - line("'<"))
     struct item data[] = {
-        /*  0*/ { BARCODE_CODE128, "123", "-", "test_stdin_input.gif" },
+        /*  0*/ { BARCODE_CODE128, "123", "-", "test_stdin_input.png" },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char cmd[4096];
     char buf[4096];
 
     char *input_filename = "-";
 
-    testStart("test_stdin_input");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
@@ -483,7 +396,7 @@ static void test_stdin_input(int index, int debug) {
         assert_nonnull(exec(cmd, buf, sizeof(buf) - 1, debug, i), "i:%d exec(%s) NULL\n", i, cmd);
 
         assert_nonzero(testUtilExists(data[i].outfile), "i:%d testUtilExists(%s) != 1\n", i, data[i].outfile);
-        assert_zero(remove(data[i].outfile), "i:%d remove(%s) != 0 (%d: %s)\n", i, data[i].outfile, errno, strerror(errno));
+        assert_zero(remove(data[i].outfile), "i:%d remove(%s) != 0 (%d)\n", i, data[i].outfile, errno);
     }
 
     testFinish();
@@ -491,6 +404,8 @@ static void test_stdin_input(int index, int debug) {
 
 // Note ordering of `--batch` before/after data/input args affects error messages
 static void test_batch_input(int index, int debug) {
+
+    testStart("");
 
     struct item {
         int b;
@@ -507,7 +422,6 @@ static void test_batch_input(int index, int debug) {
         /*  3*/ { BARCODE_CODE128, NULL, "123\n456\n", "789\n", "Warning 143: Can only define one input file in batch mode, ignoring 'test_batch_input2.txt'\nD2 13 9B 39 65 C8 C9 8E B\nD2 19 3B 72 67 4E 4D 8E B" },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char cmd[4096];
     char buf[4096];
@@ -517,9 +431,7 @@ static void test_batch_input(int index, int debug) {
     int have_input1;
     int have_input2;
 
-    testStart("test_batch_input");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
@@ -539,10 +451,10 @@ static void test_batch_input(int index, int debug) {
         assert_zero(strcmp(buf, data[i].expected), "i:%d buf (%s) != expected (%s)\n", i, buf, data[i].expected);
 
         if (have_input1) {
-            assert_zero(remove(input1_filename), "i:%d remove(%s) != 0 (%d: %s)\n", i, input1_filename, errno, strerror(errno));
+            assert_zero(remove(input1_filename), "i:%d remove(%s) != 0 (%d)\n", i, input1_filename, errno);
         }
         if (have_input2) {
-            assert_zero(remove(input2_filename), "i:%d remove(%s) != 0 (%d: %s)\n", i, input2_filename, errno, strerror(errno));
+            assert_zero(remove(input2_filename), "i:%d remove(%s) != 0\n", i, input2_filename);
         }
     }
 
@@ -550,6 +462,8 @@ static void test_batch_input(int index, int debug) {
 }
 
 static void test_batch_large(int index, int debug) {
+
+    testStart("");
 
     struct item {
         int b;
@@ -561,12 +475,11 @@ static void test_batch_large(int index, int debug) {
     };
     // s/\/\*[ 0-9]*\*\//\=printf("\/*%3d*\/", line(".") - line("'<"))
     struct item data[] = {
-        /*  0*/ { BARCODE_HANXIN, 0, "1", 7827, "out.gif" },
-        /*  1*/ { BARCODE_HANXIN, 1, "1", 7827, "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111.gif" },
+        /*  0*/ { BARCODE_HANXIN, 0, "1", 7827, "out.png" },
+        /*  1*/ { BARCODE_HANXIN, 1, "1", 7827, "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111.png" },
         /*  2*/ { BARCODE_HANXIN, 0, "1", 7828, NULL },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char cmd[16384];
     char data_buf[8192];
@@ -575,19 +488,12 @@ static void test_batch_large(int index, int debug) {
     char *input_filename = "test_batch_large.txt";
     int have_input;
 
-    testStart("test_batch_large");
-
-#ifdef _WIN32
-    testSkip("Test not compatible with Windows");
-    return;
-#endif
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
         if ((debug & ZINT_DEBUG_TEST_PRINT) && !(debug & ZINT_DEBUG_TEST_LESS_NOISY)) printf("i:%d\n", i);
 
-        strcpy(cmd, "zint --batch --filetype=gif");
+        strcpy(cmd, "zint --batch");
         if (debug & ZINT_DEBUG_PRINT) {
             strcat(cmd, " --verbose");
         }
@@ -601,13 +507,13 @@ static void test_batch_large(int index, int debug) {
 
         assert_nonnull(exec(cmd, buf, sizeof(buf) - 1, debug, i), "i:%d exec(%s) NULL\n", i, cmd);
         if (data[i].expected) {
-            assert_zero(remove(data[i].expected), "i:%d remove(%s) != 0 (%d: %s)\n", i, data[i].expected, errno, strerror(errno));
+            assert_zero(remove(data[i].expected), "i:%d remove(%s) != 0 (%d)\n", i, data[i].expected, errno);
         } else {
-            assert_zero(testUtilExists("out.gif"), "i:%d testUtilExists(out.gif) != 0 (%d: %s) (%s)\n", i, errno, strerror(errno), cmd);
+            assert_zero(testUtilExists("out.png"), "i:%d testUtilExists(out.png) != 0 (%d)\n", i, errno);
         }
 
         if (have_input) {
-            assert_zero(remove(input_filename), "i:%d remove(%s) != 0 (%d: %s)\n", i, input_filename, errno, strerror(errno));
+            assert_zero(remove(input_filename), "i:%d remove(%s) != 0 (%d)\n", i, input_filename, errno);
         }
     }
 
@@ -616,6 +522,8 @@ static void test_batch_large(int index, int debug) {
 
 static void test_checks(int index, int debug) {
 
+    testStart("");
+
     struct item {
         int addongap;
         int border;
@@ -623,8 +531,7 @@ static void test_checks(int index, int debug) {
         double dotsize;
         int eci;
         char *filetype;
-        double height;
-        double guard_descent;
+        int height;
         int mask;
         int mode;
         int rotate;
@@ -634,64 +541,56 @@ static void test_checks(int index, int debug) {
         int secure;
         int separator;
         int vers;
-        int vwhitesp;
         int w;
 
         char *expected;
     };
     // s/\/\*[ 0-9]*\*\//\=printf("\/*%3d*\/", line(".") - line("'<"))
     struct item data[] = {
-        /*  0*/ { -2, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Error 139: Invalid add-on gap value (digits only)" },
-        /*  1*/ {  6, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 140: Add-on gap out of range (7 to 12), ignoring" },
-        /*  2*/ { 13, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 140: Add-on gap out of range (7 to 12), ignoring" },
-        /*  3*/ { -1, -2,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Error 107: Invalid border width value (digits only)" },
-        /*  4*/ { -1, 1001, -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 108: Border width out of range (0 to 1000), ignoring" },
-        /*  5*/ { -1, -1,   -1, 0.009, -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 106: Invalid dot radius value (less than 0.01), ignoring" },
-        /*  6*/ { -1, -1,   -2, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Error 131: Invalid columns value (digits only)" },
-        /*  7*/ { -1, -1,  201, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 111: Number of columns out of range (1 to 200), ignoring" },
-        /*  8*/ { -1, -1,   -1, -1,    -2,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Error 138: Invalid ECI value (digits only)" },
-        /*  9*/ { -1, -1,   -1, -1,    1000000, NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 118: ECI code out of range (0 to 999999), ignoring" },
-        /* 10*/ { -1, -1,   -1, -1,    -1,      "jpg", -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 142: File type 'jpg' not supported, ignoring" },
-        /* 11*/ { -1, -1,   -1, -1,    -1,      NULL,  -2,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 110: Symbol height '-2' out of range (0.5 to 1000), ignoring" },
-        /* 12*/ { -1, -1,   -1, -1,    -1,      NULL,   0,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 110: Symbol height '0' out of range (0.5 to 1000), ignoring" },
-        /* 13*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -2, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 155: Guard bar descent '-2' out of range (0 to 50), ignoring" },
-        /* 14*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, 50.1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 155: Guard bar descent '50.1' out of range (0 to 50), ignoring" },
-        /* 15*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -2, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Error 148: Invalid mask value (digits only)" },
-        /* 16*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1,  8, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 147: Mask value out of range (0 to 7), ignoring" },
-        /* 17*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1,  7, -1, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 116: Mode value out of range (0 to 6), ignoring" },
-        /* 18*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -2, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Error 117: Invalid rotation value (digits only)" },
-        /* 19*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, 45, -1, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 137: Invalid rotation parameter (0, 90, 180 or 270 only), ignoring" },
-        /* 20*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -2, -1,   -1, -1, -1, -1,   -1,   -1, "Error 132: Invalid rows value (digits only)" },
-        /* 21*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, 45, -1,   -1, -1, -1, -1,   -1,   -1, "Warning 112: Number of rows out of range (1 to 44), ignoring" },
-        /* 22*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -2,   -1, -1, -1, -1,   -1,   -1, "Warning 105: Invalid scale value (less than 0.01), ignoring" },
-        /* 23*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, 0.49, -1, -1, -1, -1,   -1,   -1, "Warning 146: Scaling less than 0.5 will be set to 0.5 for 'gif' output" },
-        /* 24*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -2, -1, -1, -1,   -1,   -1, "Error 149: Invalid Structured Carrier Message version value (digits only)" },
-        /* 25*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,  100, -1, -1, -1,   -1,   -1, "Warning 150: Structured Carrier Message version out of range (0 to 99), ignoring" },
-        /* 26*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -2, -1, -1,   -1,   -1, "Error 134: Invalid ECC value (digits only)" },
-        /* 27*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1,  9, -1, -1,   -1,   -1, "Warning 114: ECC level out of range (0 to 8), ignoring" },
-        /* 28*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -2, -1,   -1,   -1, "Error 128: Invalid separator value (digits only)" },
-        /* 29*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1,  5, -1,   -1,   -1, "Warning 127: Separator value out of range (0 to 4), ignoring" },
-        /* 30*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -2,   -1,   -1, "Error 133: Invalid version value (digits only)" },
-        /* 31*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, 85,   -1,   -1, "Warning 113: Version value out of range (1 to 84), ignoring" },
-        /* 32*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -2,   -1, "Error 153: Invalid vertical whitespace value '-2' (digits only)" },
-        /* 33*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, 1001,   -1, "Warning 154: Vertical whitespace value out of range (0 to 1000), ignoring" },
-        /* 34*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1,   -2, "Error 120: Invalid horizontal whitespace value '-2' (digits only)" },
-        /* 35*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,   -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1,   -1, 1001, "Warning 121: Horizontal whitespace value out of range (0 to 1000), ignoring" },
+        /*  0*/ { -2, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Error 139: Invalid add-on gap value" },
+        /*  1*/ {  6, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Warning 140: Invalid add-on gap value" },
+        /*  2*/ { 13, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Warning 140: Invalid add-on gap value" },
+        /*  3*/ { -1, -2,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Error 107: Invalid border width value" },
+        /*  4*/ { -1, 1001, -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Warning 108: Border width out of range" },
+        /*  5*/ { -1, -1,   -1, 0.009, -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Warning 106: Invalid dot radius value" },
+        /*  6*/ { -1, -1,   -2, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Error 131: Invalid columns value" },
+        /*  7*/ { -1, -1,  109, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Warning 111: Number of columns out of range" },
+        /*  8*/ { -1, -1,   -1, -1,    -2,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Error 138: Invalid ECI value" },
+        /*  9*/ { -1, -1,   -1, -1,    1000000, NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Warning 118: Invalid ECI code" },
+        /* 10*/ { -1, -1,   -1, -1,    -1,      "jpg", -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Warning 142: File type 'jpg' not supported, ignoring" },
+        /* 11*/ { -1, -1,   -1, -1,    -1,      NULL,  -2, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Error 109: Invalid symbol height value" },
+        /* 12*/ { -1, -1,   -1, -1,    -1,      NULL,   0, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Warning 110: Symbol height out of range" },
+        /* 13*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -2, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Error 148: Invalid mask value" },
+        /* 14*/ { -1, -1,   -1, -1,    -1,      NULL,  -1,  8, -1, -1, -1, -1,   -1, -1, -1, -1, -1,   "Warning 147: Invalid mask value" },
+        /* 15*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1,  7, -1, -1, -1,   -1, -1, -1, -1, -1,   "Warning 116: Invalid mode" },
+        /* 16*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -2, -1, -1,   -1, -1, -1, -1, -1,   "Error 117: Invalid rotation value" },
+        /* 17*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, 45, -1, -1,   -1, -1, -1, -1, -1,   "Warning 137: Invalid rotation parameter" },
+        /* 18*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -2, -1,   -1, -1, -1, -1, -1,   "Error 132: Invalid rows value" },
+        /* 19*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, 45, -1,   -1, -1, -1, -1, -1,   "Warning 112: Number of rows out of range" },
+        /* 20*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -2,   -1, -1, -1, -1, -1,   "Warning 105: Invalid scale value" },
+        /* 21*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, 0.49, -1, -1, -1, -1, -1,   "Warning 146: Scaling less than 0.5 will be set to 0.5 for 'png' output" },
+        /* 22*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -2, -1, -1, -1, -1,   "Error 149: Invalid Structured Carrier Message version value" },
+        /* 22*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,  100, -1, -1, -1, -1,   "Warning 150: Invalid version (vv) for Structured Carrier Message, ignoring" },
+        /* 22*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -2, -1, -1, -1,   "Error 134: Invalid ECC value" },
+        /* 23*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1,  9, -1, -1, -1,   "Warning 114: ECC level out of range" },
+        /* 24*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -2, -1, -1,   "Error 128: Invalid separator value" },
+        /* 25*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1,  5, -1, -1,   "Warning 127: Invalid separator value" },
+        /* 26*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -2, -1,   "Error 133: Invalid version value" },
+        /* 27*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, 85, -1,   "Warning 113: Invalid version" },
+        /* 28*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -2,   "Error 120: Invalid whitespace value '-2'" },
+        /* 29*/ { -1, -1,   -1, -1,    -1,      NULL,  -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, 1001, "Warning 121: Whitespace value out of range" },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char cmd[4096];
     char buf[4096];
-    char *outfilename = "out.gif";
+    char *outfilename = "out.png";
 
-    testStart("test_checks");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        strcpy(cmd, "zint -d 1 --filetype=gif");
+        strcpy(cmd, "zint -d '1'");
         if (debug & ZINT_DEBUG_PRINT) {
             strcat(cmd, " --verbose");
         }
@@ -702,8 +601,7 @@ static void test_checks(int index, int debug) {
         arg_double(cmd, "--dotsize=", data[i].dotsize);
         arg_int(cmd, "--eci=", data[i].eci);
         arg_data(cmd, "--filetype=", data[i].filetype);
-        arg_double(cmd, "--height=", data[i].height);
-        arg_double(cmd, "--guarddescent=", data[i].guard_descent);
+        arg_int(cmd, "--height=", data[i].height);
         arg_int(cmd, "--mask=", data[i].mask);
         arg_int(cmd, "--mode=", data[i].mode);
         arg_int(cmd, "--rotate=", data[i].rotate);
@@ -713,7 +611,6 @@ static void test_checks(int index, int debug) {
         arg_int(cmd, "--secure=", data[i].secure);
         arg_int(cmd, "--separator=", data[i].separator);
         arg_int(cmd, "--vers=", data[i].vers);
-        arg_int(cmd, "--vwhitesp=", data[i].vwhitesp);
         arg_int(cmd, "-w ", data[i].w);
 
         strcat(cmd, " 2>&1");
@@ -722,7 +619,7 @@ static void test_checks(int index, int debug) {
         assert_zero(strcmp(buf, data[i].expected), "i:%d buf (%s) != expected (%s)\n", i, buf, data[i].expected);
 
         if (strncmp(data[i].expected, "Warning", 7) == 0) {
-            assert_zero(remove(outfilename), "i:%d remove(%s) != 0 (%d: %s)\n", i, outfilename, errno, strerror(errno));
+            assert_zero(remove(outfilename), "i:%d remove(%s) != 0 (%d)\n", i, outfilename, errno);
         }
     }
 
@@ -730,6 +627,8 @@ static void test_checks(int index, int debug) {
 }
 
 static void test_barcode_symbology(int index, int debug) {
+
+    testStart("");
 
     struct item {
         const char *bname;
@@ -755,127 +654,120 @@ static void test_barcode_symbology(int index, int debug) {
         /* 12*/ { "code39", "1", NULL, 0, "symbology: 8," },
         /* 13*/ { "excode 39", "1", NULL, 0, "symbology: 9," },
         /* 14*/ { "eanx", "1", NULL, 0, "symbology: 13," },
-        /* 15*/ { "ean", "1", NULL, 0, "symbology: 13," },
-        /* 16*/ { "eanx chk", "1", NULL, 0, "symbology: 14," },
-        /* 17*/ { "eanxchk", "1", NULL, 0, "symbology: 14," },
-        /* 18*/ { "eanchk", "1", NULL, 0, "symbology: 14," },
-        /* 19*/ { "GS1128", "[01]12345678901231", NULL, 0, "symbology: 16," },
-        /* 20*/ { "coda bar", "A1B", NULL, 0, "symbology: 18," },
-        /* 21*/ { "DPLEIT", "1", NULL, 0, "symbology: 21," },
-        /* 22*/ { "DPIDENT", "1", NULL, 0, "symbology: 22," },
-        /* 23*/ { "code16k", "1", NULL, 0, "symbology: 23," },
-        /* 24*/ { "CODE49", "1", NULL, 0, "symbology: 24," },
-        /* 25*/ { "CODE93", "1", NULL, 0, "symbology: 25," },
-        /* 26*/ { "flat", "1", NULL, 0, "symbology: 28," },
-        /* 27*/ { "dbar omn", "1", NULL, 0, "symbology: 29," },
-        /* 28*/ { "dbar ltd", "1", NULL, 0, "symbology: 30," },
-        /* 29*/ { "dbarexp", "[10]12", NULL, 0, "symbology: 31," },
-        /* 30*/ { "telepen", "1", NULL, 0, "symbology: 32," },
-        /* 31*/ { "upc", "1", NULL, 1, "Error 119: Invalid barcode type 'upc'" },
-        /* 32*/ { "upca", "1", NULL, 0, "symbology: 34," },
-        /* 33*/ { "upca_chk", "123456789012", NULL, 0, "symbology: 35," },
-        /* 34*/ { "upce", "1", NULL, 0, "symbology: 37," },
-        /* 35*/ { "upce chk", "12345670", NULL, 0, "symbology: 38," },
+        /* 15*/ { "eanx chk", "1", NULL, 0, "symbology: 14," },
+        /* 16*/ { "eanxchk", "1", NULL, 0, "symbology: 14," },
+        /* 17*/ { "GS1128", "[01]12345678901231", NULL, 0, "symbology: 16," },
+        /* 18*/ { "coda bar", "A1B", NULL, 0, "symbology: 18," },
+        /* 19*/ { "DPLEIT", "1", NULL, 0, "symbology: 21," },
+        /* 20*/ { "DPIDENT", "1", NULL, 0, "symbology: 22," },
+        /* 21*/ { "code16k", "1", NULL, 0, "symbology: 23," },
+        /* 22*/ { "CODE49", "1", NULL, 0, "symbology: 24," },
+        /* 23*/ { "CODE93", "1", NULL, 0, "symbology: 25," },
+        /* 24*/ { "flat", "1", NULL, 0, "symbology: 28," },
+        /* 25*/ { "dbar omn", "1", NULL, 0, "symbology: 29," },
+        /* 26*/ { "dbar ltd", "1", NULL, 0, "symbology: 30," },
+        /* 27*/ { "dbarexp", "[10]12", NULL, 0, "symbology: 31," },
+        /* 28*/ { "telepen", "1", NULL, 0, "symbology: 32," },
+        /* 29*/ { "upc", "1", NULL, 1, "Error 119: Invalid barcode type 'upc'" },
+        /* 30*/ { "upca", "1", NULL, 0, "symbology: 34," },
+        /* 31*/ { "upca_chk", "123456789012", NULL, 0, "symbology: 35," },
+        /* 33*/ { "upce", "1", NULL, 0, "symbology: 37," },
+        /* 34*/ { "upce chk", "12345670", NULL, 0, "symbology: 38," },
         /* 36*/ { "POSTNET ", "12345678901", NULL, 0, "symbology: 40," },
-        /* 37*/ { "msi", "1", NULL, 0, "symbology: 47," },
-        /* 38*/ { "MSI Plessey ", "1", NULL, 0, "symbology: 47," },
-        /* 39*/ { "fim ", "A", NULL, 0, "symbology: 49," },
-        /* 40*/ { "LOGMARS", "123456", NULL, 0, "symbology: 50," },
-        /* 41*/ { " pharma", "123456", NULL, 0, "symbology: 51," },
-        /* 42*/ { " pzn ", "1", NULL, 0, "symbology: 52," },
-        /* 43*/ { "pharma two", "4", NULL, 0, "symbology: 53," },
-        /* 44*/ { "BARCODE_PDF417", "1", NULL, 0, "symbology: 55," },
-        /* 45*/ { "barcodepdf417comp", "1", NULL, 0, "symbology: 56," },
-        /* 46*/ { "MaxiCode", "1", NULL, 0, "symbology: 57," },
-        /* 47*/ { "QR CODE", "1", NULL, 0, "symbology: 58," },
-        /* 48*/ { "qr", "1", NULL, 0, "symbology: 58," }, // Synonym
-        /* 49*/ { "Code 128 B", "1", NULL, 0, "symbology: 60," },
-        /* 50*/ { "AUS POST", "12345678901234567890123", NULL, 0, "symbology: 63," },
-        /* 51*/ { "AusReply", "12345678", NULL, 0, "symbology: 66," },
-        /* 52*/ { "AUSROUTE", "12345678", NULL, 0, "symbology: 67," },
-        /* 53*/ { "AUS REDIRECT", "12345678", NULL, 0, "symbology: 68," },
-        /* 54*/ { "isbnx", "123456789", NULL, 0, "symbology: 69," },
-        /* 55*/ { "rm4scc", "1", NULL, 0, "symbology: 70," },
-        /* 56*/ { "DataMatrix", "1", NULL, 0, "symbology: 71," },
-        /* 57*/ { "EAN14", "1", NULL, 0, "symbology: 72," },
-        /* 58*/ { "vin", "12345678701234567", NULL, 0, "symbology: 73," },
-        /* 59*/ { "CodaBlock-F", "1", NULL, 0, "symbology: 74," },
-        /* 60*/ { "NVE18", "1", NULL, 0, "symbology: 75," },
-        /* 61*/ { "Japan Post", "1", NULL, 0, "symbology: 76," },
-        /* 62*/ { "Korea Post", "1", NULL, 0, "symbology: 77," },
-        /* 63*/ { "DBar Stk", "1", NULL, 0, "symbology: 79," },
-        /* 64*/ { "DBar Omn Stk", "1", NULL, 0, "symbology: 80," },
-        /* 65*/ { "DBar Exp Stk", "[20]01", NULL, 0, "symbology: 81," },
-        /* 66*/ { "planet", "12345678901", NULL, 0, "symbology: 82," },
-        /* 67*/ { "MicroPDF417", "1", NULL, 0, "symbology: 84," },
-        /* 68*/ { "USPS IMail", "12345678901234567890", NULL, 0, "symbology: 85," },
-        /* 69*/ { "plessey", "1", NULL, 0, "symbology: 86," },
-        /* 70*/ { "telepen num", "1", NULL, 0, "symbology: 87," },
-        /* 71*/ { "ITF14", "1", NULL, 0, "symbology: 89," },
-        /* 72*/ { "KIX", "1", NULL, 0, "symbology: 90," },
-        /* 73*/ { "Aztec", "1", NULL, 0, "symbology: 92," },
-        /* 74*/ { "daft", "D", NULL, 0, "symbology: 93," },
-        /* 75*/ { "DPD", "0123456789012345678901234567", NULL, 0, "symbology: 96," },
-        /* 76*/ { "Micro QR", "1", NULL, 0, "symbology: 97," },
-        /* 77*/ { "hibc128", "1", NULL, 0, "symbology: 98," },
-        /* 78*/ { "hibccode128", "1", NULL, 0, "symbology: 98," }, // Synonym
-        /* 79*/ { "hibc39", "1", NULL, 0, "symbology: 99," },
-        /* 80*/ { "hibccode39", "1", NULL, 0, "symbology: 99," }, // Synonym
-        /* 81*/ { "hibcdatamatrix", "1", NULL, 0, "symbology: 102," }, // Synonym
-        /* 82*/ { "hibcdm", "1", NULL, 0, "symbology: 102," },
-        /* 83*/ { "HIBC qr", "1", NULL, 0, "symbology: 104," },
-        /* 84*/ { "HIBC QR Code", "1", NULL, 0, "symbology: 104," }, // Synonym
-        /* 85*/ { "HIBCPDF", "1", NULL, 0, "symbology: 106," },
-        /* 86*/ { "HIBCPDF417", "1", NULL, 0, "symbology: 106," }, // Synonym
-        /* 87*/ { "HIBCMICPDF", "1", NULL, 0, "symbology: 108," },
-        /* 88*/ { "HIBC Micro PDF", "1", NULL, 0, "symbology: 108," }, // Synonym
-        /* 89*/ { "HIBC Micro PDF417", "1", NULL, 0, "symbology: 108," }, // Synonym
-        /* 90*/ { "HIBC BlockF", "1", NULL, 0, "symbology: 110," },
-        /* 91*/ { "HIBC CodaBlock-F", "1", NULL, 0, "symbology: 110," }, // Synonym
-        /* 92*/ { "HIBC Aztec", "1", NULL, 0, "symbology: 112," },
-        /* 93*/ { "DotCode", "1", NULL, 0, "symbology: 115," },
-        /* 94*/ { "Han Xin", "1", NULL, 0, "symbology: 116," },
-        /* 95*/ { "Mailmark", "01000000000000000AA00AA0A", NULL, 0, "symbology: 121," },
-        /* 96*/ { "azrune", "1", NULL, 0, "symbology: 128," },
-        /* 97*/ { "aztecrune", "1", NULL, 0, "symbology: 128," }, // Synonym
-        /* 98*/ { "aztecrunes", "1", NULL, 0, "symbology: 128," }, // Synonym
-        /* 99*/ { "code32", "1", NULL, 0, "symbology: 129," },
-        /*100*/ { "eanx cc", "[20]01", "1234567890128", 0, "symbology: 130," },
-        /*101*/ { "eancc", "[20]01", "1234567890128", 0, "symbology: 130," },
-        /*102*/ { "GS1 128 CC", "[01]12345678901231", "[20]01", 0, "symbology: 131," },
-        /*103*/ { "dbaromncc", "[20]01", "1234567890123", 0, "symbology: 132," },
-        /*104*/ { "dbarltdcc", "[20]01", "1234567890123", 0, "symbology: 133," },
-        /*105*/ { "dbarexpcc", "[20]01", "[01]12345678901231", 0, "symbology: 134," },
-        /*106*/ { "upcacc", "[20]01", "12345678901", 0, "symbology: 135," },
-        /*107*/ { "upcecc", "[20]01", "1234567", 0, "symbology: 136," },
-        /*108*/ { "dbar stk cc", "[20]01", "1234567890123", 0, "symbology: 137," },
-        /*109*/ { "dbaromnstkcc", "[20]01", "1234567890123", 0, "symbology: 138," },
-        /*110*/ { "dbarexpstkcc", "[20]01", "[01]12345678901231", 0, "symbology: 139," },
-        /*111*/ { "Channel", "1", NULL, 0, "symbology: 140," },
-        /*112*/ { "CodeOne", "1", NULL, 0, "symbology: 141," },
-        /*113*/ { "Grid Matrix", "1", NULL, 0, "symbology: 142," },
-        /*114*/ { "UPN QR", "1", NULL, 0, "symbology: 143," },
-        /*115*/ { "UPN QR Code", "1", NULL, 0, "symbology: 143," }, // Synonym
-        /*116*/ { "ultra", "1", NULL, 0, "symbology: 144," },
-        /*117*/ { "ultracode", "1", NULL, 0, "symbology: 144," }, // Synonym
-        /*118*/ { "rMQR", "1", NULL, 0, "symbology: 145," },
-        /*119*/ { "x", "1", NULL, 1, "Error 119: Invalid barcode type 'x'" },
-        /*120*/ { "\177", "1", NULL, 1, "Error 119: Invalid barcode type '\177'" },
+        /* 37*/ { "MSI Plessey ", "1", NULL, 0, "symbology: 47," },
+        /* 38*/ { "fim ", "A", NULL, 0, "symbology: 49," },
+        /* 39*/ { "LOGMARS", "123456", NULL, 0, "symbology: 50," },
+        /* 40*/ { " pharma", "123456", NULL, 0, "symbology: 51," },
+        /* 41*/ { " pzn ", "1", NULL, 0, "symbology: 52," },
+        /* 42*/ { "pharma two", "4", NULL, 0, "symbology: 53," },
+        /* 43*/ { "BARCODE_PDF417", "1", NULL, 0, "symbology: 55," },
+        /* 44*/ { "barcodepdf417comp", "1", NULL, 0, "symbology: 56," },
+        /* 45*/ { "MaxiCode", "1", NULL, 0, "symbology: 57," },
+        /* 46*/ { "QR CODE", "1", NULL, 0, "symbology: 58," },
+        /* 47*/ { "qr", "1", NULL, 0, "symbology: 58," }, // Synonym
+        /* 48*/ { "Code 128 B", "1", NULL, 0, "symbology: 60," },
+        /* 49*/ { "AUS POST", "12345678901234567890123", NULL, 0, "symbology: 63," },
+        /* 50*/ { "AusReply", "12345678", NULL, 0, "symbology: 66," },
+        /* 51*/ { "AUSROUTE", "12345678", NULL, 0, "symbology: 67," },
+        /* 52*/ { "AUS REDIRECT", "12345678", NULL, 0, "symbology: 68," },
+        /* 53*/ { "isbnx", "123456789", NULL, 0, "symbology: 69," },
+        /* 54*/ { "rm4scc", "1", NULL, 0, "symbology: 70," },
+        /* 55*/ { "DataMatrix", "1", NULL, 0, "symbology: 71," },
+        /* 56*/ { "EAN14", "1", NULL, 0, "symbology: 72," },
+        /* 57*/ { "vin", "12345678701234567", NULL, 0, "symbology: 73," },
+        /* 58*/ { "CodaBlock-F", "1", NULL, 0, "symbology: 74," },
+        /* 59*/ { "NVE18", "1", NULL, 0, "symbology: 75," },
+        /* 60*/ { "Japan Post", "1", NULL, 0, "symbology: 76," },
+        /* 61*/ { "Korea Post", "1", NULL, 0, "symbology: 77," },
+        /* 62*/ { "DBar Stk", "1", NULL, 0, "symbology: 79," },
+        /* 63*/ { "DBar Omn Stk", "1", NULL, 0, "symbology: 80," },
+        /* 64*/ { "DBar Exp Stk", "[20]01", NULL, 0, "symbology: 81," },
+        /* 65*/ { "planet", "12345678901", NULL, 0, "symbology: 82," },
+        /* 66*/ { "MicroPDF417", "1", NULL, 0, "symbology: 84," },
+        /* 67*/ { "USPS IMail", "12345678901234567890", NULL, 0, "symbology: 85," },
+        /* 68*/ { "plessey", "1", NULL, 0, "symbology: 86," },
+        /* 69*/ { "telepen num", "1", NULL, 0, "symbology: 87," },
+        /* 70*/ { "ITF14", "1", NULL, 0, "symbology: 89," },
+        /* 71*/ { "KIX", "1", NULL, 0, "symbology: 90," },
+        /* 72*/ { "Aztec", "1", NULL, 0, "symbology: 92," },
+        /* 73*/ { "daft", "D", NULL, 0, "symbology: 93," },
+        /* 74*/ { "DPD", "0123456789012345678901234567", NULL, 0, "symbology: 96," },
+        /* 75*/ { "Micro QR", "1", NULL, 0, "symbology: 97," },
+        /* 76*/ { "hibc128", "1", NULL, 0, "symbology: 98," },
+        /* 76*/ { "hibccode128", "1", NULL, 0, "symbology: 98," }, // Synonym
+        /* 77*/ { "hibc39", "1", NULL, 0, "symbology: 99," },
+        /* 77*/ { "hibccode39", "1", NULL, 0, "symbology: 99," }, // Synonym
+        /* 78*/ { "hibcdatamatrix", "1", NULL, 0, "symbology: 102," }, // Synonym
+        /* 78*/ { "hibcdm", "1", NULL, 0, "symbology: 102," },
+        /* 79*/ { "HIBC qr", "1", NULL, 0, "symbology: 104," },
+        /* 79*/ { "HIBC QR Code", "1", NULL, 0, "symbology: 104," }, // Synonym
+        /* 80*/ { "HIBCPDF", "1", NULL, 0, "symbology: 106," },
+        /* 80*/ { "HIBCPDF417", "1", NULL, 0, "symbology: 106," }, // Synonym
+        /* 81*/ { "HIBCMICPDF", "1", NULL, 0, "symbology: 108," },
+        /* 81*/ { "HIBC Micro PDF", "1", NULL, 0, "symbology: 108," }, // Synonym
+        /* 81*/ { "HIBC Micro PDF417", "1", NULL, 0, "symbology: 108," }, // Synonym
+        /* 81*/ { "HIBC BlockF", "1", NULL, 0, "symbology: 110," },
+        /* 81*/ { "HIBC CodaBlock-F", "1", NULL, 0, "symbology: 110," }, // Synonym
+        /* 82*/ { "HIBC Aztec", "1", NULL, 0, "symbology: 112," },
+        /* 83*/ { "DotCode", "1", NULL, 0, "symbology: 115," },
+        /* 84*/ { "Han Xin", "1", NULL, 0, "symbology: 116," },
+        /* 85*/ { "Mailmark", "01000000000000000AA00AA0A", NULL, 0, "symbology: 121," },
+        /* 86*/ { "azrune", "1", NULL, 0, "symbology: 128," },
+        /* 86*/ { "aztecrune", "1", NULL, 0, "symbology: 128," }, // Synonym
+        /* 86*/ { "aztecrunes", "1", NULL, 0, "symbology: 128," }, // Synonym
+        /* 87*/ { "code32", "1", NULL, 0, "symbology: 129," },
+        /* 88*/ { "eanx cc", "[20]01", "1234567890128", 0, "symbology: 130," },
+        /* 89*/ { "GS1 128 CC", "[01]12345678901231", "[20]01", 0, "symbology: 131," },
+        /* 90*/ { "dbaromncc", "[20]01", "1234567890123", 0, "symbology: 132," },
+        /* 91*/ { "dbarltdcc", "[20]01", "1234567890123", 0, "symbology: 133," },
+        /* 92*/ { "dbarexpcc", "[20]01", "[01]12345678901231", 0, "symbology: 134," },
+        /* 93*/ { "upcacc", "[20]01", "12345678901", 0, "symbology: 135," },
+        /* 94*/ { "upcecc", "[20]01", "1234567", 0, "symbology: 136," },
+        /* 95*/ { "dbar stk cc", "[20]01", "1234567890123", 0, "symbology: 137," },
+        /* 96*/ { "dbaromnstkcc", "[20]01", "1234567890123", 0, "symbology: 138," },
+        /* 97*/ { "dbarexpstkcc", "[20]01", "[01]12345678901231", 0, "symbology: 139," },
+        /* 98*/ { "Channel", "1", NULL, 0, "symbology: 140," },
+        /* 99*/ { "CodeOne", "1", NULL, 0, "symbology: 141," },
+        /*100*/ { "Grid Matrix", "1", NULL, 0, "symbology: 142," },
+        /*101*/ { "UPN QR", "1", NULL, 0, "symbology: 143," },
+        /*102*/ { "UPN QR Code", "1", NULL, 0, "symbology: 143," }, // Synonym
+        /*103*/ { "ultra", "1", NULL, 0, "symbology: 144," },
+        /*104*/ { "ultracode", "1", NULL, 0, "symbology: 144," }, // Synonym
+        /*105*/ { "rMQR", "1", NULL, 0, "symbology: 145," },
+        /*106*/ { "x", "1", NULL, 1, "Error 119: Invalid barcode type 'x'" },
+        /*107*/ { "\177", "1", NULL, 1, "Error 119: Invalid barcode type '\177'" },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char cmd[4096];
     char buf[8192];
-    char *outfilename = "out.gif";
+    char *outfilename = "out.png";
 
-    testStart("test_barcode_symbology");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        strcpy(cmd, "zint --filetype=gif");
+        strcpy(cmd, "zint ");
         strcat(cmd, " --verbose");
 
         arg_data(cmd, "-b ", data[i].bname);
@@ -885,9 +777,9 @@ static void test_barcode_symbology(int index, int debug) {
         strcat(cmd, " 2>&1");
 
         assert_nonnull(exec(cmd, buf, sizeof(buf) - 1, debug, i), "i:%d exec(%s) NULL\n", i, cmd);
-        assert_nonnull(strstr(buf, data[i].expected), "i:%d strstr(%s, %s) == NULL (%s)\n", i, buf, data[i].expected, cmd);
+        assert_nonnull(strstr(buf, data[i].expected), "i:%d strstr(%s, %s) == NULL\n", i, buf, data[i].expected);
         if (!data[i].fail) {
-            assert_zero(remove(outfilename), "i:%d remove(%s) != 0 (%d: %s) (%s)\n", i, outfilename, errno, strerror(errno), cmd);
+            assert_zero(remove(outfilename), "i:%d remove(%s) != 0 (%d)\n", i, outfilename, errno);
         }
     }
 
@@ -895,6 +787,8 @@ static void test_barcode_symbology(int index, int debug) {
 }
 
 static void test_other_opts(int index, int debug) {
+
+    testStart("");
 
     struct item {
         int b;
@@ -908,56 +802,32 @@ static void test_other_opts(int index, int debug) {
     // s/\/\*[ 0-9]*\*\//\=printf("\/*%3d*\/", line(".") - line("'<"))
     struct item data[] = {
         /*  0*/ { BARCODE_CODE128, "1", -1, " --bg=", "EF9900", "" },
-        /*  1*/ { BARCODE_CODE128, "1", -1, " -bg=", "EF9900", "" },
-        /*  2*/ { BARCODE_CODE128, "1", -1, " --bg=", "EF9900AA", "" },
-        /*  3*/ { BARCODE_CODE128, "1", -1, " --bg=", "GF9900", "Error 654: Malformed background colour target" },
-        /*  4*/ { BARCODE_CODE128, "1", -1, " --fg=", "000000", "" },
-        /*  5*/ { BARCODE_CODE128, "1", -1, " --fg=", "00000000", "" },
-        /*  6*/ { BARCODE_CODE128, "1", -1, " --fg=", "000000F", "Error 651: Malformed foreground colour target" },
-        /*  7*/ { BARCODE_CODE128, "1", -1, " --fg=", "000000FG", "Error 653: Malformed foreground colour target" },
-        /*  8*/ { BARCODE_CODE128, "1", -1, " --compliantheight", "", "" },
-        /*  9*/ { BARCODE_CODE128, "1", -1, " --fontsize=", "10", "" },
-        /* 10*/ { BARCODE_CODE128, "1", -1, " --fontsize=", "101", "Warning 126: Font size out of range (0 to 100), ignoring" },
-        /* 11*/ { BARCODE_CODE128, "1", -1, " --nobackground", "", "" },
-        /* 12*/ { BARCODE_CODE128, "1", -1, " --noquietzones", "", "" },
-        /* 13*/ { BARCODE_CODE128, "1", -1, " --notext", "", "" },
-        /* 14*/ { BARCODE_CODE128, "1", -1, " --quietzones", "", "" },
-        /* 15*/ { BARCODE_CODE128, "1", -1, " --reverse", "", "" },
-        /* 16*/ { BARCODE_CODE128, "1", -1, " --werror", NULL, "" },
-        /* 17*/ { 19, "1", -1, " --werror", NULL, "Error 207: Codabar 18 not supported" },
-        /* 18*/ { BARCODE_GS1_128, "[01]12345678901231", -1, "", NULL, "" },
-        /* 19*/ { BARCODE_GS1_128, "0112345678901231", -1, "", NULL, "Error 252: Data does not start with an AI" },
-        /* 20*/ { BARCODE_GS1_128, "0112345678901231", -1, " --gs1nocheck", NULL, "Error 252: Data does not start with an AI" },
-        /* 21*/ { BARCODE_GS1_128, "[00]376104250021234569", -1, "", NULL, "" },
-        /* 22*/ { BARCODE_GS1_128, "[00]376104250021234568", -1, "", NULL, "Warning 261: AI (00) position 18: Bad checksum '8', expected '9'" },
-        /* 23*/ { BARCODE_GS1_128, "[00]376104250021234568", -1, " --gs1nocheck", NULL, "" },
-        /* 24*/ { BARCODE_GS1_128, "[00]376104250021234568", -1, " --werror", NULL, "Error 261: AI (00) position 18: Bad checksum '8', expected '9'" },
-        /* 25*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "1", "Error 155: Invalid Structured Append argument, expect \"index,count[,ID]\"" },
-        /* 26*/ { BARCODE_AZTEC, "1", -1, " --structapp=", ",", "Error 156: Structured Append index too short" },
-        /* 27*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "1234567890,", "Error 156: Structured Append index too long" },
-        /* 28*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "123456789,", "Error 159: Structured Append count too short" },
-        /* 29*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "123456789,1234567890", "Error 159: Structured Append count too long" },
-        /* 30*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "123456789,123456789,", "Error 158: Structured Append ID too short" },
-        /* 31*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "123456789,1234567890,", "Error 157: Structured Append count too long" },
-        /* 32*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "123456789,123456789,123456789012345678901234567890123", "Error 158: Structured Append ID too long" },
-        /* 33*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "123456789,123456789,12345678901234567890123456789012", "Error 701: Structured Append count out of range (2-26)" },
-        /* 34*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "26,26,12345678901234567890123456789012", "" },
-        /* 35*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "A,26,12345678901234567890123456789012", "Error 160: Invalid Structured Append index (digits only)" },
-        /* 36*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "26,A,12345678901234567890123456789012", "Error 161: Invalid Structured Append count (digits only)" },
-        /* 37*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "26,1,12345678901234567890123456789012", "Error 162: Invalid Structured Append count, must be >= 2" },
-        /* 38*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "0,2,12345678901234567890123456789012", "Error 163: Structured Append index out of range (1-2)" },
-        /* 39*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "3,2,12345678901234567890123456789012", "Error 163: Structured Append index out of range (1-2)" },
-        /* 40*/ { BARCODE_AZTEC, "1", -1, " --structapp=", "2,3,12345678901234567890123456789012", "" },
+        /*  1*/ { BARCODE_CODE128, "1", -1, " --bg=", "EF9900AA", "" },
+        /*  2*/ { BARCODE_CODE128, "1", -1, " --bg=", "GF9900", "Error 654: Malformed background colour target" },
+        /*  3*/ { BARCODE_CODE128, "1", -1, " --fg=", "000000", "" },
+        /*  4*/ { BARCODE_CODE128, "1", -1, " --fg=", "00000000", "" },
+        /*  5*/ { BARCODE_CODE128, "1", -1, " --fg=", "000000F", "Error 651: Malformed foreground colour target" },
+        /*  6*/ { BARCODE_CODE128, "1", -1, " --fg=", "000000FG", "Error 653: Malformed foreground colour target" },
+        /*  7*/ { BARCODE_CODE128, "1", -1, " --fontsize=", "10", "" },
+        /*  8*/ { BARCODE_CODE128, "1", -1, " --fontsize=", "101", "Warning 126: Invalid font size" },
+        /*  9*/ { BARCODE_CODE128, "1", -1, " --nobackground", "", "" },
+        /* 10*/ { BARCODE_CODE128, "1", -1, " --notext", "", "" },
+        /* 11*/ { BARCODE_CODE128, "1", -1, " --reverse", "", "" },
+        /* 12*/ { BARCODE_CODE128, "1", -1, " --werror", NULL, "" },
+        /* 13*/ { 19, "1", -1, " --werror", NULL, "Error 207: Codabar 18 not supported" },
+        /* 14*/ { BARCODE_GS1_128, "[01]12345678901231", -1, "", NULL, "" },
+        /* 15*/ { BARCODE_GS1_128, "0112345678901231", -1, "", NULL, "Error 252: Data does not start with an AI" },
+        /* 16*/ { BARCODE_GS1_128, "0112345678901231", -1, " --wzpl", NULL, "Warning 252: Data does not start with an AI" },
+        /* 17*/ { BARCODE_GS1_128, "[00]376104250021234569", -1, "", NULL, "" },
+        /* 18*/ { BARCODE_GS1_128, "[00]376104250021234568", -1, "", NULL, "Warning 261: AI (00) position 18: Bad checksum '8', expected '9'" },
+        /* 19*/ { BARCODE_GS1_128, "[00]376104250021234568", -1, " --wzpl", NULL, "Warning 261: AI (00) position 18: Bad checksum '8', expected '9'" },
+        /* 20*/ { BARCODE_GS1_128, "[00]376104250021234568", -1, " --werror", NULL, "Warning 261: AI (00) position 18: Bad checksum '8', expected '9'" },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
-
     char cmd[4096];
     char buf[8192];
 
-    testStart("test_other_opts");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 

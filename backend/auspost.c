@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2008 - 2021 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2008 - 2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -31,7 +31,7 @@
  */
 /* vim: set ts=4 sw=4 et : */
 
-#define GDSET   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz #"
+#define GDSET 	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz #"
 
 static const char *AusNTable[10] = {
     "00", "01", "02", "10", "11", "12", "20", "21", "22", "30"
@@ -58,8 +58,11 @@ static const char *AusBarTable[64] = {
 #include <stdio.h>
 #include "common.h"
 #include "reedsol.h"
+#ifdef _MSC_VER
+#define inline _inline
+#endif
 
-static char convert_pattern(char data, int shift) {
+static inline char convert_pattern(char data, int shift) {
     return (data - '0') << shift;
 }
 
@@ -85,10 +88,8 @@ static void rs_error(char data_pattern[]) {
     }
 }
 
-INTERNAL int daft_set_height(struct zint_symbol *symbol, float min_height, float max_height);
-
 /* Handles Australia Posts's 4 State Codes */
-INTERNAL int auspost(struct zint_symbol *symbol, unsigned char source[], int length) {
+INTERNAL int australia_post(struct zint_symbol *symbol, unsigned char source[], int length) {
     /* Customer Standard Barcode, Barcode 2 or Barcode 3 system determined automatically
        (i.e. the FCC doesn't need to be specified by the user) dependent
        on the length of the input string */
@@ -108,9 +109,10 @@ INTERNAL int auspost(struct zint_symbol *symbol, unsigned char source[], int len
     char localstr[30];
 
     /* Check input immediately to catch nuls */
-    if (is_sane(GDSET, source, length) != 0) {
-        strcpy(symbol->errtxt, "404: Invalid character in data (alphanumerics, space and \"#\" only)");
-        return ZINT_ERROR_INVALID_DATA;
+    error_number = is_sane(GDSET, source, length);
+    if (error_number == ZINT_ERROR_INVALID_DATA) {
+        strcpy(symbol->errtxt, "404: Invalid characters in data");
+        return error_number;
     }
     strcpy(localstr, "");
 
@@ -126,29 +128,27 @@ INTERNAL int auspost(struct zint_symbol *symbol, unsigned char source[], int len
                 break;
             case 16:
                 strcpy(fcc, "59");
-                if (is_sane(NEON, source, length) != 0) {
-                    strcpy(symbol->errtxt, "402: Invalid character in data (digits only for length 16)");
-                    return ZINT_ERROR_INVALID_DATA;
-                }
+                error_number = is_sane(NEON, source, length);
                 break;
             case 18:
                 strcpy(fcc, "62");
                 break;
             case 23:
                 strcpy(fcc, "62");
-                if (is_sane(NEON, source, length) != 0) {
-                    strcpy(symbol->errtxt, "406: Invalid character in data (digits only for length 23)");
-                    return ZINT_ERROR_INVALID_DATA;
-                }
+                error_number = is_sane(NEON, source, length);
                 break;
             default:
-                strcpy(symbol->errtxt, "401: Auspost input is wrong length (8, 13, 16, 18 or 23 characters only)");
+                strcpy(symbol->errtxt, "401: Auspost input is wrong length");
                 return ZINT_ERROR_TOO_LONG;
+        }
+        if (error_number == ZINT_ERROR_INVALID_DATA) {
+            strcpy(symbol->errtxt, "402: Invalid characters in data");
+            return error_number;
         }
     } else {
         int zeroes;
         if (length > 8) {
-            strcpy(symbol->errtxt, "403: Auspost input is too long (8 character maximum)");
+            strcpy(symbol->errtxt, "403: Auspost input is too long");
             return ZINT_ERROR_TOO_LONG;
         }
         switch (symbol->symbology) {
@@ -172,12 +172,13 @@ INTERNAL int auspost(struct zint_symbol *symbol, unsigned char source[], int len
 
     ustrncat(localstr, source, length);
     h = (int) strlen(localstr);
-    /* Verify that the first 8 characters are numbers */
+    /* Verifiy that the first 8 characters are numbers */
     memcpy(dpid, localstr, 8);
     dpid[8] = '\0';
-    if (is_sane(NEON, (unsigned char *) dpid, 8) != 0) {
-        strcpy(symbol->errtxt, "405: Invalid character in DPID (first 8 characters) (digits only)");
-        return ZINT_ERROR_INVALID_DATA;
+    error_number = is_sane(NEON, (unsigned char *) dpid, 8);
+    if (error_number == ZINT_ERROR_INVALID_DATA) {
+        strcpy(symbol->errtxt, "405: Invalid characters in DPID");
+        return error_number;
     }
 
     /* Start character */
@@ -238,23 +239,10 @@ INTERNAL int auspost(struct zint_symbol *symbol, unsigned char source[], int len
         writer += 2;
     }
 
-    if (symbol->output_options & COMPLIANT_HEIGHT) {
-        /* Australia Post Customer Barcoding Technical Specifications (Revised Aug 2012) Dimensions, placement and
-           printing p.12
-           (https://auspost.com.au/content/dam/auspost_corp/media/documents/
-            customer-barcode-technical-specifications-aug2012.pdf)
-           X 0.5mm (average of 0.4mm - 0.6mm), min height 4.2mm / 0.6mm (X max) = 7, max 5.6mm / 0.4mm (X min) = 14
-           Tracker 1.3mm (average of 1mm - 1.6mm)
-           Ascender/Descender 3.15mm (average of 2.6mm - 3.7mm) less T = 1.85mm
-         */
-        symbol->row_height[0] = 3.7f; /* 1.85f / 0.5f */
-        symbol->row_height[1] = 2.6f; /* 1.3f / 0.5f */
-        error_number = daft_set_height(symbol, 7.0f, 14.0f); /* Note using max X for minimum and min X for maximum */
-    } else {
-        symbol->row_height[0] = 3.0f;
-        symbol->row_height[1] = 2.0f;
-        error_number = daft_set_height(symbol, 0.0f, 0.0f);
-    }
+    symbol->row_height[0] = 3;
+    symbol->row_height[1] = 2;
+    symbol->row_height[2] = 3;
+
     symbol->rows = 3;
     symbol->width = writer - 1;
 

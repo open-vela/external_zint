@@ -39,6 +39,10 @@
 #include <math.h>
 #ifdef _MSC_VER
 #include <malloc.h>
+/* ceilf (C99) not before MSVC++2013 (C++ 12.0) */
+#if _MSC_VER < 1800
+#define ceilf (float) ceil
+#endif
 #endif
 
 /* Add solid bar */
@@ -147,103 +151,84 @@ static int is_step_Q4bi_applicable(const unsigned char source[], const int sourc
     return 0;
 }
 
-/* Character counts are multiplied by this, so as to be whole integer divisible by 2 and 3 */
-#define C1_MULT             6
-
-#define C1_MULT_1_DIV_2     3
-#define C1_MULT_2_DIV_3     4
-#define C1_MULT_1           6
-#define C1_MULT_4_DIV_3     8
-#define C1_MULT_2           12
-#define C1_MULT_8_DIV_3     16
-#define C1_MULT_3           18
-#define C1_MULT_10_DIV_3    20
-#define C1_MULT_13_DIV_3    26
-
-#define C1_MULT_MINUS_1     5
-#define C1_MULT_CEIL(n)     ((((n) + C1_MULT_MINUS_1) / C1_MULT) * C1_MULT)
-
 /* AIM USS Code One Annex D Steps J-R */
 static int c1_look_ahead_test(const unsigned char source[], const int sourcelen, const int position,
             const int current_mode, const int gs1) {
-    int ascii_count, c40_count, text_count, edi_count, byte_count;
+    float ascii_count, c40_count, text_count, edi_count, byte_count;
     int ascii_rnded, c40_rnded, text_rnded, edi_rnded, byte_rnded;
-    int cnt_1;
     int sp;
 
     /* Step J1 */
     if (current_mode == C1_ASCII) {
-        ascii_count = 0;
-        c40_count = C1_MULT_1;
-        text_count = C1_MULT_1;
-        edi_count = C1_MULT_1;
-        byte_count = C1_MULT_2;
+        ascii_count = 0.0f;
+        c40_count = 1.0f;
+        text_count = 1.0f;
+        edi_count = 1.0f;
+        byte_count = 2.0f;
     } else {
-        ascii_count = C1_MULT_1;
-        c40_count = C1_MULT_2;
-        text_count = C1_MULT_2;
-        edi_count = C1_MULT_2;
-        byte_count = C1_MULT_3;
+        ascii_count = 1.0f;
+        c40_count = 2.0f;
+        text_count = 2.0f;
+        edi_count = 2.0f;
+        byte_count = 3.0f;
     }
 
     switch (current_mode) {
-        case C1_C40: c40_count = 0; /* Step J2 */
+        case C1_C40: c40_count = 0.0f; /* Step J2 */
             break;
-        case C1_TEXT: text_count = 0; /* Step J3 */
+        case C1_TEXT: text_count = 0.0f; /* Step J3 */
             break;
-        case C1_EDI: edi_count = 0; /* Missing in spec */
+        case C1_EDI: edi_count = 0.0f; /* Missing in spec */
             break;
-        case C1_BYTE: byte_count = 0; /* Step J4 */
+        case C1_BYTE: byte_count = 0.0f; /* Step J4 */
             break;
     }
 
     for (sp = position; sp < sourcelen; sp++) {
-        unsigned char c = source[sp];
-        int is_extended = c & 0x80;
 
         /* Step L */
-        if ((c >= '0') && (c <= '9')) {
-            ascii_count += C1_MULT_1_DIV_2; /* Step L1 */
+        if ((source[sp] >= '0') && (source[sp] <= '9')) {
+            ascii_count += 0.5f; /* Step L1 */
         } else {
-            if (is_extended) {
-                ascii_count = ceilf(ascii_count) + C1_MULT_2; /* Step L2 */
+            if (source[sp] > 127) {
+                ascii_count = ceilf(ascii_count) + 2.0f; /* Step L2 */
             } else {
-                ascii_count = ceilf(ascii_count) + C1_MULT_1; /* Step L3 */
+                ascii_count = ceilf(ascii_count) + 1.0f; /* Step L3 */
             }
         }
 
         /* Step M */
-        if (isc40(c)) {
-            c40_count += C1_MULT_2_DIV_3; /* Step M1 */
-        } else if (is_extended) {
-            c40_count += C1_MULT_8_DIV_3; /* Step M2 */
+        if (isc40(source[sp])) {
+            c40_count += (2.0f / 3.0f); /* Step M1 */
+        } else if (source[sp] > 127) {
+            c40_count += (8.0f / 3.0f); /* Step M2 */
         } else {
-            c40_count += C1_MULT_4_DIV_3; /* Step M3 */
+            c40_count += (4.0f / 3.0f); /* Step M3 */
         }
 
         /* Step N */
-        if (istext(c)) {
-            text_count += C1_MULT_2_DIV_3; /* Step N1 */
-        } else if (is_extended) {
-            text_count += C1_MULT_8_DIV_3; /* Step N2 */
+        if (istext(source[sp])) {
+            text_count += (2.0f / 3.0f); /* Step N1 */
+        } else if (source[sp] > 127) {
+            text_count += (8.0f / 3.0f); /* Step N2 */
         } else {
-            text_count += C1_MULT_4_DIV_3; /* Step N3 */
+            text_count += (4.0f / 3.0f); /* Step N3 */
         }
 
         /* Step O */
-        if (isedi(c)) {
-            edi_count += C1_MULT_2_DIV_3; /* Step O1 */
-        } else if (is_extended) {
-            edi_count += C1_MULT_13_DIV_3; /* Step O2 */
+        if (isedi(source[sp])) {
+            edi_count += (2.0f / 3.0f); /* Step O1 */
+        } else if (source[sp] > 127) {
+            edi_count += (13.0f / 3.0f); /* Step O2 */
         } else {
-            edi_count += C1_MULT_10_DIV_3; /* Step O3 */
+            edi_count += (10.0f / 3.0f); /* Step O3 */
         }
 
         /* Step P */
-        if (gs1 && (c == '[')) {
-            byte_count += C1_MULT_3; /* Step P1 */
+        if (gs1 && (source[sp] == '[')) {
+            byte_count += 3.0f; /* Step P1 */
         } else {
-            byte_count += C1_MULT_1; /* Step P2 */
+            byte_count += 1.0f; /* Step P2 */
         }
 
         /* If at least 4 characters processed */
@@ -251,26 +236,27 @@ static int c1_look_ahead_test(const unsigned char source[], const int sourcelen,
            BWIPP also uses 4 (cf very similar Data Matrix ISO/IEC 16022:2006 Annex P algorithm) */
         if (sp >= position + 3) {
             /* Step Q */
-            ascii_rnded = C1_MULT_CEIL(ascii_count);
-            c40_rnded = C1_MULT_CEIL(c40_count);
-            text_rnded = C1_MULT_CEIL(text_count);
-            edi_rnded = C1_MULT_CEIL(edi_count);
-            byte_rnded = C1_MULT_CEIL(byte_count);
+            float cnt;
+            ascii_rnded = (int) ceilf(ascii_count);
+            c40_rnded = (int) ceilf(c40_count);
+            text_rnded = (int) ceilf(text_count);
+            edi_rnded = (int) ceilf(edi_count);
+            byte_rnded = (int) ceilf(byte_count);
 
-            cnt_1 = byte_count + C1_MULT_1;
-            if (cnt_1 <= ascii_rnded && cnt_1 <= c40_rnded && cnt_1 <= text_rnded && cnt_1 <= edi_rnded) {
+            cnt = byte_count + 1.0f;
+            if (cnt <= ascii_rnded && cnt <= c40_rnded && cnt <= text_rnded && cnt <= edi_rnded) {
                 return C1_BYTE; /* Step Q1 */
             }
-            cnt_1 = ascii_count + C1_MULT_1;
-            if (cnt_1 <= c40_rnded && cnt_1 <= text_rnded && cnt_1 <= edi_rnded && cnt_1 <= byte_rnded) {
+            cnt = ascii_count + 1.0f;
+            if (cnt <= c40_rnded && cnt <= text_rnded && cnt <= edi_rnded && cnt <= byte_rnded) {
                 return C1_ASCII; /* Step Q2 */
             }
-            cnt_1 = text_rnded + C1_MULT_1;
-            if (cnt_1 <= ascii_rnded && cnt_1 <= c40_rnded && cnt_1 <= edi_rnded && cnt_1 <= byte_rnded) {
+            cnt = text_rnded + 1.0f;
+            if (cnt <= ascii_rnded && cnt <= c40_rnded && cnt <= edi_rnded && cnt <= byte_rnded) {
                 return C1_TEXT; /* Step Q3 */
             }
-            cnt_1 = c40_rnded + C1_MULT_1;
-            if (cnt_1 <= ascii_rnded && cnt_1 <= text_rnded) {
+            cnt = c40_rnded + 1.0f;
+            if (cnt <= ascii_rnded && cnt <= text_rnded) {
                 /* Step Q4 */
                 if (c40_rnded < edi_rnded) {
                     return C1_C40; /* Step Q4a */
@@ -283,19 +269,19 @@ static int c1_look_ahead_test(const unsigned char source[], const int sourcelen,
                     return C1_C40; /* Step Q4bii */
                 }
             }
-            cnt_1 = edi_rnded + C1_MULT_1;
-            if (cnt_1 <= ascii_rnded && cnt_1 <= c40_rnded && cnt_1 <= text_rnded && cnt_1 <= byte_rnded) {
+            cnt = edi_rnded + 1.0f;
+            if (cnt <= ascii_rnded && cnt <= c40_rnded && cnt <= text_rnded && cnt <= byte_rnded) {
                 return C1_EDI; /* Step Q5 */
             }
         }
     }
 
     /* Step K */
-    ascii_rnded = C1_MULT_CEIL(ascii_count);
-    c40_rnded = C1_MULT_CEIL(c40_count);
-    text_rnded = C1_MULT_CEIL(text_count);
-    edi_rnded = C1_MULT_CEIL(edi_count);
-    byte_rnded = C1_MULT_CEIL(byte_count);
+    ascii_rnded = (int) ceilf(ascii_count);
+    c40_rnded = (int) ceilf(c40_count);
+    text_rnded = (int) ceilf(text_count);
+    edi_rnded = (int) ceilf(edi_count);
+    byte_rnded = (int) ceilf(byte_count);
 
     if (byte_count <= ascii_rnded && byte_count <= c40_rnded && byte_count <= text_rnded && byte_count <= edi_rnded) {
         return C1_BYTE; /* Step K1 */
@@ -316,7 +302,7 @@ static int c1_look_ahead_test(const unsigned char source[], const int sourcelen,
 
 /* Whether can fit last character or characters in a single ASCII codeword */
 static int is_last_single_ascii(const unsigned char string[], const int length, const int sp) {
-    if (length - sp == 1 && string[sp] <= 127) {
+    if (length - sp == 1 && string[sp + 1] <= 127) {
         return 1;
     }
     if (length - sp == 2 && istwodigits(string, length, sp)) {
@@ -404,7 +390,7 @@ static int decimal_unlatch(char decimal_binary[24], int db_p, unsigned int targe
         if (bits_left == 6) {
             db_p = bin_append_posn(1, 2, decimal_binary, db_p);
         }
-        (void) decimal_binary_transfer(decimal_binary, db_p, target, p_tp);
+        (void)decimal_binary_transfer(decimal_binary, db_p, target, p_tp);
 
     } else if (bits_left) {
         if (bits_left >= 4) {
@@ -413,7 +399,7 @@ static int decimal_unlatch(char decimal_binary[24], int db_p, unsigned int targe
         if (bits_left == 2 || bits_left == 6) {
             db_p = bin_append_posn(1, 2, decimal_binary, db_p);
         }
-        (void) decimal_binary_transfer(decimal_binary, db_p, target, p_tp);
+        (void)decimal_binary_transfer(decimal_binary, db_p, target, p_tp);
     }
 
     *p_sp = sp;
@@ -451,6 +437,10 @@ static int c40text_cnt(const int current_mode, const int gs1, unsigned char inpu
         return 2;
     }
     cnt = 1;
+    if (input > 127) {
+        cnt += 2;
+        input = input - 128;
+    }
     if ((current_mode == C1_C40 && c40_shift[input]) || (current_mode == C1_TEXT && text_shift[input])) {
         cnt += 1;
     }
@@ -517,38 +507,9 @@ static int c1_encode(struct zint_symbol *symbol, unsigned char source[], unsigne
         } else {
             target[tp++] = 232; /* FNC1 */
         }
-        /* Note ignoring Structured Append and ECI if GS1 mode (up to caller to warn/error) */
+        /* Note ignoring ECI if GS1 mode (up to caller to warn) */
     } else {
-        if (symbol->structapp.count) {
-            if (symbol->structapp.count < 16) { /* Group mode */
-                if (symbol->eci && symbol->structapp.index == 1) { /* Initial pad indicator for 1st symbol only */
-                    target[tp++] = 129; /* Pad */
-                    target[tp++] = 233; /* FNC2 */
-                    target[tp++] = (symbol->structapp.index - 1) * 15 + (symbol->structapp.count - 1);
-                    target[tp++] = '\\' + 1; /* Escape char */
-                } else {
-                    target[tp++] = (symbol->structapp.index - 1) * 15 + (symbol->structapp.count - 1);
-                    target[tp++] = 233; /* FNC2 */
-                }
-            } else { /* Extended Group mode */
-                if (symbol->eci && symbol->structapp.index == 1) { /* Initial pad indicator for 1st symbol only */
-                    target[tp++] = 129; /* Pad */
-                    target[tp++] = '\\' + 1; /* Escape char */
-                    target[tp++] = 233; /* FNC2 */
-                    target[tp++] = symbol->structapp.index;
-                    target[tp++] = symbol->structapp.count;
-                } else {
-                    target[tp++] = symbol->structapp.index;
-                    target[tp++] = symbol->structapp.count;
-                    target[tp++] = 233; /* FNC2 */
-                }
-            }
-            if (symbol->eci) {
-                eci_escape(symbol->eci, source, length, eci_buf, eci_length);
-                source = eci_buf;
-                length = eci_length;
-            }
-        } else if (symbol->eci) {
+        if (symbol->eci) {
             target[tp++] = 129; /* Pad */
             target[tp++] = '\\' + 1; /* Escape char */
             eci_escape(symbol->eci, source, length, eci_buf, eci_length);
@@ -620,7 +581,7 @@ static int c1_encode(struct zint_symbol *symbol, unsigned char source[], unsigne
                         if (next_mode == C1_ASCII) {
                             if (debug_print) printf("ASCII ");
 
-                            if (source[sp] & 0x80) {
+                            if (source[sp] > 127) {
                                 /* Step B7 */
                                 target[tp++] = 235; /* FNC4 (Upper Shift) */
                                 target[tp++] = (source[sp] - 128) + 1;
@@ -670,7 +631,7 @@ static int c1_encode(struct zint_symbol *symbol, unsigned char source[], unsigne
                 }
                 if (debug_print) printf(current_mode == C1_C40 ? "C40 " : "TEXT ");
 
-                if (source[sp] & 0x80) {
+                if (source[sp] > 127) {
                     cte_buffer[cte_p++] = 1; /* Shift 2 */
                     cte_buffer[cte_p++] = 30; /* FNC4 (Upper Shift) */
                     if (ct_shift[source[sp] - 128]) {
@@ -839,7 +800,7 @@ static int c1_encode(struct zint_symbol *symbol, unsigned char source[], unsigne
         if (cte_p >= 1) {
             int cws_remaining = codewords_remaining(symbol, tp);
 
-            /* Note doing strict interpretation of spec here (same as BWIPP), as now also done in Data Matrix case */
+            /* Note doing strict interpretation of spec here (same as BWIPP), unlike in Data Matrix case */
             if (cws_remaining == 1 && cte_p == 1 && isc40text(current_mode, source[sp - 1])) {
                 /* 2.2.2.2 "...except when a single symbol character is left at the end before the first
                    error correction character. This single character is encoded in the ASCII code set." */
@@ -867,7 +828,7 @@ static int c1_encode(struct zint_symbol *symbol, unsigned char source[], unsigne
                     if (istwodigits(source, length, sp)) {
                         target[tp++] = (10 * ctoi(source[sp])) + ctoi(source[sp + 1]) + 130;
                         sp++;
-                    } else if (source[sp] & 0x80) {
+                    } else if (source[sp] > 127) {
                         target[tp++] = 235; /* FNC4 (Upper Shift) */
                         target[tp++] = (source[sp] - 128) + 1;
                     } else if ((gs1) && (source[sp] == '[')) {
@@ -904,7 +865,7 @@ static int c1_encode(struct zint_symbol *symbol, unsigned char source[], unsigne
                 db_p = bin_append_posn(1, 2, decimal_binary, db_p);
             }
 
-            (void) decimal_binary_transfer(decimal_binary, db_p, target, &tp);
+            (void)decimal_binary_transfer(decimal_binary, db_p, target, &tp);
         }
         current_mode = C1_ASCII;
 
@@ -935,7 +896,7 @@ static int c1_encode(struct zint_symbol *symbol, unsigned char source[], unsigne
     if (debug_print) {
         printf("Target (%d):", tp);
         for (i = 0; i < tp; i++) {
-            printf(" [%d]", (int) target[i]);
+            printf(" [%d]", target[i]);
         }
         printf("\nLast Mode: %d\n", *p_last_mode);
     }
@@ -957,7 +918,7 @@ static void block_copy(struct zint_symbol *symbol, char datagrid[136][120], cons
     }
 }
 
-INTERNAL int codeone(struct zint_symbol *symbol, unsigned char source[], int length) {
+INTERNAL int code_one(struct zint_symbol *symbol, unsigned char source[], int length) {
     int size = 1, i, j;
 
     char datagrid[136][120];
@@ -971,29 +932,6 @@ INTERNAL int codeone(struct zint_symbol *symbol, unsigned char source[], int len
         return ZINT_ERROR_INVALID_OPTION;
     }
 
-    if (symbol->structapp.count) {
-        if (symbol->option_2 == 9) { /* Version S */
-            strcpy(symbol->errtxt, "714: Structured Append not available for Version S");
-            return ZINT_ERROR_INVALID_OPTION;
-        }
-        if ((symbol->input_mode & 0x07) == GS1_MODE) {
-            strcpy(symbol->errtxt, "710: Cannot have Structured Append and GS1 mode at the same time");
-            return ZINT_ERROR_INVALID_OPTION;
-        }
-        if (symbol->structapp.count < 2 || symbol->structapp.count > 128) {
-            strcpy(symbol->errtxt, "711: Structured Append count out of range (2-128)");
-            return ZINT_ERROR_INVALID_OPTION;
-        }
-        if (symbol->structapp.index < 1 || symbol->structapp.index > symbol->structapp.count) {
-            sprintf(symbol->errtxt, "712: Structured Append index out of range (1-%d)", symbol->structapp.count);
-            return ZINT_ERROR_INVALID_OPTION;
-        }
-        if (symbol->structapp.id[0]) {
-            strcpy(symbol->errtxt, "713: Structured Append ID not available for Code One");
-            return ZINT_ERROR_INVALID_OPTION;
-        }
-    }
-
     if (symbol->option_2 == 9) {
         /* Version S */
         int codewords;
@@ -1005,7 +943,7 @@ INTERNAL int codeone(struct zint_symbol *symbol, unsigned char source[], int len
             strcpy(symbol->errtxt, "514: Input data too long for Version S");
             return ZINT_ERROR_TOO_LONG;
         }
-        if (is_sane(NEON, source, length) != 0) {
+        if (is_sane(NEON, source, length) == ZINT_ERROR_INVALID_DATA) {
             strcpy(symbol->errtxt, "515: Invalid input data (Version S encodes numeric input only)");
             return ZINT_ERROR_INVALID_DATA;
         }
@@ -1047,7 +985,7 @@ INTERNAL int codeone(struct zint_symbol *symbol, unsigned char source[], int len
 
         if (symbol->debug & ZINT_DEBUG_PRINT) {
             printf("Codewords (%d): ", codewords);
-            for (i = 0; i < codewords * 2; i++) printf(" %d", (int) data[i]);
+            for (i = 0; i < codewords * 2; i++) printf(" %d", data[i]);
             printf("\n");
         }
 
@@ -1135,7 +1073,7 @@ INTERNAL int codeone(struct zint_symbol *symbol, unsigned char source[], int len
 
         if (symbol->debug & ZINT_DEBUG_PRINT) {
             printf("Codewords (%d):", data_cw + ecc_cw);
-            for (i = 0; i < data_cw + ecc_cw; i++) printf(" %d", (int) data[i]);
+            for (i = 0; i < data_cw + ecc_cw; i++) printf(" %d", data[i]);
             printf("\n");
         }
 
@@ -1183,7 +1121,7 @@ INTERNAL int codeone(struct zint_symbol *symbol, unsigned char source[], int len
             size = symbol->option_2;
         }
 
-        if ((symbol->option_2 != 0) && (symbol->option_2 < size)) {
+        if ((symbol-> option_2 != 0) && (symbol->option_2 < size)) {
             strcpy(symbol->errtxt, "518: Input too long for selected symbol size");
             return ZINT_ERROR_TOO_LONG;
         }
@@ -1225,7 +1163,7 @@ INTERNAL int codeone(struct zint_symbol *symbol, unsigned char source[], int len
 
         if (symbol->debug & ZINT_DEBUG_PRINT) {
             printf("Codewords (%d):", data_cw + ecc_length);
-            for (i = 0; i < data_cw + ecc_length; i++) printf(" %d", (int) data[i]);
+            for (i = 0; i < data_cw + ecc_length; i++) printf(" %d", data[i]);
             printf("\n");
         }
 
@@ -1508,14 +1446,10 @@ INTERNAL int codeone(struct zint_symbol *symbol, unsigned char source[], int len
     for (i = 0; i < symbol->rows; i++) {
         symbol->row_height[i] = 1;
     }
-    symbol->height = symbol->rows;
 
     if (symbol->option_2 == 9) { /* Version S */
         if (symbol->eci || (symbol->input_mode & 0x07) == GS1_MODE) {
-            sprintf(symbol->errtxt, "511: %s ignored for Version S",
-                    symbol->eci && (symbol->input_mode & 0x07) == GS1_MODE
-                        ? "ECI and GS1 mode"
-                        : symbol->eci ? "ECI" : "GS1 mode");
+            strcpy(symbol->errtxt, "511: ECI and GS1 mode ignored for Version S");
             error_number = ZINT_WARN_INVALID_OPTION;
         }
     } else if (symbol->eci && (symbol->input_mode & 0x07) == GS1_MODE) {
