@@ -1,4 +1,4 @@
-/* maxicode.c - Handles Maxicode */
+/* maxicode.c - Handles MaxiCode */
 
 /*
     libzint - the open source barcode library
@@ -114,7 +114,8 @@ static void maxi_bump(unsigned char set[], unsigned char character[], const int 
 }
 
 /* If the value is present in  array, return the value, else return badvalue */
-static int value_in_array(const unsigned char val, const unsigned char arr[], const int badvalue, const int arrLength) {
+static int value_in_array(const unsigned char val, const unsigned char arr[], const int badvalue,
+            const int arrLength) {
     int i;
     for (i = 0; i < arrLength; i++) {
         if (arr[i] == val) return val;
@@ -124,8 +125,8 @@ static int value_in_array(const unsigned char val, const unsigned char arr[], co
 
 /* Choose the best set from previous and next set in the range of the setval array, if no value can be found we
  * return setval[0] */
-static int bestSurroundingSet(const int index, const int length, const unsigned char set[], const unsigned char setval[],
-            const int setLength) {
+static int bestSurroundingSet(const int index, const int length, const unsigned char set[],
+            const unsigned char setval[], const int setLength) {
     int badValue = -1;
     int option1 = value_in_array(set[index - 1], setval, badValue, setLength);
     if (index + 1 < length) {
@@ -143,8 +144,8 @@ static int bestSurroundingSet(const int index, const int length, const unsigned 
 }
 
 /* Format text according to Appendix A */
-static int maxi_text_process(unsigned char maxi_codeword[144], const int mode, const unsigned char in_source[], int length,
-            const int eci, const int scm_vv, const int debug_print) {
+static int maxi_text_process(unsigned char maxi_codeword[144], const int mode, const unsigned char in_source[],
+            int length, const int structapp_cw, const int eci, const int scm_vv, const int debug_print) {
 
     unsigned char set[144], character[144] = {0};
     int i, count, current_set, padding_set;
@@ -446,6 +447,14 @@ static int maxi_text_process(unsigned char maxi_codeword[144], const int mode, c
         }
     }
 
+    /* Insert Structured Append at beginning if needed */
+    if (structapp_cw) {
+        maxi_bump(set, character, 0, &length);
+        character[0] = 33; // PAD
+        maxi_bump(set, character, 1, &length);
+        character[1] = structapp_cw;
+    }
+
     if (debug_print) printf("Length: %d\n", length);
 
     if (((mode == 2) || (mode == 3)) && (length > 84)) {
@@ -485,11 +494,11 @@ static int maxi_text_process(unsigned char maxi_codeword[144], const int mode, c
 }
 
 /* Format structured primary for Mode 2 */
-static void maxi_do_primary_2(unsigned char maxi_codeword[144], const unsigned char postcode[], const int postcode_length,
-            const int country, const int service) {
+static void maxi_do_primary_2(unsigned char maxi_codeword[144], const unsigned char postcode[],
+            const int postcode_length, const int country, const int service) {
     int postcode_num;
 
-    postcode_num = atoi((const char *) postcode);
+    postcode_num = to_int(postcode, postcode_length);
 
     maxi_codeword[0] = ((postcode_num & 0x03) << 4) | 2;
     maxi_codeword[1] = ((postcode_num & 0xfc) >> 2);
@@ -530,6 +539,8 @@ INTERNAL int maxicode(struct zint_symbol *symbol, unsigned char source[], int le
     int error_number = 0, eclen;
     unsigned char maxi_codeword[144] = {0};
     int scm_vv = -1;
+    int structapp_cw = 0;
+    int debug_print = symbol->debug & ZINT_DEBUG_PRINT;
 
     mode = symbol->option_1;
 
@@ -605,7 +616,7 @@ INTERNAL int maxicode(struct zint_symbol *symbol, unsigned char source[], int le
             for (i = 0; i < 6; i++) {
                 /* Don't allow Code Set A control characters CR, RS, GS and RS */
                 if (postcode[i] < ' ' || maxiCodeSet[postcode[i]] > 1) {
-                    strcpy(symbol->errtxt, "556: Invalid characters in postcode in Primary Message");
+                    strcpy(symbol->errtxt, "556: Invalid character in postcode in Primary Message");
                     return ZINT_ERROR_INVALID_DATA;
                 }
             }
@@ -620,18 +631,34 @@ INTERNAL int maxicode(struct zint_symbol *symbol, unsigned char source[], int le
             scm_vv = symbol->option_2 - 1;
         }
 
-        if (symbol->debug & ZINT_DEBUG_PRINT) {
+        if (debug_print) {
             printf("Postcode: %s, Country Code: %d, Service Class: %d\n", postcode, countrycode, service);
         }
     } else {
         maxi_codeword[0] = mode;
     }
 
-    if (symbol->debug & ZINT_DEBUG_PRINT) {
+    if (debug_print) {
         printf("Mode: %d\n", mode);
     }
 
-    i = maxi_text_process(maxi_codeword, mode, source, length, symbol->eci, scm_vv, symbol->debug & ZINT_DEBUG_PRINT);
+    if (symbol->structapp.count) {
+        if (symbol->structapp.count < 2 || symbol->structapp.count > 8) {
+            strcpy(symbol->errtxt, "558: Structured Append count out of range (2-8)");
+            return ZINT_ERROR_INVALID_OPTION;
+        }
+        if (symbol->structapp.index < 1 || symbol->structapp.index > symbol->structapp.count) {
+            sprintf(symbol->errtxt, "559: Structured Append index out of range (1-%d)", symbol->structapp.count);
+            return ZINT_ERROR_INVALID_OPTION;
+        }
+        if (symbol->structapp.id[0]) {
+            strcpy(symbol->errtxt, "549: Structured Append ID not available for MaxiCode");
+            return ZINT_ERROR_INVALID_OPTION;
+        }
+        structapp_cw = (symbol->structapp.count - 1) | ((symbol->structapp.index - 1) << 3);
+    }
+
+    i = maxi_text_process(maxi_codeword, mode, source, length, structapp_cw, symbol->eci, scm_vv, debug_print);
     if (i == ZINT_ERROR_TOO_LONG) {
         strcpy(symbol->errtxt, "553: Input data too long");
         return i;
@@ -648,7 +675,7 @@ INTERNAL int maxicode(struct zint_symbol *symbol, unsigned char source[], int le
     maxi_do_secondary_chk_even(maxi_codeword, eclen / 2); // do error correction of even
     maxi_do_secondary_chk_odd(maxi_codeword, eclen / 2); // do error correction of odd
 
-    if (symbol->debug & ZINT_DEBUG_PRINT) {
+    if (debug_print) {
         printf("Codewords:");
         for (i = 0; i < 144; i++) printf(" %d", maxi_codeword[i]);
         printf("\n");
@@ -691,6 +718,9 @@ INTERNAL int maxicode(struct zint_symbol *symbol, unsigned char source[], int le
 
     symbol->width = 30;
     symbol->rows = 33;
+
+    /* Note MaxiCode fixed size so symbol height ignored but set anyway */
+    (void) set_height(symbol, 5.0f, 0.0f, 0.0f, 1 /*no_errtxt*/);
 
     return error_number;
 }

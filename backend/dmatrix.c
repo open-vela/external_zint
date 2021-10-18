@@ -44,10 +44,6 @@
 #include <math.h>
 #ifdef _MSC_VER
 #include <malloc.h>
-/* ceilf (C99) not before MSVC++2013 (C++ 12.0) */
-#if _MSC_VER < 1800
-#define ceilf (float) ceil
-#endif
 #endif
 #include "common.h"
 #include "reedsol.h"
@@ -243,7 +239,7 @@ static int isc40text(const int current_mode, const unsigned char input) {
 }
 
 /* Return true (1) if a character is valid in X12 set */
-static int isX12(const int input) {
+static int isX12(const unsigned char input) {
 
     if (isc40(input)) {
         return 1;
@@ -271,138 +267,169 @@ static int p_r_6_2_1(const unsigned char inputData[], const int position, const 
     return 0;
 }
 
+/* Character counts are multiplied by this, so as to be whole integer divisible by 2, 3 and 4 */
+#define DM_MULT             12
+
+#define DM_MULT_1_DIV_2     6
+#define DM_MULT_2_DIV_3     8
+#define DM_MULT_3_DIV_4     9
+#define DM_MULT_1           12
+#define DM_MULT_5_DIV_4     15
+#define DM_MULT_4_DIV_3     16
+#define DM_MULT_2           24
+#define DM_MULT_9_DIV_4     27
+#define DM_MULT_8_DIV_3     32
+#define DM_MULT_13_DIV_4    39
+#define DM_MULT_10_DIV_3    40
+#define DM_MULT_4           48
+#define DM_MULT_17_DIV_4    51
+#define DM_MULT_13_DIV_3    52
+
+#define DM_MULT_MINUS_1     11
+#define DM_MULT_CEIL(n)     ((((n) + DM_MULT_MINUS_1) / DM_MULT) * DM_MULT)
+
 /* 'look ahead test' from Annex P */
 static int look_ahead_test(const unsigned char inputData[], const int sourcelen, const int position,
-            const int current_mode, const int gs1) {
-    float ascii_count, c40_count, text_count, x12_count, edf_count, b256_count;
+            const int current_mode, const int gs1, const int debug) {
+    int ascii_count, c40_count, text_count, x12_count, edf_count, b256_count;
     int ascii_rnded, c40_rnded, text_rnded, x12_rnded, edf_rnded, b256_rnded;
-    float cnt_1;
+    int cnt_1;
     int sp;
 
     /* step (j) */
     if (current_mode == DM_ASCII) {
-        ascii_count = 0.0F;
-        c40_count = 1.0F;
-        text_count = 1.0F;
-        x12_count = 1.0F;
-        edf_count = 1.0F;
-        b256_count = 1.25F;
+        ascii_count = 0;
+        c40_count = DM_MULT_1;
+        text_count = DM_MULT_1;
+        x12_count = DM_MULT_1;
+        edf_count = DM_MULT_1;
+        b256_count = DM_MULT_5_DIV_4; // 1.25
     } else {
-        ascii_count = 1.0F;
-        c40_count = 2.0F;
-        text_count = 2.0F;
-        x12_count = 2.0F;
-        edf_count = 2.0F;
-        b256_count = 2.25F;
+        ascii_count = DM_MULT_1;
+        c40_count = DM_MULT_2;
+        text_count = DM_MULT_2;
+        x12_count = DM_MULT_2;
+        edf_count = DM_MULT_2;
+        b256_count = DM_MULT_9_DIV_4; // 2.25
     }
 
     switch (current_mode) {
-        case DM_C40: c40_count = 0.0F;
+        case DM_C40: c40_count = 0;
             break;
-        case DM_TEXT: text_count = 0.0F;
+        case DM_TEXT: text_count = 0;
             break;
-        case DM_X12: x12_count = 0.0F;
+        case DM_X12: x12_count = 0;
             break;
-        case DM_EDIFACT: edf_count = 0.0F;
+        case DM_EDIFACT: edf_count = 0;
             break;
-        case DM_BASE256: b256_count = 0.0F;
+        case DM_BASE256: b256_count = 0;
             break;
     }
 
     for (sp = position; sp < sourcelen; sp++) {
+        unsigned char c = inputData[sp];
+        int is_extended = c & 0x80;
+
         /* ascii ... step (l) */
-        if ((inputData[sp] >= '0') && (inputData[sp] <= '9')) {
-            ascii_count += 0.5F; // (l)(1)
+        if ((c >= '0') && (c <= '9')) {
+            ascii_count += DM_MULT_1_DIV_2; // (l)(1)
         } else {
-            if (inputData[sp] > 127) {
-                ascii_count = ceilf(ascii_count) + 2.0F; // (l)(2)
+            if (is_extended) {
+                ascii_count = DM_MULT_CEIL(ascii_count) + DM_MULT_2; // (l)(2)
             } else {
-                ascii_count = ceilf(ascii_count) + 1.0F; // (l)(3)
+                ascii_count = DM_MULT_CEIL(ascii_count) + DM_MULT_1; // (l)(3)
             }
         }
 
         /* c40 ... step (m) */
-        if (isc40(inputData[sp])) {
-            c40_count += (2.0F / 3.0F); // (m)(1)
+        if (isc40(c)) {
+            c40_count += DM_MULT_2_DIV_3; // (m)(1)
         } else {
-            if (inputData[sp] > 127) {
-                c40_count += (8.0F / 3.0F); // (m)(2)
+            if (is_extended) {
+                c40_count += DM_MULT_8_DIV_3; // (m)(2)
             } else {
-                c40_count += (4.0F / 3.0F); // (m)(3)
+                c40_count += DM_MULT_4_DIV_3; // (m)(3)
             }
         }
 
         /* text ... step (n) */
-        if (istext(inputData[sp])) {
-            text_count += (2.0F / 3.0F); // (n)(1)
+        if (istext(c)) {
+            text_count += DM_MULT_2_DIV_3; // (n)(1)
         } else {
-            if (inputData[sp] > 127) {
-                text_count += (8.0F / 3.0F); // (n)(2)
+            if (is_extended) {
+                text_count += DM_MULT_8_DIV_3; // (n)(2)
             } else {
-                text_count += (4.0F / 3.0F); // (n)(3)
+                text_count += DM_MULT_4_DIV_3; // (n)(3)
             }
         }
 
         /* x12 ... step (o) */
-        if (isX12(inputData[sp])) {
-            x12_count += (2.0F / 3.0F); // (o)(1)
+        if (isX12(c)) {
+            x12_count += DM_MULT_2_DIV_3; // (o)(1)
         } else {
-            if (inputData[sp] > 127) {
-                x12_count += (13.0F / 3.0F); // (o)(2)
+            if (is_extended) {
+                x12_count += DM_MULT_13_DIV_3; // (o)(2)
             } else {
-                x12_count += (10.0F / 3.0F); // (o)(3)
+                x12_count += DM_MULT_10_DIV_3; // (o)(3)
             }
         }
 
         /* edifact ... step (p) */
-        if ((inputData[sp] >= ' ') && (inputData[sp] <= '^')) {
-            edf_count += (3.0F / 4.0F); // (p)(1)
+        if ((c >= ' ') && (c <= '^')) {
+            edf_count += DM_MULT_3_DIV_4; // (p)(1)
         } else {
-            if (inputData[sp] > 127) {
-                edf_count += 17.0F / 4.0f; // (p)(2)
+            if (is_extended) {
+                edf_count += DM_MULT_17_DIV_4; // (p)(2)
             } else {
-                edf_count += 13.0F / 4.0f; // (p)(3)
+                edf_count += DM_MULT_13_DIV_4; // (p)(3)
             }
         }
 
         /* base 256 ... step (q) */
-        if ((gs1 == 1) && (inputData[sp] == '[')) {
+        if ((gs1 == 1) && (c == '[')) {
             /* FNC1 separator */
-            b256_count += 4.0F; // (q)(1)
+            b256_count += DM_MULT_4; // (q)(1)
         } else {
-            b256_count += 1.0F; // (q)(2)
+            b256_count += DM_MULT_1; // (q)(2)
         }
 
         if (sp >= position + 4) {
             /* At least 5 data characters processed ... step (r) */
             /* NOTE: different than spec, where it's at least 4. Following previous behaviour here (and BWIPP) */
 
-            cnt_1 = ascii_count + 1.0f;
+            if (debug) {
+                printf("\n(%d, %d, %d): ascii_count %d, b256_count %d, edf_count %d, text_count %d"
+                        ", x12_count %d, c40_count %d ",
+                        current_mode, position, sp, ascii_count, b256_count, edf_count, text_count,
+                        x12_count, c40_count);
+            }
+
+            cnt_1 = ascii_count + DM_MULT_1;
             if (cnt_1 <= b256_count && cnt_1 <= edf_count && cnt_1 <= text_count && cnt_1 <= x12_count
                     && cnt_1 <= c40_count) {
                 return DM_ASCII; /* step (r)(1) */
             }
-            cnt_1 = b256_count + 1.0f;
+            cnt_1 = b256_count + DM_MULT_1;
             if (cnt_1 <= ascii_count || (cnt_1 < edf_count && cnt_1 < text_count && cnt_1 < x12_count
                     && cnt_1 < c40_count)) {
                 return DM_BASE256; /* step (r)(2) */
             }
-            cnt_1 = edf_count + 1.0f;
+            cnt_1 = edf_count + DM_MULT_1;
             if (cnt_1 < ascii_count && cnt_1 < b256_count && cnt_1 < text_count && cnt_1 < x12_count
                     && cnt_1 < c40_count) {
                 return DM_EDIFACT; /* step (r)(3) */
             }
-            cnt_1 = text_count + 1.0f;
+            cnt_1 = text_count + DM_MULT_1;
             if (cnt_1 < ascii_count && cnt_1 < b256_count && cnt_1 < edf_count && cnt_1 < x12_count
                     && cnt_1 < c40_count) {
                 return DM_TEXT; /* step (r)(4) */
             }
-            cnt_1 = x12_count + 1.0f;
+            cnt_1 = x12_count + DM_MULT_1;
             if (cnt_1 < ascii_count && cnt_1 < b256_count && cnt_1 < edf_count && cnt_1 < text_count
                     && cnt_1 < c40_count) {
                 return DM_X12; /* step (r)(5) */
             }
-            cnt_1 = c40_count + 1.0f;
+            cnt_1 = c40_count + DM_MULT_1;
             if (cnt_1 < ascii_count && cnt_1 < b256_count && cnt_1 < edf_count && cnt_1 < text_count) {
                 if (c40_count < x12_count) {
                     return DM_C40; /* step (r)(6)(i) */
@@ -419,12 +446,18 @@ static int look_ahead_test(const unsigned char inputData[], const int sourcelen,
 
     /* At the end of data ... step (k) */
     /* step (k)(1) */
-    ascii_rnded = (int) ceilf(ascii_count);
-    b256_rnded = (int) ceilf(b256_count);
-    edf_rnded = (int) ceilf(edf_count);
-    text_rnded = (int) ceilf(text_count);
-    x12_rnded = (int) ceilf(x12_count);
-    c40_rnded = (int) ceilf(c40_count);
+    ascii_rnded = DM_MULT_CEIL(ascii_count);
+    b256_rnded = DM_MULT_CEIL(b256_count);
+    edf_rnded = DM_MULT_CEIL(edf_count);
+    text_rnded = DM_MULT_CEIL(text_count);
+    x12_rnded = DM_MULT_CEIL(x12_count);
+    c40_rnded = DM_MULT_CEIL(c40_count);
+    if (debug) {
+        printf("\nEOD(%d, %d): ascii_rnded %d, b256_rnded %d, edf_rnded %d, text_rnded %d, x12_rnded %d (%d)"
+                ", c40_rnded %d (%d) ",
+                current_mode, position, ascii_rnded, b256_rnded, edf_rnded, text_rnded, x12_rnded, x12_count,
+                c40_rnded, c40_count);
+    }
 
     if (ascii_rnded <= b256_rnded && ascii_rnded <= edf_rnded && ascii_rnded <= text_rnded && ascii_rnded <= x12_rnded
             && ascii_rnded <= c40_rnded) {
@@ -554,7 +587,7 @@ static int c40text_cnt(const int current_mode, const int gs1, unsigned char inpu
         return 2;
     }
     cnt = 1;
-    if (input > 127) {
+    if (input & 0x80) {
         cnt += 2;
         input = input - 128;
     }
@@ -599,9 +632,61 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
     sp = 0;
     tp = 0;
 
-    /* step (a) */
-    current_mode = DM_ASCII;
-    next_mode = DM_ASCII;
+    if (symbol->structapp.count) {
+        int id1, id2;
+
+        if (symbol->structapp.count < 2 || symbol->structapp.count > 16) {
+            strcpy(symbol->errtxt, "720: Structured Append count out of range (2-16)");
+            return ZINT_ERROR_INVALID_OPTION;
+        }
+        if (symbol->structapp.index < 1 || symbol->structapp.index > symbol->structapp.count) {
+            sprintf(symbol->errtxt, "721: Structured Append index out of range (1-%d)", symbol->structapp.count);
+            return ZINT_ERROR_INVALID_OPTION;
+        }
+        if (symbol->structapp.id[0]) {
+            int id, id_len, id1_err, id2_err;
+
+            for (id_len = 0; id_len < 32 && symbol->structapp.id[id_len]; id_len++);
+
+            if (id_len > 6) { /* ID1 * 1000 + ID2 */
+                strcpy(symbol->errtxt, "722: Structured Append ID too long (6 digit maximum)");
+                return ZINT_ERROR_INVALID_OPTION;
+            }
+
+            id = to_int((const unsigned char *) symbol->structapp.id, id_len);
+            if (id == -1) {
+                strcpy(symbol->errtxt, "723: Invalid Structured Append ID (digits only)");
+                return ZINT_ERROR_INVALID_OPTION;
+            }
+            id1 = id / 1000;
+            id2 = id % 1000;
+            id1_err = id1 < 1 || id1 > 254;
+            id2_err = id2 < 1 || id2 > 254;
+            if (id1_err || id2_err) {
+                if (id1_err && id2_err) {
+                    sprintf(symbol->errtxt,
+                            "724: Structured Append ID1 '%03d' and ID2 '%03d' out of range (001-254) (ID '%03d%03d')",
+                            id1, id2, id1, id2);
+                } else if (id1_err) {
+                    sprintf(symbol->errtxt,
+                            "725: Structured Append ID1 '%03d' out of range (001-254) (ID '%03d%03d')",
+                            id1, id1, id2);
+                } else {
+                    sprintf(symbol->errtxt,
+                            "726: Structured Append ID2 '%03d' out of range (001-254) (ID '%03d%03d')",
+                            id2, id1, id2);
+                }
+                return ZINT_ERROR_INVALID_OPTION;
+            }
+        } else {
+            id1 = id2 = 1;
+        }
+
+        target[tp++] = 233;
+        target[tp++] = (17 - symbol->structapp.count) | ((symbol->structapp.index - 1) << 4);
+        target[tp++] = id1;
+        target[tp++] = id2;
+    }
 
     /* gs1 flag values: 0: no gs1, 1: gs1 with FNC1 serparator, 2: GS separator */
     if ((symbol->input_mode & 0x07) == GS1_MODE) {
@@ -624,11 +709,14 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
         if (gs1) {
             strcpy(symbol->errtxt, "521: Cannot encode in GS1 mode and Reader Initialisation at the same time");
             return ZINT_ERROR_INVALID_OPTION;
-        } else {
-            target[tp] = 234;
-            tp++; /* Reader Programming */
-            if (debug) printf("RP ");
         }
+        if (symbol->structapp.count) {
+            strcpy(symbol->errtxt, "727: Cannot have Structured Append and Reader Initialisation at the same time");
+            return ZINT_ERROR_INVALID_OPTION;
+        }
+        target[tp] = 234;
+        tp++; /* Reader Programming */
+        if (debug) printf("RP ");
     }
 
     if (symbol->eci > 0) {
@@ -663,6 +751,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
             && (source[5] == '5' || source[5] == '6')
             && source[6] == '\x1d'
             && source[inputlen - 2] == '\x1e' && source[inputlen - 1] == '\x04') {
+
         /* Output macro Codeword */
         if (source[5] == '5') {
             target[tp] = 236;
@@ -678,6 +767,10 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
         *p_length -= 2;
     }
 
+    /* step (a) */
+    current_mode = DM_ASCII;
+    next_mode = DM_ASCII;
+
     while (sp < inputlen) {
 
         current_mode = next_mode;
@@ -692,7 +785,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                 tp++;
                 sp += 2;
             } else {
-                next_mode = look_ahead_test(source, inputlen, sp, current_mode, gs1);
+                next_mode = look_ahead_test(source, inputlen, sp, current_mode, gs1, debug);
 
                 if (next_mode != DM_ASCII) {
                     switch (next_mode) {
@@ -720,7 +813,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                             break;
                     }
                 } else {
-                    if (source[sp] > 127) {
+                    if (source[sp] & 0x80) {
                         target[tp] = 235; /* FNC4 */
                         tp++;
                         target[tp] = (source[sp] - 128) + 1;
@@ -750,7 +843,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
 
             next_mode = current_mode;
             if (process_p == 0) {
-                next_mode = look_ahead_test(source, inputlen, sp, current_mode, gs1);
+                next_mode = look_ahead_test(source, inputlen, sp, current_mode, gs1, debug);
             }
 
             if (next_mode != current_mode) {
@@ -770,7 +863,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                     ct_value = text_value;
                 }
 
-                if (source[sp] > 127) {
+                if (source[sp] & 0x80) {
                     process_buffer[process_p++] = 1;
                     process_buffer[process_p++] = 30; /* Upper Shift */
                     shift_set = ct_shift[source[sp] - 128];
@@ -806,7 +899,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
 
             next_mode = DM_X12;
             if (process_p == 0) {
-                next_mode = look_ahead_test(source, inputlen, sp, current_mode, gs1);
+                next_mode = look_ahead_test(source, inputlen, sp, current_mode, gs1, debug);
             }
 
             if (next_mode != DM_X12) {
@@ -841,7 +934,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
             if (process_p == 3) {
                 /* Note different then spec Step (f)(1), which suggests checking when 0, but this seems to work
                    better in many cases. */
-                next_mode = look_ahead_test(source, inputlen, sp, current_mode, gs1);
+                next_mode = look_ahead_test(source, inputlen, sp, current_mode, gs1, debug);
             }
 
             if (next_mode != DM_EDIFACT) {
@@ -865,7 +958,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
 
         /* step (g) Base 256 encodation */
         } else if (current_mode == DM_BASE256) {
-            next_mode = look_ahead_test(source, inputlen, sp, current_mode, gs1);
+            next_mode = look_ahead_test(source, inputlen, sp, current_mode, gs1, debug);
 
             if (next_mode == DM_BASE256) {
                 target[tp] = source[sp];
@@ -910,7 +1003,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
             if (process_p == 2 && symbols_left == 2) {
                 /* 5.2.5.2 (b) */
                 process_buffer[process_p++] = 0; // Shift 1
-                (void)ctx_process_buffer_transfer(process_buffer, process_p, target, &tp, debug);
+                (void) ctx_process_buffer_transfer(process_buffer, process_p, target, &tp, debug);
 
             } else if (process_p == 1 && symbols_left <= 2 && isc40text(current_mode, source[inputlen - 1])) {
                 /* 5.2.5.2 (c)/(d) */
@@ -940,7 +1033,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                         target[tp++] = (unsigned char) ((10 * ctoi(source[sp])) + ctoi(source[sp + 1]) + 130);
                         if (debug) printf("N%02d ", target[tp - 1] - 130);
                         sp++;
-                    } else if (source[sp] > 127) {
+                    } else if (source[sp] & 0x80) {
                         target[tp++] = 235; /* FNC4 */
                         target[tp++] = (source[sp] - 128) + 1;
                         if (debug) printf("FN4 A%02X ", target[tp - 1] - 1);
@@ -1001,7 +1094,7 @@ static int dm200encode(struct zint_symbol *symbol, const unsigned char source[],
                     memset(process_buffer + process_p, 0, sizeof(int) * (4 - process_p));
                 }
             }
-            (void)edi_process_buffer_transfer(process_buffer, 4, target, &tp, debug);
+            (void) edi_process_buffer_transfer(process_buffer, 4, target, &tp, debug);
         }
 
     } else if (current_mode == DM_BASE256) {
@@ -1051,12 +1144,12 @@ static void add_tail(unsigned char target[], int tp, const int tail_length) {
     }
 }
 
-static int data_matrix_200(struct zint_symbol *symbol, const unsigned char source[], int inputlen) {
+static int datamatrix_200(struct zint_symbol *symbol, const unsigned char source[], int inputlen) {
     int i, skew = 0;
     unsigned char binary[2200];
     int binlen;
     int symbolsize;
-    int taillength, error_number = 0;
+    int taillength, error_number;
     int H, W, FH, FW, datablock, bytes, rsblock;
     int debug = symbol->debug & ZINT_DEBUG_PRINT;
 
@@ -1166,18 +1259,19 @@ static int data_matrix_200(struct zint_symbol *symbol, const unsigned char sourc
         free(places);
     }
 
+    symbol->height = H;
     symbol->rows = H;
     symbol->width = W;
 
     return error_number;
 }
 
-INTERNAL int dmatrix(struct zint_symbol *symbol, unsigned char source[], int length) {
+INTERNAL int datamatrix(struct zint_symbol *symbol, unsigned char source[], int length) {
     int error_number;
 
     if (symbol->option_1 <= 1) {
         /* ECC 200 */
-        error_number = data_matrix_200(symbol, source, length);
+        error_number = datamatrix_200(symbol, source, length);
     } else {
         /* ECC 000 - 140 */
         strcpy(symbol->errtxt, "524: Older Data Matrix standards are no longer supported");

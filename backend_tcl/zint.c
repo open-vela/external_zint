@@ -28,6 +28,7 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
 */
+/* vim: set ts=4 sw=4 et : */
 /*
  History
 
@@ -111,6 +112,26 @@
   This is a preparation to add a TCL only mode to the DLL.
 2021-01-22 GL
 - -cols maximum changed from 67 to 108 (DotCode)
+2021-05-10 GL
+- Added -gs1parens option
+2021-05-22 GL
+- Added -vwhitesp option
+2021-05-28 GL
+- -cols maximum changed from 108 to 200 (DotCode)
+2021-07-09 GL
+- Removed -wzpl, added -gs1nocheck
+- Made -format position independent
+- Tabs -> spaces
+2021-09-21 GL
+- Added -guarddescent option
+- iHeight check int -> double
+2021-09-24 GL
+- Added -quietzones and -noquietzones options
+2021-09-27 GL
+- Added -structapp
+- Split up -to parsing (could seg fault if given non-int for X0 or Y0)
+2021-10-05 GL
+- Added -compliantheight option
 */
 
 #if defined(__WIN32__) || defined(_WIN32) || defined(WIN32)
@@ -413,7 +434,6 @@ static int s_eci_number[] = {
     3,4,5,6,7,8,9,10,11,12,13,15,16,17,18,20,21,22,23,24,25,26,27,28,29,30
 };
 
-
 /* Version information */
 static char version_string[] = VERSION;
 /* Help text */
@@ -434,6 +454,7 @@ static char help_message[] = "zint tcl(stub,obj) dll\n"
     "   -box bool: box around bar code, size set be -border\n"
     /* cli option --cmyk not supported as no corresponding output */
     "   -cols integer: PDF417, Codablock F, DotCode: number of columns\n"
+    "   -compliantheight bool: warn if height not compliant, and use standard default\n"
     /* cli option --data is standard parameter */
     "   -dmre bool: Allow Data Matrix Rectangular Extended\n"
     "   -dotsize number: radius ratio of dots from 0.01 to 1.0\n" 
@@ -447,17 +468,22 @@ static char help_message[] = "zint tcl(stub,obj) dll\n"
     "   -format binary|unicode|gs1: input data format. Default:unicode\n"
     "   -fullmultibyte bool: allow multibyte compaction for xQR, HanXin, Gridmatrix\n"
     /* cli option --gs1 replaced by -format */
+    "   -gs1nocheck bool: for gs1, do not check validity of data (allows non-standard symbols)\n"
+    "   -gs1parens bool: for gs1, AIs enclosed in parentheses instead of square brackets\n"
     "   -gssep bool: for gs1, use gs as separator instead fnc1 (Datamatrix only)\n"
-    "   -height integer: Symbol height in modules\n"
+    "   -guarddescent double: Height of guard bar descent in modules (UPC/EAN only)\n"
+    "   -height double: Symbol height in modules\n"
     /* cli option --input not supported */
     "   -init bool: Create reader initialisation symbol (Code 128, Data Matrix)\n"
     "   -mask number: set masking pattern to use (QR/MicroQR/HanXin/DotCode)\n"
     /* cli option --mirror not supported */
     "   -mode number: set encoding mode (MaxiCode, Composite)\n"
     "   -nobackground bool: set background transparent\n"
+    "   -noquietzones bool: disable default quiet zones\n"
     "   -notext bool: no interpretation line\n"
     /* cli option --output not supported */
     "   -primary text: Structured primary data (MaxiCode, Composite)\n"
+    "   -quietzones bool: add compliant quiet zones to whitespace\n"
     "   -reverse bool: Reverse colours (white on black)\n"
     "   -rotate angle: Image rotation by 0,90 or 270 degrees\n"
     "   -rows integer: Codablock F: number of rows\n"
@@ -468,11 +494,12 @@ static char help_message[] = "zint tcl(stub,obj) dll\n"
     /* cli option --small replaced by -smalltext */
     "   -smalltext bool: tiny interpretation line font\n"
     "   -square bool: force Data Matrix symbols to be square\n"
+    "   -structapp {index count ?id?}: set Structured Append info\n"
     /* cli option --types not supported */
     "   -vers integer: Symbology option\n"
+    "   -vwhitesp integer: vertical quiet zone in modules\n"
     "   -whitesp integer: horizontal quiet zone in modules\n"
     "   -werror bool: Convert all warnings into errors\n"
-    "   -wzpl bool: ZPL compatibility mode (allows non-standard symbols)\n"
     "   -to {x0 y0 ?width? ?height?}: place to put in photo image\n"
     "\n"
     "zint symbologies: List available symbologies\n"
@@ -551,7 +578,7 @@ static int Zint(ClientData tkFlagPtr, Tcl_Interp *interp, int objc,
     /* > Check if option argument is given and decode it */
     if (objc > 1)
     {
-    char *subCmds[] = {"encode", "symbologies", "eci", "version", "help", NULL};
+        char *subCmds[] = {"encode", "symbologies", "eci", "version", "help", NULL};
         if(Tcl_GetIndexFromObj(interp, objv[1], (const char **) subCmds,
             "option", 0, &Index)
             == TCL_ERROR)
@@ -691,19 +718,25 @@ static int Encode(Tcl_Interp *interp, int objc,
         /* Option list and indexes */
         char *optionList[] = {
             "-addongap", "-barcode", "-bg", "-bind", "-bold", "-border", "-box",
-            "-cols", "-dmre", "-dotsize", "-dotty", "-eci", "-fg", "-format",
-            "-fullmultibyte", "-gssep", "-height", "-init", "-mask", "-mode",
-            "-nobackground", "-notext", "-primary", "-reverse", "-rotate",
-            "-rows", "-scale", "-scmvv", "-secure", "-separator", "-smalltext",
-            "-square", "-to", "-vers", "-werror", "-whitesp", "-wzpl",
+            "-cols", "-compliantheight", "-dmre", "-dotsize", "-dotty",
+            "-eci", "-fg", "-format", "-fullmultibyte",
+            "-gs1nocheck", "-gs1parens", "-gssep", "-guarddescent",
+            "-height", "-init", "-mask", "-mode",
+            "-nobackground", "-noquietzones", "-notext", "-primary", "-quietzones",
+            "-reverse", "-rotate", "-rows", "-scale", "-scmvv",
+            "-secure", "-separator", "-smalltext", "-square", "-structapp",
+            "-to", "-vers", "-vwhitesp", "-werror", "-whitesp",
             NULL};
         enum iOption {
             iAddonGap, iBarcode, iBG, iBind, iBold, iBorder, iBox,
-            iCols, iDMRE, iDotSize, iDotty, iECI, iFG, iFormat,
-            iFullMultiByte, iGSSep, iHeight, iInit, iMask, iMode,
-            iNoBackground, iNoText, iPrimary, iReverse, iRotate,
-            iRows, iScale, iSCMvv, iSecure, iSeparator, iSmallText,
-            iSquare, iTo, iVers, iWError, iWhiteSp, iWZPL
+            iCols, iCompliantHeight, iDMRE, iDotSize, iDotty,
+            iECI, iFG, iFormat, iFullMultiByte,
+            iGS1NoCheck, iGS1Parens, iGSSep, iGuardDescent,
+            iHeight, iInit, iMask, iMode,
+            iNoBackground, iNoQuietZones, iNoText, iPrimary, iQuietZones,
+            iReverse, iRotate, iRows, iScale, iSCMvv,
+            iSecure, iSeparator, iSmallText, iSquare, iStructApp,
+            iTo, iVers, iVWhiteSp, iWError, iWhiteSp
             };
         int optionIndex;
         int intValue;
@@ -723,18 +756,22 @@ static int Encode(Tcl_Interp *interp, int objc,
         case iBind:
         case iBold:
         case iBox:
+        case iCompliantHeight:
         case iDMRE:
         case iDotty:
+        case iGS1NoCheck:
+        case iGS1Parens:
         case iGSSep:
         case iInit:
         case iNoBackground:
+        case iNoQuietZones:
         case iNoText:
+        case iQuietZones:
         case iSmallText:
         case iSquare:
         case iFullMultiByte:
         case iReverse:
         case iWError:
-        case iWZPL:
             /* >> Binary options */
             if (TCL_OK != Tcl_GetBooleanFromObj(interp, objv[optionPos+1],
                     &intValue))
@@ -752,6 +789,8 @@ static int Encode(Tcl_Interp *interp, int objc,
                 fError = 1;
             }
             break;
+        case iHeight:
+        case iGuardDescent:
         case iDotSize:
         case iScale:
             /* >> Float */
@@ -764,16 +803,16 @@ static int Encode(Tcl_Interp *interp, int objc,
         case iAddonGap:
         case iBorder:
         case iCols:
-        case iHeight:
+        case iMask:
         case iMode:
         case iRotate:
         case iRows:
         case iSecure:
-        case iVers:
-        case iWhiteSp:
         case iSeparator:
-        case iMask:
         case iSCMvv:
+        case iVers:
+        case iVWhiteSp:
+        case iWhiteSp:
             /* >> Int */
             if (TCL_OK != Tcl_GetIntFromObj(interp, objv[optionPos+1],
                     &intValue))
@@ -789,7 +828,7 @@ static int Encode(Tcl_Interp *interp, int objc,
             Tcl_UtfToExternalDString( hZINTEncoding, pStr, lStr, &dString);
             if (Tcl_DStringLength(&dString) > (optionIndex==iPrimary?90:250)) {
                 Tcl_DStringFree(&dString);
-                Tcl_SetObjResult(interp,Tcl_NewStringObj("String to long", -1));
+                Tcl_SetObjResult(interp,Tcl_NewStringObj("String too long", -1));
                 fError = 1;
             }
             break;
@@ -829,6 +868,13 @@ static int Encode(Tcl_Interp *interp, int objc,
                 my_symbol->output_options &= ~BARCODE_BOX;
             }
             break;
+        case iCompliantHeight:
+            if (intValue) {
+                my_symbol->output_options |= COMPLIANT_HEIGHT;
+            } else {
+                my_symbol->output_options &= ~COMPLIANT_HEIGHT;
+            }
+            break;
         case iDotSize:
             if (doubleValue < 0.01) {
                 Tcl_SetObjResult(interp,
@@ -843,6 +889,20 @@ static int Encode(Tcl_Interp *interp, int objc,
                 my_symbol->output_options |= BARCODE_DOTTY_MODE;
             } else {
                 my_symbol->output_options &= ~BARCODE_DOTTY_MODE;
+            }
+            break;
+        case iGS1NoCheck:
+            if (intValue) {
+                my_symbol->input_mode |= GS1NOCHECK_MODE;
+            } else {
+                my_symbol->input_mode &= ~GS1NOCHECK_MODE;
+            }
+            break;
+        case iGS1Parens:
+            if (intValue) {
+                my_symbol->input_mode |= GS1PARENS_MODE;
+            } else {
+                my_symbol->input_mode &= ~GS1PARENS_MODE;
             }
             break;
         case iGSSep:
@@ -890,11 +950,6 @@ static int Encode(Tcl_Interp *interp, int objc,
                 my_symbol->warn_level = WARN_FAIL_ALL;
             }
             break;
-        case iWZPL:
-            if (intValue) {
-                my_symbol->warn_level = WARN_ZPL_COMPAT;
-            }
-            break;
         case iFG:
             strncpy(my_symbol->fgcolour, pStr, lStr);
             my_symbol->fgcolour[lStr]='\0';
@@ -908,8 +963,22 @@ static int Encode(Tcl_Interp *interp, int objc,
                 strcpy(my_symbol->bgcolour, "ffffff00");
             }
             break;
+        case iNoQuietZones:
+            if (intValue) {
+                my_symbol->output_options |= BARCODE_NO_QUIET_ZONES;
+            } else {
+                my_symbol->output_options &= ~BARCODE_NO_QUIET_ZONES;
+            }
+            break;
         case iNoText:
             my_symbol->show_hrt = (intValue?0:1);
+            break;
+        case iQuietZones:
+            if (intValue) {
+                my_symbol->output_options |= BARCODE_QUIET_ZONES;
+            } else {
+                my_symbol->output_options &= ~BARCODE_QUIET_ZONES;
+            }
             break;
         case iSquare:
             /* DM_SQUARE overwrites DM_DMRE */
@@ -939,13 +1008,22 @@ static int Encode(Tcl_Interp *interp, int objc,
                 my_symbol->border_width = intValue;
             }
             break;
+        case iGuardDescent:
+            if ((float)doubleValue < 0.0f || (float)doubleValue > 50.0f) {
+                Tcl_SetObjResult(interp,
+                    Tcl_NewStringObj("Guard bar descent out of range", -1));
+                fError = 1;
+            } else {
+                my_symbol->guard_descent = (float)doubleValue;
+            }
+            break;
         case iHeight:
-            if (intValue < 1 || intValue > 1000) {
+            if ((float)doubleValue < 0.5f || (float)doubleValue > 2000.0f) {
                 Tcl_SetObjResult(interp,
                     Tcl_NewStringObj("Height out of range", -1));
                 fError = 1;
             } else {
-                my_symbol->height = intValue;
+                my_symbol->height = (float)doubleValue;
             }
             break;
         case iSeparator:
@@ -979,7 +1057,7 @@ static int Encode(Tcl_Interp *interp, int objc,
         case iVers:
             /* >> Int in Option 2 */
             if (intValue < 1
-                || (optionIndex==iCols && intValue > 108)
+                || (optionIndex==iCols && intValue > 200)
                 || (optionIndex==iVers && intValue > 47))
             {
                 Tcl_SetObjResult(interp,
@@ -1041,8 +1119,59 @@ static int Encode(Tcl_Interp *interp, int objc,
                 my_symbol->symbology = s_code_number[intValue];
             }
             break;
+        case iVWhiteSp:
+            my_symbol->whitespace_height = intValue;
+            break;
         case iWhiteSp:
             my_symbol->whitespace_width = intValue;
+            break;
+        case iStructApp:
+            /* >> Decode the -structapp parameter as list of index count ?ID? */
+            {
+                Tcl_Obj *poParam;
+                struct zint_structapp structapp = { 0, 0, "" };
+                char *pStructAppId = NULL;
+                int lStructAppId = 0;
+                if (TCL_OK != Tcl_ListObjLength(interp,
+                    objv[optionPos+1], &lStr))
+                {
+                    fError = 1;
+                } else if ( ! ( lStr == 2 || lStr == 3 ) ) {
+                    Tcl_SetObjResult(interp,
+                        Tcl_NewStringObj(
+                        "option -structapp not a list of 2 or 3", -1));
+                    fError = 1;
+                } else {
+                    if (TCL_OK != Tcl_ListObjIndex(interp, objv[optionPos+1],
+                        0, &poParam)
+                        || TCL_OK != Tcl_GetIntFromObj(interp, poParam, &structapp.index)
+                        || TCL_OK != Tcl_ListObjIndex(interp, objv[optionPos+1],
+                            1, &poParam)
+                        || TCL_OK != Tcl_GetIntFromObj(interp, poParam, &structapp.count))
+                    {
+                        fError = 1;
+                    }
+                    if (!fError && lStr == 3 && (
+                        TCL_OK != Tcl_ListObjIndex(interp, objv[optionPos+1],
+                            2, &poParam)
+                        || !(pStructAppId = Tcl_GetStringFromObj(poParam, &lStructAppId))
+                        || lStructAppId > 32
+                        ))
+                    {
+                        if (lStructAppId > 32) {
+                            Tcl_SetObjResult(interp,
+                                Tcl_NewStringObj("Structured Append ID too long", -1));
+                        }
+                        fError = 1;
+                    }
+                    if (!fError) {
+                        my_symbol->structapp = structapp;
+                        if (lStr == 3 && pStructAppId && lStructAppId) {
+                            strncpy(my_symbol->structapp.id, pStructAppId, lStructAppId);
+                        }
+                    }
+                }
+            }
             break;
         case iTo:
             /* >> Decode the -to parameter as list of X0 Y0 ?Width Height? */
@@ -1057,25 +1186,29 @@ static int Encode(Tcl_Interp *interp, int objc,
                         Tcl_NewStringObj(
                         "option -to not a list of 2 or 4", -1));
                     fError = 1;
-                } else if ((
-                    TCL_OK != Tcl_ListObjIndex(interp, objv[optionPos+1],
-                        0, &poParam)
-                    || TCL_OK != Tcl_GetIntFromObj(interp,poParam,&destX0)
-                    || TCL_OK != Tcl_ListObjIndex(interp, objv[optionPos+1],
-                        1, &poParam)
-                    || TCL_OK != Tcl_GetIntFromObj(interp,poParam,&destY0)
-                    || lStr == 4) && (
-                    TCL_OK != Tcl_ListObjIndex(interp, objv[optionPos+1],
-                        2, &poParam)
-                    || TCL_OK != Tcl_GetIntFromObj(interp,poParam,
-                        &destWidth)
-                    || TCL_OK != Tcl_ListObjIndex(interp, objv[optionPos+1],
-                        3, &poParam)
-                    || TCL_OK != Tcl_GetIntFromObj(interp,poParam,
-                        &destHeight)
-                    ))
-                {
-                    fError = 1;
+                } else {
+                    if (TCL_OK != Tcl_ListObjIndex(interp, objv[optionPos+1],
+                            0, &poParam)
+                        || TCL_OK != Tcl_GetIntFromObj(interp,poParam,&destX0)
+                        || TCL_OK != Tcl_ListObjIndex(interp, objv[optionPos+1],
+                            1, &poParam)
+                        || TCL_OK != Tcl_GetIntFromObj(interp,poParam,&destY0))
+                    {
+                        fError = 1;
+                    }
+                    if (!fError && lStr == 4 && (
+                        TCL_OK != Tcl_ListObjIndex(interp, objv[optionPos+1],
+                            2, &poParam)
+                        || TCL_OK != Tcl_GetIntFromObj(interp,poParam,
+                            &destWidth)
+                        || TCL_OK != Tcl_ListObjIndex(interp, objv[optionPos+1],
+                            3, &poParam)
+                        || TCL_OK != Tcl_GetIntFromObj(interp,poParam,
+                            &destHeight)
+                        ))
+                    {
+                        fError = 1;
+                    }
                 }
             }
             break;
@@ -1095,9 +1228,9 @@ static int Encode(Tcl_Interp *interp, int objc,
                     break;
                 }
                 switch (intValue) {
-                    case iBinary: my_symbol->input_mode = DATA_MODE; break;
-                    case iGS1: my_symbol->input_mode = GS1_MODE; break;
-                    default: my_symbol->input_mode = UNICODE_MODE; break;
+                    case iBinary: my_symbol->input_mode = (my_symbol->input_mode & ~0x07) | DATA_MODE; break;
+                    case iGS1: my_symbol->input_mode = (my_symbol->input_mode & ~0x07) | GS1_MODE; break;
+                    default: my_symbol->input_mode = (my_symbol->input_mode & ~0x07) | UNICODE_MODE; break;
                 }
             }
         }
@@ -1110,15 +1243,15 @@ static int Encode(Tcl_Interp *interp, int objc,
     /*------------------------------------------------------------------------*/
     /* >>> option_3 is set by three values depending on the symbology */
     /* On wrong symbology, the option is ignored(as does the zint program)*/
-	if (fFullMultiByte && (cap & ZINT_CAP_FULL_MULTIBYTE)) {
-		my_symbol->option_3 = ZINT_FULL_MULTIBYTE;
-	}
-	if (Mask && (cap & ZINT_CAP_MASK)) {
-		my_symbol->option_3 |= Mask << 8;
-	}
+    if (fFullMultiByte && (cap & ZINT_CAP_FULL_MULTIBYTE)) {
+        my_symbol->option_3 = ZINT_FULL_MULTIBYTE;
+    }
+    if (Mask && (cap & ZINT_CAP_MASK)) {
+        my_symbol->option_3 |= Mask << 8;
+    }
     if (Separator && (cap & ZINT_CAP_STACKABLE)) {
-		my_symbol->option_3 = Separator;
-	}
+        my_symbol->option_3 = Separator;
+    }
     /*------------------------------------------------------------------------*/
     /* >>> option_2 is set by two values depending on the symbology */
     /* On wrong symbology, the option is ignored(as does the zint program)*/
@@ -1132,15 +1265,15 @@ static int Encode(Tcl_Interp *interp, int objc,
     if (!fError) {
         /*--------------------------------------------------------------------*/
         /* >>> Get input mode */
-        if (my_symbol->input_mode == DATA_MODE) {
+        if ((my_symbol->input_mode & 0x07) == DATA_MODE) {
             /* Binary data */
             pStr = (char *) Tcl_GetByteArrayFromObj(objv[2], &lStr);
         } else {
             /* UTF8 Data */
-			pStr = Tcl_GetStringFromObj(objv[2], &lStr);
-			Tcl_UtfToExternalDString( hZINTEncoding, pStr, lStr, &dsInput);
-			pStr = Tcl_DStringValue( &dsInput );
-			lStr = Tcl_DStringLength( &dsInput );
+            pStr = Tcl_GetStringFromObj(objv[2], &lStr);
+            Tcl_UtfToExternalDString( hZINTEncoding, pStr, lStr, &dsInput);
+            pStr = Tcl_DStringValue( &dsInput );
+            lStr = Tcl_DStringLength( &dsInput );
         }
     }
     /*------------------------------------------------------------------------*/

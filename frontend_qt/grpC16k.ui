@@ -27,6 +27,10 @@
        <property name="text">
         <string>&amp;Row Separator Height:</string>
        </property>
+       <property name="toolTip">
+        <string>Height in X-dimensions of horizontal lines
+separating rows</string>
+       </property>
        <property name="buddy">
         <cstring>cmbC16kRowSepHeight</cstring>
        </property>
@@ -34,6 +38,10 @@
      </item>
      <item row="0" column="1">
       <widget class="QComboBox" name="cmbC16kRowSepHeight">
+       <property name="toolTip">
+        <string>Height in X-dimensions of horizontal lines
+separating rows</string>
+       </property>
        <item>
         <property name="text">
          <string>1 X (default)</string>
@@ -63,6 +71,9 @@
      <property name="title">
       <string>Encoding Mode</string>
      </property>
+     <property name="toolTip">
+      <string>How to process data</string>
+     </property>
      <layout class="QGridLayout" name="gridLayoutC16kEncodingMode">
       <property name="sizeConstraint">
        <enum>QLayout::SetMinimumSize</enum>
@@ -71,6 +82,9 @@
        <widget class="QRadioButton" name="radC16kStand">
         <property name="text">
          <string>S&amp;tandard Mode</string>
+        </property>
+        <property name="toolTip">
+         <string>Process data as normal</string>
         </property>
         <property name="checked">
          <bool>true</bool>
@@ -82,9 +96,26 @@
         <property name="text">
          <string>GS&amp;1 Data Mode</string>
         </property>
+        <property name="toolTip">
+         <string>Process data as GS1 General Specifications data,
+formatted with Application Identifiers (AIs)</string>
+        </property>
        </widget>
       </item>
      </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="chkC16kNoQuietZones">
+     <property name="text">
+      <string>No Quiet &amp;Zones</string>
+     </property>
+     <property name="checked">
+      <bool>false</bool>
+     </property>
+     <property name="toolTip">
+      <string>Do not add quiet zones to whitespace</string>
+     </property>
     </widget>
    </item>
    <item>
