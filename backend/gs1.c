@@ -68,12 +68,12 @@ static int numeric(const unsigned char *data, int data_len, int offset, int min,
 }
 
 /* GS1 General Specifications 21.0.1 Figure 7.9.5-1. GS1 AI encodable character reference values.
-   Also used to determine if character in set 82 */
+   Also used to determine if character in set 82 - a value of 82 means not in */
 static const char c82[] = {
-     0,  1, -1, -1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, /*!-0*/
-    14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, -1, /*1-@*/
+     0,  1, 82, 82,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, /*!-0*/
+    14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 82, /*1-@*/
     29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, /*A-P*/
-    45, 46, 47, 48, 49, 50, 51, 52, 53, 54, -1, -1, -1, -1, 55, -1, /*Q-`*/
+    45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 82, 82, 82, 82, 55, 82, /*Q-`*/
     56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, /*a-p*/
     72, 73, 74, 75, 76, 77, 78, 79, 80, 81, /*q-z*/
 };
@@ -93,7 +93,7 @@ static int cset82(const unsigned char *data, int data_len, int offset, int min, 
         const unsigned char *de = d + (data_len > max ? max : data_len);
 
         for (; d < de; d++) {
-            if (*d < '!' || *d > 'z' || c82[*d - '!'] == -1) {
+            if (*d < '!' || *d > 'z' || c82[*d - '!'] == 82) {
                 *p_err_no = 3;
                 *p_err_posn = d - data + 1;
                 sprintf(err_msg, "Invalid CSET 82 character '%c'", *d);
@@ -562,7 +562,7 @@ static int pcenc(const unsigned char *data, int data_len, int offset, int min, i
                 if (strchr(hex_chars, *(++d)) == NULL || strchr(hex_chars, *(++d)) == NULL) {
                     *p_err_no = 3;
                     *p_err_posn = d - data + 1;
-                    strcpy(err_msg, "Invalid characters for percent encoding");
+                    strcpy(err_msg, "Invalid character for percent encoding");
                     return 0;
                 }
             }
@@ -1183,11 +1183,13 @@ static int couponposoffer(const unsigned char *data, int data_len, int offset, i
 INTERNAL int gs1_verify(struct zint_symbol *symbol, const unsigned char source[], const int src_len,
                 unsigned char reduced[]) {
     int i, j, last_ai, ai_latch;
-    char ai_string[5]; /* 4 char max "NNNN" */
     int bracket_level, max_bracket_level, ai_length, max_ai_length, min_ai_length;
+    int ai_no_data;
     int ai_count;
     int error_value = 0;
-    int ai_max = chr_cnt(source, src_len, '[') + 1; /* Plus 1 so non-zero */
+    char obracket = symbol->input_mode & GS1PARENS_MODE ? '(' : '[';
+    char cbracket = symbol->input_mode & GS1PARENS_MODE ? ')' : ']';
+    int ai_max = chr_cnt(source, src_len, obracket) + 1; /* Plus 1 so non-zero */
 #ifndef _MSC_VER
     int ai_value[ai_max], ai_location[ai_max], data_location[ai_max], data_length[ai_max];
 #else
@@ -1217,13 +1219,9 @@ INTERNAL int gs1_verify(struct zint_symbol *symbol, const unsigned char source[]
         }
     }
 
-    if (source[0] != '[') {
+    if (source[0] != obracket) {
         strcpy(symbol->errtxt, "252: Data does not start with an AI");
-        if (symbol->warn_level != WARN_ZPL_COMPAT) {
-            return ZINT_ERROR_INVALID_DATA;
-        } else {
-            error_value = ZINT_WARN_NONCOMPLIANT;
-        }
+        return ZINT_ERROR_INVALID_DATA;
     }
 
     /* Check the position of the brackets */
@@ -1234,22 +1232,26 @@ INTERNAL int gs1_verify(struct zint_symbol *symbol, const unsigned char source[]
     min_ai_length = 5;
     j = 0;
     ai_latch = 0;
+    ai_no_data = 0;
     for (i = 0; i < src_len; i++) {
         ai_length += j;
-        if (((j == 1) && (source[i] != ']')) && ((source[i] < '0') || (source[i] > '9'))) {
+        if (((j == 1) && (source[i] != cbracket)) && ((source[i] < '0') || (source[i] > '9'))) {
             ai_latch = 1;
         }
-        if (source[i] == '[') {
+        if (source[i] == obracket) {
             bracket_level++;
             j = 1;
         }
-        if (source[i] == ']') {
+        if (source[i] == cbracket) {
             bracket_level--;
             if (ai_length < min_ai_length) {
                 min_ai_length = ai_length;
             }
             j = 0;
             ai_length = 0;
+            if (i + 1 == src_len || source[i + 1] == obracket) { /* Check if no data */
+                ai_no_data = 1;
+            }
         }
         if (bracket_level > max_bracket_level) {
             max_bracket_level = bracket_level;
@@ -1279,9 +1281,13 @@ INTERNAL int gs1_verify(struct zint_symbol *symbol, const unsigned char source[]
     }
 
     if (min_ai_length <= 1) {
-        /* AI is too short */
-        strcpy(symbol->errtxt, "256: Invalid AI in input data (AI too short)");
-        return ZINT_ERROR_INVALID_DATA;
+        /* Allow too short AI if GS1NOCHECK_MODE and AI is zero-length and all AIs have some data
+           - permits dummy "[]" workaround for ticket #204 data with no valid AI */
+        if (!(symbol->input_mode & GS1NOCHECK_MODE) || min_ai_length == 1 || ai_no_data) {
+            /* AI is too short */
+            strcpy(symbol->errtxt, "256: Invalid AI in input data (AI too short)");
+            return ZINT_ERROR_INVALID_DATA;
+        }
     }
 
     if (ai_latch == 1) {
@@ -1290,61 +1296,57 @@ INTERNAL int gs1_verify(struct zint_symbol *symbol, const unsigned char source[]
         return ZINT_ERROR_INVALID_DATA;
     }
 
-    ai_count = 0;
-    for (i = 1; i < src_len; i++) {
-        if (source[i - 1] == '[') {
-            ai_location[ai_count] = i;
-            j = 0;
-            do {
-                ai_string[j] = source[i + j];
-                j++;
-            } while (ai_string[j - 1] != ']');
-            ai_string[j - 1] = '\0';
-            ai_value[ai_count] = atoi(ai_string);
-            ai_count++;
+    if (!(symbol->input_mode & GS1NOCHECK_MODE)) {
+        ai_count = 0;
+        for (i = 1; i < src_len; i++) {
+            if (source[i - 1] == obracket) {
+                ai_location[ai_count] = i;
+                for (j = 1; source[i + j] != cbracket; j++);
+                ai_value[ai_count] = to_int(source + i, j);
+                ai_count++;
+                i += j;
+            }
         }
-    }
 
-    for (i = 0; i < ai_count; i++) {
-        data_location[i] = ai_location[i] + 3;
-        if (ai_value[i] >= 100) {
-            data_location[i]++;
+        for (i = 0; i < ai_count; i++) {
             if (ai_value[i] >= 1000) {
-                data_location[i]++;
-            }
-        }
-        data_length[i] = 0;
-        while ((data_location[i] + data_length[i] < src_len)
-                    && (source[data_location[i] + data_length[i]] != '[')) {
-            data_length[i]++;
-        }
-        if (data_length[i] == 0) {
-            /* No data for given AI */
-            strcpy(symbol->errtxt, "258: Empty data field in input data");
-            return ZINT_ERROR_INVALID_DATA;
-        }
-    }
-
-    strcpy(ai_string, "");
-
-    // Check for valid AI values and data lengths according to GS1 General
-    // Specifications Release 21.0.1, January 2021
-    for (i = 0; i < ai_count; i++) {
-        int err_no, err_posn;
-        char err_msg[50];
-        if (!gs1_lint(ai_value[i], source + data_location[i], data_length[i], &err_no, &err_posn, err_msg)) {
-            if (err_no == 1) {
-                sprintf(symbol->errtxt, "260: Invalid AI (%02d)", ai_value[i]);
-            } else if (err_no == 2 || err_no == 4) { /* 4 is backward-incompatible bad length */
-                sprintf(symbol->errtxt, "259: Invalid data length for AI (%02d)", ai_value[i]);
+                data_location[i] = ai_location[i] + 5;
+            } else if (ai_value[i] >= 100) {
+                data_location[i] = ai_location[i] + 4;
             } else {
-                sprintf(symbol->errtxt, "261: AI (%02d) position %d: %s", ai_value[i], err_posn, err_msg);
+                data_location[i] = ai_location[i] + 3;
             }
-            /* For backward compatibility only error on unknown AI or bad length */
-            if ((err_no == 1 || err_no == 2) && symbol->warn_level != WARN_ZPL_COMPAT) {
+            data_length[i] = 0;
+            while ((data_location[i] + data_length[i] < src_len)
+                        && (source[data_location[i] + data_length[i]] != obracket)) {
+                data_length[i]++;
+            }
+            if (data_length[i] == 0) {
+                /* No data for given AI */
+                strcpy(symbol->errtxt, "258: Empty data field in input data");
                 return ZINT_ERROR_INVALID_DATA;
             }
-            error_value = ZINT_WARN_NONCOMPLIANT;
+        }
+
+        // Check for valid AI values and data lengths according to GS1 General
+        // Specifications Release 21.0.1, January 2021
+        for (i = 0; i < ai_count; i++) {
+            int err_no, err_posn;
+            char err_msg[50];
+            if (!gs1_lint(ai_value[i], source + data_location[i], data_length[i], &err_no, &err_posn, err_msg)) {
+                if (err_no == 1) {
+                    sprintf(symbol->errtxt, "260: Invalid AI (%02d)", ai_value[i]);
+                } else if (err_no == 2 || err_no == 4) { /* 4 is backward-incompatible bad length */
+                    sprintf(symbol->errtxt, "259: Invalid data length for AI (%02d)", ai_value[i]);
+                } else {
+                    sprintf(symbol->errtxt, "261: AI (%02d) position %d: %s", ai_value[i], err_posn, err_msg);
+                }
+                /* For backward compatibility only error on unknown AI or bad length */
+                if (err_no == 1 || err_no == 2) {
+                    return ZINT_ERROR_INVALID_DATA;
+                }
+                error_value = ZINT_WARN_NONCOMPLIANT;
+            }
         }
     }
 
@@ -1352,25 +1354,24 @@ INTERNAL int gs1_verify(struct zint_symbol *symbol, const unsigned char source[]
     j = 0;
     ai_latch = 1;
     for (i = 0; i < src_len; i++) {
-        if ((source[i] != '[') && (source[i] != ']')) {
+        if ((source[i] != obracket) && (source[i] != cbracket)) {
             reduced[j++] = source[i];
         }
-        if (source[i] == '[') {
+        if (source[i] == obracket) {
             /* Start of an AI string */
             if (ai_latch == 0) {
                 reduced[j++] = '[';
             }
-            ai_string[0] = source[i + 1];
-            ai_string[1] = source[i + 2];
-            ai_string[2] = '\0';
-            last_ai = atoi(ai_string);
+            last_ai = to_int(source + i + 1, 2);
             ai_latch = 0;
             /* The following values from "GS1 General Specifications Release 21.0.1"
                Figure 7.8.4-2 "Element strings with predefined length using GS1 Application Identifiers" */
             if (
                     ((last_ai >= 0) && (last_ai <= 4))
                     || ((last_ai >= 11) && (last_ai <= 20))
-                    || (last_ai == 23) /* legacy support */
+                    /* NOTE: as noted by Terry Burton the following complies with ISO/IEC 24724:2011 Table D.1,
+                       but clashes with TPX AI [235], introduced May 2019; awaiting feedback from GS1 */
+                    || (last_ai == 23) /* legacy support */ /* TODO: probably remove */
                     || ((last_ai >= 31) && (last_ai <= 36))
                     || (last_ai == 41)
                     ) {
@@ -1383,4 +1384,18 @@ INTERNAL int gs1_verify(struct zint_symbol *symbol, const unsigned char source[]
 
     /* the character '[' in the reduced string refers to the FNC1 character */
     return error_value;
+}
+
+/* Helper to return standard GS1 check digit (GS1 General Specifications 7.9.1) */
+INTERNAL char gs1_check_digit(const unsigned char source[], const int length) {
+    int i;
+    int count = 0;
+    int factor = length & 1 ? 3 : 1;
+
+    for (i = 0; i < length; i++) {
+        count += factor * ctoi(source[i]);
+        factor = factor == 1 ? 3 : 1;
+    }
+
+    return itoc((10 - (count % 10)) % 10);
 }

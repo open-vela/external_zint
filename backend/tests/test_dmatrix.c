@@ -33,12 +33,10 @@
 
 static void test_large(int index, int debug) {
 
-    testStart("");
-
-    int ret;
     struct item {
         int symbology;
         int option_2;
+        struct zint_structapp structapp;
         char *pattern;
         int length;
         int ret;
@@ -48,318 +46,327 @@ static void test_large(int index, int debug) {
     // ISO/IEC 16022:2006 Table 7 and ISO/IEC 21471:2020 (DMRE) Table 7
     // s/\/\*[ 0-9]*\*\//\=printf("\/*%3d*\/", line(".") - line("'<"))
     struct item data[] = {
-        /*  0*/ { BARCODE_DATAMATRIX, -1, "1", 3116, 0, 144, 144 },
-        /*  1*/ { BARCODE_DATAMATRIX, -1, "1", 3117, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*  2*/ { BARCODE_DATAMATRIX, -1, "A", 2335, 0, 144, 144 },
-        /*  3*/ { BARCODE_DATAMATRIX, -1, "A", 2336, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*  4*/ { BARCODE_DATAMATRIX, -1, "\200", 1556, 0, 144, 144 }, // Spec says 1555 but 1556 correct as only single byte count of 0 required
-        /*  5*/ { BARCODE_DATAMATRIX, -1, "\200", 1557, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*  6*/ { BARCODE_HIBC_DM, -1, "1", 110, 0, 32, 32 },
-        /*  7*/ { BARCODE_HIBC_DM, -1, "1", 111, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*  8*/ { BARCODE_DATAMATRIX, 1, "1", 6, 0, 10, 10 },
-        /*  9*/ { BARCODE_DATAMATRIX, 1, "1", 7, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 10*/ { BARCODE_DATAMATRIX, 1, "A", 3, 0, 10, 10 },
-        /* 11*/ { BARCODE_DATAMATRIX, 1, "A", 4, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 12*/ { BARCODE_DATAMATRIX, 1, "\200", 1, 0, 10, 10 },
-        /* 13*/ { BARCODE_DATAMATRIX, 1, "\200", 2, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 14*/ { BARCODE_DATAMATRIX, 2, "1", 10, 0, 12, 12 },
-        /* 15*/ { BARCODE_DATAMATRIX, 2, "1", 11, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 16*/ { BARCODE_DATAMATRIX, 2, "A", 6, 0, 12, 12 },
-        /* 17*/ { BARCODE_DATAMATRIX, 2, "A", 7, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 18*/ { BARCODE_DATAMATRIX, 2, "\200", 3, 0, 12, 12 },
-        /* 19*/ { BARCODE_DATAMATRIX, 2, "\200", 4, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 20*/ { BARCODE_DATAMATRIX, 3, "1", 16, 0, 14, 14 },
-        /* 21*/ { BARCODE_DATAMATRIX, 3, "1", 17, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 22*/ { BARCODE_DATAMATRIX, 3, "A", 10, 0, 14, 14 },
-        /* 23*/ { BARCODE_DATAMATRIX, 3, "A", 11, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 24*/ { BARCODE_DATAMATRIX, 3, "\200", 6, 0, 14, 14 },
-        /* 25*/ { BARCODE_DATAMATRIX, 3, "\200", 7, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 26*/ { BARCODE_DATAMATRIX, 4, "1", 24, 0, 16, 16 },
-        /* 27*/ { BARCODE_DATAMATRIX, 4, "1", 25, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 28*/ { BARCODE_DATAMATRIX, 4, "A", 16, 0, 16, 16 },
-        /* 29*/ { BARCODE_DATAMATRIX, 4, "A", 17, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 30*/ { BARCODE_DATAMATRIX, 4, "\200", 10, 0, 16, 16 },
-        /* 31*/ { BARCODE_DATAMATRIX, 4, "\200", 11, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 32*/ { BARCODE_DATAMATRIX, 5, "1", 36, 0, 18, 18 },
-        /* 33*/ { BARCODE_DATAMATRIX, 5, "1", 37, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 34*/ { BARCODE_DATAMATRIX, 5, "A", 25, 0, 18, 18 },
-        /* 35*/ { BARCODE_DATAMATRIX, 5, "A", 26, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 36*/ { BARCODE_DATAMATRIX, 5, "\200", 16, 0, 18, 18 },
-        /* 37*/ { BARCODE_DATAMATRIX, 5, "\200", 17, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 38*/ { BARCODE_DATAMATRIX, 6, "1", 44, 0, 20, 20 },
-        /* 39*/ { BARCODE_DATAMATRIX, 6, "1", 45, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 40*/ { BARCODE_DATAMATRIX, 6, "A", 31, 0, 20, 20 },
-        /* 41*/ { BARCODE_DATAMATRIX, 6, "A", 32, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 42*/ { BARCODE_DATAMATRIX, 6, "\200", 20, 0, 20, 20 },
-        /* 43*/ { BARCODE_DATAMATRIX, 6, "\200", 21, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 44*/ { BARCODE_DATAMATRIX, 7, "1", 60, 0, 22, 22 },
-        /* 45*/ { BARCODE_DATAMATRIX, 7, "1", 61, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 46*/ { BARCODE_DATAMATRIX, 7, "A", 43, 0, 22, 22 },
-        /* 47*/ { BARCODE_DATAMATRIX, 7, "A", 44, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 48*/ { BARCODE_DATAMATRIX, 7, "\200", 28, 0, 22, 22 },
-        /* 49*/ { BARCODE_DATAMATRIX, 7, "\200", 29, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 50*/ { BARCODE_DATAMATRIX, 8, "1", 72, 0, 24, 24 },
-        /* 51*/ { BARCODE_DATAMATRIX, 8, "1", 73, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 52*/ { BARCODE_DATAMATRIX, 8, "A", 52, 0, 24, 24 },
-        /* 53*/ { BARCODE_DATAMATRIX, 8, "A", 53, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 54*/ { BARCODE_DATAMATRIX, 8, "\200", 34, 0, 24, 24 },
-        /* 55*/ { BARCODE_DATAMATRIX, 8, "\200", 35, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 56*/ { BARCODE_DATAMATRIX, 9, "1", 88, 0, 26, 26 },
-        /* 57*/ { BARCODE_DATAMATRIX, 9, "1", 89, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 58*/ { BARCODE_DATAMATRIX, 9, "A", 64, 0, 26, 26 },
-        /* 59*/ { BARCODE_DATAMATRIX, 9, "A", 65, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 60*/ { BARCODE_DATAMATRIX, 9, "\200", 42, 0, 26, 26 },
-        /* 61*/ { BARCODE_DATAMATRIX, 9, "\200", 43, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 62*/ { BARCODE_DATAMATRIX, 10, "1", 124, 0, 32, 32 },
-        /* 63*/ { BARCODE_DATAMATRIX, 10, "1", 125, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 64*/ { BARCODE_DATAMATRIX, 10, "A", 91, 0, 32, 32 },
-        /* 65*/ { BARCODE_DATAMATRIX, 10, "A", 92, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 66*/ { BARCODE_DATAMATRIX, 10, "\200", 60, 0, 32, 32 },
-        /* 67*/ { BARCODE_DATAMATRIX, 10, "\200", 61, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 68*/ { BARCODE_DATAMATRIX, 11, "1", 172, 0, 36, 36 },
-        /* 69*/ { BARCODE_DATAMATRIX, 11, "1", 173, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 70*/ { BARCODE_DATAMATRIX, 11, "A", 127, 0, 36, 36 },
-        /* 71*/ { BARCODE_DATAMATRIX, 11, "A", 128, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 72*/ { BARCODE_DATAMATRIX, 11, "\200", 84, 0, 36, 36 },
-        /* 73*/ { BARCODE_DATAMATRIX, 11, "\200", 85, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 74*/ { BARCODE_DATAMATRIX, 12, "1", 228, 0, 40, 40 },
-        /* 75*/ { BARCODE_DATAMATRIX, 12, "1", 229, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 76*/ { BARCODE_DATAMATRIX, 12, "A", 169, 0, 40, 40 },
-        /* 77*/ { BARCODE_DATAMATRIX, 12, "A", 170, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 78*/ { BARCODE_DATAMATRIX, 12, "\200", 112, 0, 40, 40 },
-        /* 79*/ { BARCODE_DATAMATRIX, 12, "\200", 113, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 80*/ { BARCODE_DATAMATRIX, 13, "1", 288, 0, 44, 44 },
-        /* 81*/ { BARCODE_DATAMATRIX, 13, "1", 289, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 82*/ { BARCODE_DATAMATRIX, 13, "A", 214, 0, 44, 44 },
-        /* 83*/ { BARCODE_DATAMATRIX, 13, "A", 215, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 84*/ { BARCODE_DATAMATRIX, 13, "\200", 142, 0, 44, 44 },
-        /* 85*/ { BARCODE_DATAMATRIX, 13, "\200", 143, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 86*/ { BARCODE_DATAMATRIX, 14, "1", 348, 0, 48, 48 },
-        /* 87*/ { BARCODE_DATAMATRIX, 14, "1", 349, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 88*/ { BARCODE_DATAMATRIX, 14, "A", 259, 0, 48, 48 },
-        /* 89*/ { BARCODE_DATAMATRIX, 14, "A", 260, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 90*/ { BARCODE_DATAMATRIX, 14, "\200", 172, 0, 48, 48 },
-        /* 91*/ { BARCODE_DATAMATRIX, 14, "\200", 173, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 92*/ { BARCODE_DATAMATRIX, 15, "1", 408, 0, 52, 52 },
-        /* 93*/ { BARCODE_DATAMATRIX, 15, "1", 409, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 94*/ { BARCODE_DATAMATRIX, 15, "A", 304, 0, 52, 52 },
-        /* 95*/ { BARCODE_DATAMATRIX, 15, "A", 305, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 96*/ { BARCODE_DATAMATRIX, 15, "\200", 202, 0, 52, 52 },
-        /* 97*/ { BARCODE_DATAMATRIX, 15, "\200", 203, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /* 98*/ { BARCODE_DATAMATRIX, 16, "1", 560, 0, 64, 64 },
-        /* 99*/ { BARCODE_DATAMATRIX, 16, "1", 561, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*100*/ { BARCODE_DATAMATRIX, 16, "A", 418, 0, 64, 64 },
-        /*101*/ { BARCODE_DATAMATRIX, 16, "A", 419, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*102*/ { BARCODE_DATAMATRIX, 16, "\200", 278, 0, 64, 64 }, // Spec says 277 but 278 correct as only single byte count of 0 required
-        /*103*/ { BARCODE_DATAMATRIX, 16, "\200", 279, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*104*/ { BARCODE_DATAMATRIX, 17, "1", 736, 0, 72, 72 },
-        /*105*/ { BARCODE_DATAMATRIX, 17, "1", 737, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*106*/ { BARCODE_DATAMATRIX, 17, "A", 550, 0, 72, 72 },
-        /*107*/ { BARCODE_DATAMATRIX, 17, "A", 551, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*108*/ { BARCODE_DATAMATRIX, 17, "\200", 366, 0, 72, 72 }, // Spec says 365 but 366 correct as only single byte count of 0 required
-        /*109*/ { BARCODE_DATAMATRIX, 17, "\200", 367, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*110*/ { BARCODE_DATAMATRIX, 18, "1", 912, 0, 80, 80 },
-        /*111*/ { BARCODE_DATAMATRIX, 18, "1", 913, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*112*/ { BARCODE_DATAMATRIX, 18, "A", 682, 0, 80, 80 },
-        /*113*/ { BARCODE_DATAMATRIX, 18, "A", 683, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*114*/ { BARCODE_DATAMATRIX, 18, "\200", 454, 0, 80, 80 }, // Spec says 453 but 454 correct as only single byte count of 0 required
-        /*115*/ { BARCODE_DATAMATRIX, 18, "\200", 455, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*116*/ { BARCODE_DATAMATRIX, 19, "1", 1152, 0, 88, 88 },
-        /*117*/ { BARCODE_DATAMATRIX, 19, "1", 1153, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*118*/ { BARCODE_DATAMATRIX, 19, "A", 862, 0, 88, 88 },
-        /*119*/ { BARCODE_DATAMATRIX, 19, "A", 863, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*120*/ { BARCODE_DATAMATRIX, 19, "\200", 574, 0, 88, 88 }, // Spec says 573 but 574 correct as only single byte count of 0 required
-        /*121*/ { BARCODE_DATAMATRIX, 19, "\200", 575, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*122*/ { BARCODE_DATAMATRIX, 20, "1", 1392, 0, 96, 96 },
-        /*123*/ { BARCODE_DATAMATRIX, 20, "1", 1393, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*124*/ { BARCODE_DATAMATRIX, 20, "A", 1042, 0, 96, 96 },
-        /*125*/ { BARCODE_DATAMATRIX, 20, "A", 1043, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*126*/ { BARCODE_DATAMATRIX, 20, "\200", 694, 0, 96, 96 }, // Spec says 693 but 694 correct as only single byte count of 0 required
-        /*127*/ { BARCODE_DATAMATRIX, 20, "\200", 695, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*128*/ { BARCODE_DATAMATRIX, 21, "1", 1632, 0, 104, 104 },
-        /*129*/ { BARCODE_DATAMATRIX, 21, "1", 1633, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*130*/ { BARCODE_DATAMATRIX, 21, "A", 1222, 0, 104, 104 },
-        /*131*/ { BARCODE_DATAMATRIX, 21, "A", 1223, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*132*/ { BARCODE_DATAMATRIX, 21, "\200", 814, 0, 104, 104 }, // Spec says 813 but 814 correct as only single byte count of 0 required
-        /*133*/ { BARCODE_DATAMATRIX, 21, "\200", 815, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*134*/ { BARCODE_DATAMATRIX, 22, "1", 2100, 0, 120, 120 },
-        /*135*/ { BARCODE_DATAMATRIX, 22, "1", 2101, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*136*/ { BARCODE_DATAMATRIX, 22, "A", 1573, 0, 120, 120 },
-        /*137*/ { BARCODE_DATAMATRIX, 22, "A", 1574, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*138*/ { BARCODE_DATAMATRIX, 22, "\200", 1048, 0, 120, 120 }, // Spec says 1047 but 1048 correct as only single byte count of 0 required
-        /*139*/ { BARCODE_DATAMATRIX, 22, "\200", 1049, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*140*/ { BARCODE_DATAMATRIX, 23, "1", 2608, 0, 132, 132 },
-        /*141*/ { BARCODE_DATAMATRIX, 23, "1", 2609, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*142*/ { BARCODE_DATAMATRIX, 23, "A", 1954, 0, 132, 132 },
-        /*143*/ { BARCODE_DATAMATRIX, 23, "A", 1955, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*144*/ { BARCODE_DATAMATRIX, 23, "\200", 1302, 0, 132, 132 }, // Spec says 1301 but 1302 correct as only single byte count of 0 required
-        /*145*/ { BARCODE_DATAMATRIX, 23, "\200", 1303, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*146*/ { BARCODE_DATAMATRIX, 24, "1", 3116, 0, 144, 144 },
-        /*147*/ { BARCODE_DATAMATRIX, 24, "1", 3117, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*148*/ { BARCODE_DATAMATRIX, 24, "A", 2335, 0, 144, 144 },
-        /*149*/ { BARCODE_DATAMATRIX, 24, "A", 2336, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*150*/ { BARCODE_DATAMATRIX, 24, "\200", 1556, 0, 144, 144 }, // Spec says 1555 but 1556 correct as only single byte count of 0 required
-        /*151*/ { BARCODE_DATAMATRIX, 24, "\200", 1557, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*152*/ { BARCODE_DATAMATRIX, 25, "1", 10, 0, 8, 18 },
-        /*153*/ { BARCODE_DATAMATRIX, 25, "1", 11, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*154*/ { BARCODE_DATAMATRIX, 25, "A", 6, 0, 8, 18 },
-        /*155*/ { BARCODE_DATAMATRIX, 25, "A", 7, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*156*/ { BARCODE_DATAMATRIX, 25, "\200", 3, 0, 8, 18 },
-        /*157*/ { BARCODE_DATAMATRIX, 25, "\200", 4, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*158*/ { BARCODE_DATAMATRIX, 26, "1", 20, 0, 8, 32 },
-        /*159*/ { BARCODE_DATAMATRIX, 26, "1", 21, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*160*/ { BARCODE_DATAMATRIX, 26, "A", 13, 0, 8, 32 },
-        /*161*/ { BARCODE_DATAMATRIX, 26, "A", 14, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*162*/ { BARCODE_DATAMATRIX, 26, "\200", 8, 0, 8, 32 },
-        /*163*/ { BARCODE_DATAMATRIX, 26, "\200", 9, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*164*/ { BARCODE_DATAMATRIX, 27, "1", 32, 0, 12, 26 },
-        /*165*/ { BARCODE_DATAMATRIX, 27, "1", 33, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*166*/ { BARCODE_DATAMATRIX, 27, "A", 22, 0, 12, 26 },
-        /*167*/ { BARCODE_DATAMATRIX, 27, "A", 23, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*168*/ { BARCODE_DATAMATRIX, 27, "\200", 14, 0, 12, 26 },
-        /*169*/ { BARCODE_DATAMATRIX, 27, "\200", 15, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*170*/ { BARCODE_DATAMATRIX, 28, "1", 44, 0, 12, 36 },
-        /*171*/ { BARCODE_DATAMATRIX, 28, "1", 45, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*172*/ { BARCODE_DATAMATRIX, 28, "A", 31, 0, 12, 36 },
-        /*173*/ { BARCODE_DATAMATRIX, 28, "A", 32, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*174*/ { BARCODE_DATAMATRIX, 28, "\200", 20, 0, 12, 36 },
-        /*175*/ { BARCODE_DATAMATRIX, 28, "\200", 21, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*176*/ { BARCODE_DATAMATRIX, 29, "1", 64, 0, 16, 36 },
-        /*177*/ { BARCODE_DATAMATRIX, 29, "1", 65, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*178*/ { BARCODE_DATAMATRIX, 29, "A", 46, 0, 16, 36 },
-        /*179*/ { BARCODE_DATAMATRIX, 29, "A", 47, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*180*/ { BARCODE_DATAMATRIX, 29, "\200", 30, 0, 16, 36 },
-        /*181*/ { BARCODE_DATAMATRIX, 29, "\200", 31, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*182*/ { BARCODE_DATAMATRIX, 30, "1", 98, 0, 16, 48 },
-        /*183*/ { BARCODE_DATAMATRIX, 30, "1", 99, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*184*/ { BARCODE_DATAMATRIX, 30, "A", 72, 0, 16, 48 },
-        /*185*/ { BARCODE_DATAMATRIX, 30, "A", 73, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*186*/ { BARCODE_DATAMATRIX, 30, "\200", 47, 0, 16, 48 },
-        /*187*/ { BARCODE_DATAMATRIX, 30, "\200", 48, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*188*/ { BARCODE_DATAMATRIX, 31, "1", 36, 0, 8, 48 },
-        /*189*/ { BARCODE_DATAMATRIX, 31, "1", 37, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*190*/ { BARCODE_DATAMATRIX, 31, "A", 25, 0, 8, 48 },
-        /*191*/ { BARCODE_DATAMATRIX, 31, "A", 26, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*192*/ { BARCODE_DATAMATRIX, 31, "\200", 16, 0, 8, 48 },
-        /*193*/ { BARCODE_DATAMATRIX, 31, "\200", 17, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*194*/ { BARCODE_DATAMATRIX, 32, "1", 48, 0, 8, 64 },
-        /*195*/ { BARCODE_DATAMATRIX, 32, "1", 49, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*196*/ { BARCODE_DATAMATRIX, 32, "A", 34, 0, 8, 64 },
-        /*197*/ { BARCODE_DATAMATRIX, 32, "A", 35, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*198*/ { BARCODE_DATAMATRIX, 32, "\200", 22, 0, 8, 64 },
-        /*199*/ { BARCODE_DATAMATRIX, 32, "\200", 23, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*200*/ { BARCODE_DATAMATRIX, 33, "1", 64, 0, 8, 80 },
-        /*201*/ { BARCODE_DATAMATRIX, 33, "1", 65, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*202*/ { BARCODE_DATAMATRIX, 33, "A", 46, 0, 8, 80 },
-        /*203*/ { BARCODE_DATAMATRIX, 33, "A", 47, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*204*/ { BARCODE_DATAMATRIX, 33, "\200", 30, 0, 8, 80 },
-        /*205*/ { BARCODE_DATAMATRIX, 33, "\200", 31, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*206*/ { BARCODE_DATAMATRIX, 34, "1", 76, 0, 8, 96 },
-        /*207*/ { BARCODE_DATAMATRIX, 34, "1", 77, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*208*/ { BARCODE_DATAMATRIX, 34, "A", 55, 0, 8, 96 },
-        /*209*/ { BARCODE_DATAMATRIX, 34, "A", 56, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*210*/ { BARCODE_DATAMATRIX, 34, "\200", 36, 0, 8, 96 },
-        /*211*/ { BARCODE_DATAMATRIX, 34, "\200", 37, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*212*/ { BARCODE_DATAMATRIX, 35, "1", 98, 0, 8, 120 },
-        /*213*/ { BARCODE_DATAMATRIX, 35, "1", 99, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*214*/ { BARCODE_DATAMATRIX, 35, "A", 72, 0, 8, 120 },
-        /*215*/ { BARCODE_DATAMATRIX, 35, "A", 73, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*216*/ { BARCODE_DATAMATRIX, 35, "\200", 47, 0, 8, 120 },
-        /*217*/ { BARCODE_DATAMATRIX, 35, "\200", 48, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*218*/ { BARCODE_DATAMATRIX, 36, "1", 126, 0, 8, 144 },
-        /*219*/ { BARCODE_DATAMATRIX, 36, "1", 127, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*220*/ { BARCODE_DATAMATRIX, 36, "A", 93, 0, 8, 144 },
-        /*221*/ { BARCODE_DATAMATRIX, 36, "A", 94, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*222*/ { BARCODE_DATAMATRIX, 36, "\200", 61, 0, 8, 144 },
-        /*223*/ { BARCODE_DATAMATRIX, 36, "\200", 62, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*224*/ { BARCODE_DATAMATRIX, 37, "1", 86, 0, 12, 64 },
-        /*225*/ { BARCODE_DATAMATRIX, 37, "1", 87, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*226*/ { BARCODE_DATAMATRIX, 37, "A", 63, 0, 12, 64 },
-        /*227*/ { BARCODE_DATAMATRIX, 37, "A", 64, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*228*/ { BARCODE_DATAMATRIX, 37, "\200", 41, 0, 12, 64 },
-        /*229*/ { BARCODE_DATAMATRIX, 37, "\200", 42, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*230*/ { BARCODE_DATAMATRIX, 38, "1", 128, 0, 12, 88 },
-        /*231*/ { BARCODE_DATAMATRIX, 38, "1", 129, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*232*/ { BARCODE_DATAMATRIX, 38, "A", 94, 0, 12, 88 },
-        /*233*/ { BARCODE_DATAMATRIX, 38, "A", 95, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*234*/ { BARCODE_DATAMATRIX, 38, "\200", 62, 0, 12, 88 },
-        /*235*/ { BARCODE_DATAMATRIX, 38, "\200", 63, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*236*/ { BARCODE_DATAMATRIX, 39, "1", 124, 0, 16, 64 },
-        /*237*/ { BARCODE_DATAMATRIX, 39, "1", 125, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*238*/ { BARCODE_DATAMATRIX, 39, "A", 91, 0, 16, 64 },
-        /*239*/ { BARCODE_DATAMATRIX, 39, "A", 92, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*240*/ { BARCODE_DATAMATRIX, 39, "\200", 60, 0, 16, 64 },
-        /*241*/ { BARCODE_DATAMATRIX, 39, "\200", 61, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*242*/ { BARCODE_DATAMATRIX, 40, "1", 88, 0, 20, 36 },
-        /*243*/ { BARCODE_DATAMATRIX, 40, "1", 89, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*244*/ { BARCODE_DATAMATRIX, 40, "A", 64, 0, 20, 36 },
-        /*245*/ { BARCODE_DATAMATRIX, 40, "A", 65, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*246*/ { BARCODE_DATAMATRIX, 40, "\200", 42, 0, 20, 36 },
-        /*247*/ { BARCODE_DATAMATRIX, 40, "\200", 43, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*248*/ { BARCODE_DATAMATRIX, 41, "1", 112, 0, 20, 44 },
-        /*249*/ { BARCODE_DATAMATRIX, 41, "1", 113, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*250*/ { BARCODE_DATAMATRIX, 41, "A", 82, 0, 20, 44 },
-        /*251*/ { BARCODE_DATAMATRIX, 41, "A", 83, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*252*/ { BARCODE_DATAMATRIX, 41, "\200", 54, 0, 20, 44 },
-        /*253*/ { BARCODE_DATAMATRIX, 41, "\200", 55, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*254*/ { BARCODE_DATAMATRIX, 42, "1", 168, 0, 20, 64 }, // Spec says 186 but typo
-        /*255*/ { BARCODE_DATAMATRIX, 42, "1", 169, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*256*/ { BARCODE_DATAMATRIX, 42, "A", 124, 0, 20, 64 },
-        /*257*/ { BARCODE_DATAMATRIX, 42, "A", 125, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*258*/ { BARCODE_DATAMATRIX, 42, "\200", 82, 0, 20, 64 },
-        /*259*/ { BARCODE_DATAMATRIX, 42, "\200", 83, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*260*/ { BARCODE_DATAMATRIX, 43, "1", 144, 0, 22, 48 },
-        /*261*/ { BARCODE_DATAMATRIX, 43, "1", 145, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*262*/ { BARCODE_DATAMATRIX, 43, "A", 106, 0, 22, 48 },
-        /*263*/ { BARCODE_DATAMATRIX, 43, "A", 107, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*264*/ { BARCODE_DATAMATRIX, 43, "\200", 70, 0, 22, 48 },
-        /*265*/ { BARCODE_DATAMATRIX, 43, "\200", 71, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*266*/ { BARCODE_DATAMATRIX, 44, "1", 160, 0, 24, 48 },
-        /*267*/ { BARCODE_DATAMATRIX, 44, "1", 161, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*268*/ { BARCODE_DATAMATRIX, 44, "A", 118, 0, 24, 48 },
-        /*269*/ { BARCODE_DATAMATRIX, 44, "A", 119, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*270*/ { BARCODE_DATAMATRIX, 44, "\200", 78, 0, 24, 48 },
-        /*271*/ { BARCODE_DATAMATRIX, 44, "\200", 79, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*272*/ { BARCODE_DATAMATRIX, 45, "1", 216, 0, 24, 64 },
-        /*273*/ { BARCODE_DATAMATRIX, 45, "1", 217, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*274*/ { BARCODE_DATAMATRIX, 45, "A", 160, 0, 24, 64 },
-        /*275*/ { BARCODE_DATAMATRIX, 45, "A", 161, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*276*/ { BARCODE_DATAMATRIX, 45, "\200", 106, 0, 24, 64 },
-        /*277*/ { BARCODE_DATAMATRIX, 45, "\200", 107, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*278*/ { BARCODE_DATAMATRIX, 46, "1", 140, 0, 26, 40 },
-        /*279*/ { BARCODE_DATAMATRIX, 46, "1", 141, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*280*/ { BARCODE_DATAMATRIX, 46, "A", 103, 0, 26, 40 },
-        /*281*/ { BARCODE_DATAMATRIX, 46, "A", 104, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*282*/ { BARCODE_DATAMATRIX, 46, "\200", 68, 0, 26, 40 },
-        /*283*/ { BARCODE_DATAMATRIX, 46, "\200", 69, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*284*/ { BARCODE_DATAMATRIX, 47, "1", 180, 0, 26, 48 },
-        /*285*/ { BARCODE_DATAMATRIX, 47, "1", 181, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*286*/ { BARCODE_DATAMATRIX, 47, "A", 133, 0, 26, 48 },
-        /*287*/ { BARCODE_DATAMATRIX, 47, "A", 134, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*288*/ { BARCODE_DATAMATRIX, 47, "\200", 88, 0, 26, 48 },
-        /*289*/ { BARCODE_DATAMATRIX, 47, "\200", 89, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*290*/ { BARCODE_DATAMATRIX, 48, "1", 236, 0, 26, 64 },
-        /*291*/ { BARCODE_DATAMATRIX, 48, "1", 237, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*292*/ { BARCODE_DATAMATRIX, 48, "A", 175, 0, 26, 64 },
-        /*293*/ { BARCODE_DATAMATRIX, 48, "A", 176, ZINT_ERROR_TOO_LONG, -1, -1 },
-        /*294*/ { BARCODE_DATAMATRIX, 48, "\200", 116, 0, 26, 64 },
-        /*295*/ { BARCODE_DATAMATRIX, 48, "\200", 117, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*  0*/ { BARCODE_DATAMATRIX, -1, { 0, 0, "" }, "1", 3116, 0, 144, 144 },
+        /*  1*/ { BARCODE_DATAMATRIX, -1, { 0, 0, "" }, "1", 3117, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*  2*/ { BARCODE_DATAMATRIX, -1, { 1, 2, "001001"}, "1", 3108, 0, 144, 144 }, // Structured Append 4 codewords overhead == 8 digits
+        /*  3*/ { BARCODE_DATAMATRIX, -1, { 1, 2, "001001"}, "1", 3109, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*  4*/ { BARCODE_DATAMATRIX, -1, { 0, 0, "" }, "A", 2335, 0, 144, 144 },
+        /*  5*/ { BARCODE_DATAMATRIX, -1, { 0, 0, "" }, "A", 2336, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*  6*/ { BARCODE_DATAMATRIX, -1, { 0, 0, "" }, "\200", 1556, 0, 144, 144 }, // Spec says 1555 but 1556 correct as only single byte count of 0 required
+        /*  7*/ { BARCODE_DATAMATRIX, -1, { 0, 0, "" }, "\200", 1557, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*  8*/ { BARCODE_HIBC_DM, -1, { 0, 0, "" }, "1", 110, 0, 32, 32 },
+        /*  9*/ { BARCODE_HIBC_DM, -1, { 0, 0, "" }, "1", 111, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 10*/ { BARCODE_DATAMATRIX, 1, { 0, 0, "" }, "1", 6, 0, 10, 10 },
+        /* 11*/ { BARCODE_DATAMATRIX, 1, { 0, 0, "" }, "1", 7, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 12*/ { BARCODE_DATAMATRIX, 1, { 0, 0, "" }, "A", 3, 0, 10, 10 },
+        /* 13*/ { BARCODE_DATAMATRIX, 1, { 0, 0, "" }, "A", 4, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 14*/ { BARCODE_DATAMATRIX, 1, { 0, 0, "" }, "\200", 1, 0, 10, 10 },
+        /* 15*/ { BARCODE_DATAMATRIX, 1, { 0, 0, "" }, "\200", 2, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 16*/ { BARCODE_DATAMATRIX, 2, { 0, 0, "" }, "1", 10, 0, 12, 12 },
+        /* 17*/ { BARCODE_DATAMATRIX, 2, { 0, 0, "" }, "1", 11, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 18*/ { BARCODE_DATAMATRIX, 2, { 0, 0, "" }, "A", 6, 0, 12, 12 },
+        /* 19*/ { BARCODE_DATAMATRIX, 2, { 0, 0, "" }, "A", 7, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 20*/ { BARCODE_DATAMATRIX, 2, { 0, 0, "" }, "\200", 3, 0, 12, 12 },
+        /* 21*/ { BARCODE_DATAMATRIX, 2, { 0, 0, "" }, "\200", 4, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 22*/ { BARCODE_DATAMATRIX, 3, { 0, 0, "" }, "1", 16, 0, 14, 14 },
+        /* 23*/ { BARCODE_DATAMATRIX, 3, { 0, 0, "" }, "1", 17, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 24*/ { BARCODE_DATAMATRIX, 3, { 0, 0, "" }, "A", 10, 0, 14, 14 },
+        /* 25*/ { BARCODE_DATAMATRIX, 3, { 0, 0, "" }, "A", 11, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 26*/ { BARCODE_DATAMATRIX, 3, { 0, 0, "" }, "\200", 6, 0, 14, 14 },
+        /* 27*/ { BARCODE_DATAMATRIX, 3, { 0, 0, "" }, "\200", 7, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 28*/ { BARCODE_DATAMATRIX, 4, { 0, 0, "" }, "1", 24, 0, 16, 16 },
+        /* 29*/ { BARCODE_DATAMATRIX, 4, { 0, 0, "" }, "1", 25, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 30*/ { BARCODE_DATAMATRIX, 4, { 0, 0, "" }, "A", 16, 0, 16, 16 },
+        /* 31*/ { BARCODE_DATAMATRIX, 4, { 0, 0, "" }, "A", 17, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 32*/ { BARCODE_DATAMATRIX, 4, { 0, 0, "" }, "\200", 10, 0, 16, 16 },
+        /* 33*/ { BARCODE_DATAMATRIX, 4, { 0, 0, "" }, "\200", 11, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 34*/ { BARCODE_DATAMATRIX, 5, { 0, 0, "" }, "1", 36, 0, 18, 18 },
+        /* 35*/ { BARCODE_DATAMATRIX, 5, { 0, 0, "" }, "1", 37, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 36*/ { BARCODE_DATAMATRIX, 5, { 0, 0, "" }, "A", 25, 0, 18, 18 },
+        /* 37*/ { BARCODE_DATAMATRIX, 5, { 0, 0, "" }, "A", 26, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 38*/ { BARCODE_DATAMATRIX, 5, { 0, 0, "" }, "\200", 16, 0, 18, 18 },
+        /* 39*/ { BARCODE_DATAMATRIX, 5, { 0, 0, "" }, "\200", 17, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 40*/ { BARCODE_DATAMATRIX, 6, { 0, 0, "" }, "1", 44, 0, 20, 20 },
+        /* 41*/ { BARCODE_DATAMATRIX, 6, { 0, 0, "" }, "1", 45, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 42*/ { BARCODE_DATAMATRIX, 6, { 0, 0, "" }, "A", 31, 0, 20, 20 },
+        /* 43*/ { BARCODE_DATAMATRIX, 6, { 0, 0, "" }, "A", 32, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 44*/ { BARCODE_DATAMATRIX, 6, { 0, 0, "" }, "\200", 20, 0, 20, 20 },
+        /* 45*/ { BARCODE_DATAMATRIX, 6, { 0, 0, "" }, "\200", 21, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 46*/ { BARCODE_DATAMATRIX, 7, { 0, 0, "" }, "1", 60, 0, 22, 22 },
+        /* 47*/ { BARCODE_DATAMATRIX, 7, { 0, 0, "" }, "1", 61, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 48*/ { BARCODE_DATAMATRIX, 7, { 0, 0, "" }, "A", 43, 0, 22, 22 },
+        /* 49*/ { BARCODE_DATAMATRIX, 7, { 0, 0, "" }, "A", 44, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 50*/ { BARCODE_DATAMATRIX, 7, { 0, 0, "" }, "\200", 28, 0, 22, 22 },
+        /* 51*/ { BARCODE_DATAMATRIX, 7, { 0, 0, "" }, "\200", 29, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 52*/ { BARCODE_DATAMATRIX, 8, { 0, 0, "" }, "1", 72, 0, 24, 24 },
+        /* 53*/ { BARCODE_DATAMATRIX, 8, { 0, 0, "" }, "1", 73, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 54*/ { BARCODE_DATAMATRIX, 8, { 0, 0, "" }, "A", 52, 0, 24, 24 },
+        /* 55*/ { BARCODE_DATAMATRIX, 8, { 0, 0, "" }, "A", 53, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 56*/ { BARCODE_DATAMATRIX, 8, { 0, 0, "" }, "\200", 34, 0, 24, 24 },
+        /* 57*/ { BARCODE_DATAMATRIX, 8, { 0, 0, "" }, "\200", 35, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 58*/ { BARCODE_DATAMATRIX, 9, { 0, 0, "" }, "1", 88, 0, 26, 26 },
+        /* 59*/ { BARCODE_DATAMATRIX, 9, { 0, 0, "" }, "1", 89, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 60*/ { BARCODE_DATAMATRIX, 9, { 0, 0, "" }, "A", 64, 0, 26, 26 },
+        /* 61*/ { BARCODE_DATAMATRIX, 9, { 0, 0, "" }, "A", 65, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 62*/ { BARCODE_DATAMATRIX, 9, { 0, 0, "" }, "\200", 42, 0, 26, 26 },
+        /* 63*/ { BARCODE_DATAMATRIX, 9, { 0, 0, "" }, "\200", 43, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 64*/ { BARCODE_DATAMATRIX, 10, { 0, 0, "" }, "1", 124, 0, 32, 32 },
+        /* 65*/ { BARCODE_DATAMATRIX, 10, { 0, 0, "" }, "1", 125, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 66*/ { BARCODE_DATAMATRIX, 10, { 0, 0, "" }, "A", 91, 0, 32, 32 },
+        /* 67*/ { BARCODE_DATAMATRIX, 10, { 0, 0, "" }, "A", 92, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 68*/ { BARCODE_DATAMATRIX, 10, { 0, 0, "" }, "\200", 60, 0, 32, 32 },
+        /* 69*/ { BARCODE_DATAMATRIX, 10, { 0, 0, "" }, "\200", 61, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 70*/ { BARCODE_DATAMATRIX, 11, { 0, 0, "" }, "1", 172, 0, 36, 36 },
+        /* 71*/ { BARCODE_DATAMATRIX, 11, { 0, 0, "" }, "1", 173, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 72*/ { BARCODE_DATAMATRIX, 11, { 0, 0, "" }, "A", 127, 0, 36, 36 },
+        /* 73*/ { BARCODE_DATAMATRIX, 11, { 0, 0, "" }, "A", 128, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 74*/ { BARCODE_DATAMATRIX, 11, { 0, 0, "" }, "\200", 84, 0, 36, 36 },
+        /* 75*/ { BARCODE_DATAMATRIX, 11, { 0, 0, "" }, "\200", 85, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 76*/ { BARCODE_DATAMATRIX, 12, { 0, 0, "" }, "1", 228, 0, 40, 40 },
+        /* 77*/ { BARCODE_DATAMATRIX, 12, { 0, 0, "" }, "1", 229, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 78*/ { BARCODE_DATAMATRIX, 12, { 0, 0, "" }, "A", 169, 0, 40, 40 },
+        /* 79*/ { BARCODE_DATAMATRIX, 12, { 0, 0, "" }, "A", 170, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 80*/ { BARCODE_DATAMATRIX, 12, { 0, 0, "" }, "\200", 112, 0, 40, 40 },
+        /* 81*/ { BARCODE_DATAMATRIX, 12, { 0, 0, "" }, "\200", 113, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 82*/ { BARCODE_DATAMATRIX, 13, { 0, 0, "" }, "1", 288, 0, 44, 44 },
+        /* 83*/ { BARCODE_DATAMATRIX, 13, { 0, 0, "" }, "1", 289, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 84*/ { BARCODE_DATAMATRIX, 13, { 0, 0, "" }, "A", 214, 0, 44, 44 },
+        /* 85*/ { BARCODE_DATAMATRIX, 13, { 0, 0, "" }, "A", 215, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 86*/ { BARCODE_DATAMATRIX, 13, { 0, 0, "" }, "\200", 142, 0, 44, 44 },
+        /* 87*/ { BARCODE_DATAMATRIX, 13, { 0, 0, "" }, "\200", 143, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 88*/ { BARCODE_DATAMATRIX, 14, { 0, 0, "" }, "1", 348, 0, 48, 48 },
+        /* 89*/ { BARCODE_DATAMATRIX, 14, { 0, 0, "" }, "1", 349, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 90*/ { BARCODE_DATAMATRIX, 14, { 0, 0, "" }, "A", 259, 0, 48, 48 },
+        /* 91*/ { BARCODE_DATAMATRIX, 14, { 0, 0, "" }, "A", 260, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 92*/ { BARCODE_DATAMATRIX, 14, { 0, 0, "" }, "\200", 172, 0, 48, 48 },
+        /* 93*/ { BARCODE_DATAMATRIX, 14, { 0, 0, "" }, "\200", 173, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 94*/ { BARCODE_DATAMATRIX, 15, { 0, 0, "" }, "1", 408, 0, 52, 52 },
+        /* 95*/ { BARCODE_DATAMATRIX, 15, { 0, 0, "" }, "1", 409, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 96*/ { BARCODE_DATAMATRIX, 15, { 0, 0, "" }, "A", 304, 0, 52, 52 },
+        /* 97*/ { BARCODE_DATAMATRIX, 15, { 0, 0, "" }, "A", 305, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /* 98*/ { BARCODE_DATAMATRIX, 15, { 0, 0, "" }, "\200", 202, 0, 52, 52 },
+        /* 99*/ { BARCODE_DATAMATRIX, 15, { 0, 0, "" }, "\200", 203, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*100*/ { BARCODE_DATAMATRIX, 16, { 0, 0, "" }, "1", 560, 0, 64, 64 },
+        /*101*/ { BARCODE_DATAMATRIX, 16, { 0, 0, "" }, "1", 561, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*102*/ { BARCODE_DATAMATRIX, 16, { 0, 0, "" }, "A", 418, 0, 64, 64 },
+        /*103*/ { BARCODE_DATAMATRIX, 16, { 0, 0, "" }, "A", 419, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*104*/ { BARCODE_DATAMATRIX, 16, { 0, 0, "" }, "\200", 278, 0, 64, 64 }, // Spec says 277 but 278 correct as only single byte count of 0 required
+        /*105*/ { BARCODE_DATAMATRIX, 16, { 0, 0, "" }, "\200", 279, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*106*/ { BARCODE_DATAMATRIX, 17, { 0, 0, "" }, "1", 736, 0, 72, 72 },
+        /*107*/ { BARCODE_DATAMATRIX, 17, { 0, 0, "" }, "1", 737, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*108*/ { BARCODE_DATAMATRIX, 17, { 0, 0, "" }, "A", 550, 0, 72, 72 },
+        /*109*/ { BARCODE_DATAMATRIX, 17, { 0, 0, "" }, "A", 551, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*110*/ { BARCODE_DATAMATRIX, 17, { 0, 0, "" }, "\200", 366, 0, 72, 72 }, // Spec says 365 but 366 correct as only single byte count of 0 required
+        /*111*/ { BARCODE_DATAMATRIX, 17, { 0, 0, "" }, "\200", 367, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*112*/ { BARCODE_DATAMATRIX, 18, { 0, 0, "" }, "1", 912, 0, 80, 80 },
+        /*113*/ { BARCODE_DATAMATRIX, 18, { 0, 0, "" }, "1", 913, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*114*/ { BARCODE_DATAMATRIX, 18, { 0, 0, "" }, "A", 682, 0, 80, 80 },
+        /*115*/ { BARCODE_DATAMATRIX, 18, { 0, 0, "" }, "A", 683, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*116*/ { BARCODE_DATAMATRIX, 18, { 0, 0, "" }, "\200", 454, 0, 80, 80 }, // Spec says 453 but 454 correct as only single byte count of 0 required
+        /*117*/ { BARCODE_DATAMATRIX, 18, { 0, 0, "" }, "\200", 455, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*118*/ { BARCODE_DATAMATRIX, 19, { 0, 0, "" }, "1", 1152, 0, 88, 88 },
+        /*119*/ { BARCODE_DATAMATRIX, 19, { 0, 0, "" }, "1", 1153, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*120*/ { BARCODE_DATAMATRIX, 19, { 0, 0, "" }, "A", 862, 0, 88, 88 },
+        /*121*/ { BARCODE_DATAMATRIX, 19, { 0, 0, "" }, "A", 863, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*122*/ { BARCODE_DATAMATRIX, 19, { 0, 0, "" }, "\200", 574, 0, 88, 88 }, // Spec says 573 but 574 correct as only single byte count of 0 required
+        /*123*/ { BARCODE_DATAMATRIX, 19, { 0, 0, "" }, "\200", 575, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*124*/ { BARCODE_DATAMATRIX, 20, { 0, 0, "" }, "1", 1392, 0, 96, 96 },
+        /*125*/ { BARCODE_DATAMATRIX, 20, { 0, 0, "" }, "1", 1393, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*126*/ { BARCODE_DATAMATRIX, 20, { 0, 0, "" }, "A", 1042, 0, 96, 96 },
+        /*127*/ { BARCODE_DATAMATRIX, 20, { 0, 0, "" }, "A", 1043, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*128*/ { BARCODE_DATAMATRIX, 20, { 0, 0, "" }, "\200", 694, 0, 96, 96 }, // Spec says 693 but 694 correct as only single byte count of 0 required
+        /*129*/ { BARCODE_DATAMATRIX, 20, { 0, 0, "" }, "\200", 695, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*130*/ { BARCODE_DATAMATRIX, 21, { 0, 0, "" }, "1", 1632, 0, 104, 104 },
+        /*131*/ { BARCODE_DATAMATRIX, 21, { 0, 0, "" }, "1", 1633, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*132*/ { BARCODE_DATAMATRIX, 21, { 0, 0, "" }, "A", 1222, 0, 104, 104 },
+        /*133*/ { BARCODE_DATAMATRIX, 21, { 0, 0, "" }, "A", 1223, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*134*/ { BARCODE_DATAMATRIX, 21, { 0, 0, "" }, "\200", 814, 0, 104, 104 }, // Spec says 813 but 814 correct as only single byte count of 0 required
+        /*135*/ { BARCODE_DATAMATRIX, 21, { 0, 0, "" }, "\200", 815, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*136*/ { BARCODE_DATAMATRIX, 22, { 0, 0, "" }, "1", 2100, 0, 120, 120 },
+        /*137*/ { BARCODE_DATAMATRIX, 22, { 0, 0, "" }, "1", 2101, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*138*/ { BARCODE_DATAMATRIX, 22, { 0, 0, "" }, "A", 1573, 0, 120, 120 },
+        /*139*/ { BARCODE_DATAMATRIX, 22, { 0, 0, "" }, "A", 1574, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*140*/ { BARCODE_DATAMATRIX, 22, { 0, 0, "" }, "\200", 1048, 0, 120, 120 }, // Spec says 1047 but 1048 correct as only single byte count of 0 required
+        /*141*/ { BARCODE_DATAMATRIX, 22, { 0, 0, "" }, "\200", 1049, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*142*/ { BARCODE_DATAMATRIX, 23, { 0, 0, "" }, "1", 2608, 0, 132, 132 },
+        /*143*/ { BARCODE_DATAMATRIX, 23, { 0, 0, "" }, "1", 2609, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*144*/ { BARCODE_DATAMATRIX, 23, { 0, 0, "" }, "A", 1954, 0, 132, 132 },
+        /*145*/ { BARCODE_DATAMATRIX, 23, { 0, 0, "" }, "A", 1955, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*146*/ { BARCODE_DATAMATRIX, 23, { 0, 0, "" }, "\200", 1302, 0, 132, 132 }, // Spec says 1301 but 1302 correct as only single byte count of 0 required
+        /*147*/ { BARCODE_DATAMATRIX, 23, { 0, 0, "" }, "\200", 1303, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*148*/ { BARCODE_DATAMATRIX, 24, { 0, 0, "" }, "1", 3116, 0, 144, 144 },
+        /*149*/ { BARCODE_DATAMATRIX, 24, { 0, 0, "" }, "1", 3117, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*150*/ { BARCODE_DATAMATRIX, 24, { 0, 0, "" }, "A", 2335, 0, 144, 144 },
+        /*151*/ { BARCODE_DATAMATRIX, 24, { 0, 0, "" }, "A", 2336, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*152*/ { BARCODE_DATAMATRIX, 24, { 0, 0, "" }, "\200", 1556, 0, 144, 144 }, // Spec says 1555 but 1556 correct as only single byte count of 0 required
+        /*153*/ { BARCODE_DATAMATRIX, 24, { 0, 0, "" }, "\200", 1557, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*154*/ { BARCODE_DATAMATRIX, 25, { 0, 0, "" }, "1", 10, 0, 8, 18 },
+        /*155*/ { BARCODE_DATAMATRIX, 25, { 0, 0, "" }, "1", 11, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*156*/ { BARCODE_DATAMATRIX, 25, { 0, 0, "" }, "A", 6, 0, 8, 18 },
+        /*157*/ { BARCODE_DATAMATRIX, 25, { 0, 0, "" }, "A", 7, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*158*/ { BARCODE_DATAMATRIX, 25, { 0, 0, "" }, "\200", 3, 0, 8, 18 },
+        /*159*/ { BARCODE_DATAMATRIX, 25, { 0, 0, "" }, "\200", 4, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*160*/ { BARCODE_DATAMATRIX, 26, { 0, 0, "" }, "1", 20, 0, 8, 32 },
+        /*161*/ { BARCODE_DATAMATRIX, 26, { 0, 0, "" }, "1", 21, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*162*/ { BARCODE_DATAMATRIX, 26, { 0, 0, "" }, "A", 13, 0, 8, 32 },
+        /*163*/ { BARCODE_DATAMATRIX, 26, { 0, 0, "" }, "A", 14, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*164*/ { BARCODE_DATAMATRIX, 26, { 0, 0, "" }, "\200", 8, 0, 8, 32 },
+        /*165*/ { BARCODE_DATAMATRIX, 26, { 0, 0, "" }, "\200", 9, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*166*/ { BARCODE_DATAMATRIX, 27, { 0, 0, "" }, "1", 32, 0, 12, 26 },
+        /*167*/ { BARCODE_DATAMATRIX, 27, { 0, 0, "" }, "1", 33, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*168*/ { BARCODE_DATAMATRIX, 27, { 0, 0, "" }, "A", 22, 0, 12, 26 },
+        /*169*/ { BARCODE_DATAMATRIX, 27, { 0, 0, "" }, "A", 23, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*170*/ { BARCODE_DATAMATRIX, 27, { 0, 0, "" }, "\200", 14, 0, 12, 26 },
+        /*171*/ { BARCODE_DATAMATRIX, 27, { 0, 0, "" }, "\200", 15, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*172*/ { BARCODE_DATAMATRIX, 28, { 0, 0, "" }, "1", 44, 0, 12, 36 },
+        /*173*/ { BARCODE_DATAMATRIX, 28, { 0, 0, "" }, "1", 45, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*174*/ { BARCODE_DATAMATRIX, 28, { 0, 0, "" }, "A", 31, 0, 12, 36 },
+        /*175*/ { BARCODE_DATAMATRIX, 28, { 0, 0, "" }, "A", 32, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*176*/ { BARCODE_DATAMATRIX, 28, { 0, 0, "" }, "\200", 20, 0, 12, 36 },
+        /*177*/ { BARCODE_DATAMATRIX, 28, { 0, 0, "" }, "\200", 21, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*178*/ { BARCODE_DATAMATRIX, 29, { 0, 0, "" }, "1", 64, 0, 16, 36 },
+        /*179*/ { BARCODE_DATAMATRIX, 29, { 0, 0, "" }, "1", 65, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*180*/ { BARCODE_DATAMATRIX, 29, { 0, 0, "" }, "A", 46, 0, 16, 36 },
+        /*181*/ { BARCODE_DATAMATRIX, 29, { 0, 0, "" }, "A", 47, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*182*/ { BARCODE_DATAMATRIX, 29, { 0, 0, "" }, "\200", 30, 0, 16, 36 },
+        /*183*/ { BARCODE_DATAMATRIX, 29, { 0, 0, "" }, "\200", 31, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*184*/ { BARCODE_DATAMATRIX, 30, { 0, 0, "" }, "1", 98, 0, 16, 48 },
+        /*185*/ { BARCODE_DATAMATRIX, 30, { 0, 0, "" }, "1", 99, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*186*/ { BARCODE_DATAMATRIX, 30, { 0, 0, "" }, "A", 72, 0, 16, 48 },
+        /*187*/ { BARCODE_DATAMATRIX, 30, { 0, 0, "" }, "A", 73, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*188*/ { BARCODE_DATAMATRIX, 30, { 0, 0, "" }, "\200", 47, 0, 16, 48 },
+        /*189*/ { BARCODE_DATAMATRIX, 30, { 0, 0, "" }, "\200", 48, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*190*/ { BARCODE_DATAMATRIX, 31, { 0, 0, "" }, "1", 36, 0, 8, 48 },
+        /*191*/ { BARCODE_DATAMATRIX, 31, { 0, 0, "" }, "1", 37, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*192*/ { BARCODE_DATAMATRIX, 31, { 0, 0, "" }, "A", 25, 0, 8, 48 },
+        /*193*/ { BARCODE_DATAMATRIX, 31, { 0, 0, "" }, "A", 26, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*194*/ { BARCODE_DATAMATRIX, 31, { 0, 0, "" }, "\200", 16, 0, 8, 48 },
+        /*195*/ { BARCODE_DATAMATRIX, 31, { 0, 0, "" }, "\200", 17, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*196*/ { BARCODE_DATAMATRIX, 32, { 0, 0, "" }, "1", 48, 0, 8, 64 },
+        /*197*/ { BARCODE_DATAMATRIX, 32, { 0, 0, "" }, "1", 49, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*198*/ { BARCODE_DATAMATRIX, 32, { 0, 0, "" }, "A", 34, 0, 8, 64 },
+        /*199*/ { BARCODE_DATAMATRIX, 32, { 0, 0, "" }, "A", 35, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*200*/ { BARCODE_DATAMATRIX, 32, { 0, 0, "" }, "\200", 22, 0, 8, 64 },
+        /*201*/ { BARCODE_DATAMATRIX, 32, { 0, 0, "" }, "\200", 23, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*202*/ { BARCODE_DATAMATRIX, 33, { 0, 0, "" }, "1", 64, 0, 8, 80 },
+        /*203*/ { BARCODE_DATAMATRIX, 33, { 0, 0, "" }, "1", 65, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*204*/ { BARCODE_DATAMATRIX, 33, { 0, 0, "" }, "A", 46, 0, 8, 80 },
+        /*205*/ { BARCODE_DATAMATRIX, 33, { 0, 0, "" }, "A", 47, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*206*/ { BARCODE_DATAMATRIX, 33, { 0, 0, "" }, "\200", 30, 0, 8, 80 },
+        /*207*/ { BARCODE_DATAMATRIX, 33, { 0, 0, "" }, "\200", 31, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*208*/ { BARCODE_DATAMATRIX, 34, { 0, 0, "" }, "1", 76, 0, 8, 96 },
+        /*209*/ { BARCODE_DATAMATRIX, 34, { 0, 0, "" }, "1", 77, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*210*/ { BARCODE_DATAMATRIX, 34, { 0, 0, "" }, "A", 55, 0, 8, 96 },
+        /*211*/ { BARCODE_DATAMATRIX, 34, { 0, 0, "" }, "A", 56, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*212*/ { BARCODE_DATAMATRIX, 34, { 0, 0, "" }, "\200", 36, 0, 8, 96 },
+        /*213*/ { BARCODE_DATAMATRIX, 34, { 0, 0, "" }, "\200", 37, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*214*/ { BARCODE_DATAMATRIX, 35, { 0, 0, "" }, "1", 98, 0, 8, 120 },
+        /*215*/ { BARCODE_DATAMATRIX, 35, { 0, 0, "" }, "1", 99, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*216*/ { BARCODE_DATAMATRIX, 35, { 0, 0, "" }, "A", 72, 0, 8, 120 },
+        /*217*/ { BARCODE_DATAMATRIX, 35, { 0, 0, "" }, "A", 73, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*218*/ { BARCODE_DATAMATRIX, 35, { 0, 0, "" }, "\200", 47, 0, 8, 120 },
+        /*219*/ { BARCODE_DATAMATRIX, 35, { 0, 0, "" }, "\200", 48, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*220*/ { BARCODE_DATAMATRIX, 36, { 0, 0, "" }, "1", 126, 0, 8, 144 },
+        /*221*/ { BARCODE_DATAMATRIX, 36, { 0, 0, "" }, "1", 127, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*222*/ { BARCODE_DATAMATRIX, 36, { 0, 0, "" }, "A", 93, 0, 8, 144 },
+        /*223*/ { BARCODE_DATAMATRIX, 36, { 0, 0, "" }, "A", 94, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*224*/ { BARCODE_DATAMATRIX, 36, { 0, 0, "" }, "\200", 61, 0, 8, 144 },
+        /*225*/ { BARCODE_DATAMATRIX, 36, { 0, 0, "" }, "\200", 62, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*226*/ { BARCODE_DATAMATRIX, 37, { 0, 0, "" }, "1", 86, 0, 12, 64 },
+        /*227*/ { BARCODE_DATAMATRIX, 37, { 0, 0, "" }, "1", 87, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*228*/ { BARCODE_DATAMATRIX, 37, { 0, 0, "" }, "A", 63, 0, 12, 64 },
+        /*229*/ { BARCODE_DATAMATRIX, 37, { 0, 0, "" }, "A", 64, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*230*/ { BARCODE_DATAMATRIX, 37, { 0, 0, "" }, "\200", 41, 0, 12, 64 },
+        /*231*/ { BARCODE_DATAMATRIX, 37, { 0, 0, "" }, "\200", 42, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*232*/ { BARCODE_DATAMATRIX, 38, { 0, 0, "" }, "1", 128, 0, 12, 88 },
+        /*233*/ { BARCODE_DATAMATRIX, 38, { 0, 0, "" }, "1", 129, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*234*/ { BARCODE_DATAMATRIX, 38, { 0, 0, "" }, "A", 94, 0, 12, 88 },
+        /*235*/ { BARCODE_DATAMATRIX, 38, { 0, 0, "" }, "A", 95, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*236*/ { BARCODE_DATAMATRIX, 38, { 0, 0, "" }, "\200", 62, 0, 12, 88 },
+        /*237*/ { BARCODE_DATAMATRIX, 38, { 0, 0, "" }, "\200", 63, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*238*/ { BARCODE_DATAMATRIX, 39, { 0, 0, "" }, "1", 124, 0, 16, 64 },
+        /*239*/ { BARCODE_DATAMATRIX, 39, { 0, 0, "" }, "1", 125, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*240*/ { BARCODE_DATAMATRIX, 39, { 0, 0, "" }, "A", 91, 0, 16, 64 },
+        /*241*/ { BARCODE_DATAMATRIX, 39, { 0, 0, "" }, "A", 92, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*242*/ { BARCODE_DATAMATRIX, 39, { 0, 0, "" }, "\200", 60, 0, 16, 64 },
+        /*243*/ { BARCODE_DATAMATRIX, 39, { 0, 0, "" }, "\200", 61, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*244*/ { BARCODE_DATAMATRIX, 40, { 0, 0, "" }, "1", 88, 0, 20, 36 },
+        /*245*/ { BARCODE_DATAMATRIX, 40, { 0, 0, "" }, "1", 89, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*246*/ { BARCODE_DATAMATRIX, 40, { 0, 0, "" }, "A", 64, 0, 20, 36 },
+        /*247*/ { BARCODE_DATAMATRIX, 40, { 0, 0, "" }, "A", 65, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*248*/ { BARCODE_DATAMATRIX, 40, { 0, 0, "" }, "\200", 42, 0, 20, 36 },
+        /*249*/ { BARCODE_DATAMATRIX, 40, { 0, 0, "" }, "\200", 43, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*250*/ { BARCODE_DATAMATRIX, 41, { 0, 0, "" }, "1", 112, 0, 20, 44 },
+        /*251*/ { BARCODE_DATAMATRIX, 41, { 0, 0, "" }, "1", 113, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*252*/ { BARCODE_DATAMATRIX, 41, { 0, 0, "" }, "A", 82, 0, 20, 44 },
+        /*253*/ { BARCODE_DATAMATRIX, 41, { 0, 0, "" }, "A", 83, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*254*/ { BARCODE_DATAMATRIX, 41, { 0, 0, "" }, "\200", 54, 0, 20, 44 },
+        /*255*/ { BARCODE_DATAMATRIX, 41, { 0, 0, "" }, "\200", 55, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*256*/ { BARCODE_DATAMATRIX, 42, { 0, 0, "" }, "1", 168, 0, 20, 64 }, // Spec says 186 but typo
+        /*257*/ { BARCODE_DATAMATRIX, 42, { 0, 0, "" }, "1", 169, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*258*/ { BARCODE_DATAMATRIX, 42, { 0, 0, "" }, "A", 124, 0, 20, 64 },
+        /*259*/ { BARCODE_DATAMATRIX, 42, { 0, 0, "" }, "A", 125, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*260*/ { BARCODE_DATAMATRIX, 42, { 0, 0, "" }, "\200", 82, 0, 20, 64 },
+        /*261*/ { BARCODE_DATAMATRIX, 42, { 0, 0, "" }, "\200", 83, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*262*/ { BARCODE_DATAMATRIX, 43, { 0, 0, "" }, "1", 144, 0, 22, 48 },
+        /*263*/ { BARCODE_DATAMATRIX, 43, { 0, 0, "" }, "1", 145, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*264*/ { BARCODE_DATAMATRIX, 43, { 0, 0, "" }, "A", 106, 0, 22, 48 },
+        /*265*/ { BARCODE_DATAMATRIX, 43, { 0, 0, "" }, "A", 107, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*266*/ { BARCODE_DATAMATRIX, 43, { 0, 0, "" }, "\200", 70, 0, 22, 48 },
+        /*267*/ { BARCODE_DATAMATRIX, 43, { 0, 0, "" }, "\200", 71, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*268*/ { BARCODE_DATAMATRIX, 44, { 0, 0, "" }, "1", 160, 0, 24, 48 },
+        /*269*/ { BARCODE_DATAMATRIX, 44, { 0, 0, "" }, "1", 161, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*270*/ { BARCODE_DATAMATRIX, 44, { 0, 0, "" }, "A", 118, 0, 24, 48 },
+        /*271*/ { BARCODE_DATAMATRIX, 44, { 0, 0, "" }, "A", 119, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*272*/ { BARCODE_DATAMATRIX, 44, { 0, 0, "" }, "\200", 78, 0, 24, 48 },
+        /*273*/ { BARCODE_DATAMATRIX, 44, { 0, 0, "" }, "\200", 79, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*274*/ { BARCODE_DATAMATRIX, 45, { 0, 0, "" }, "1", 216, 0, 24, 64 },
+        /*275*/ { BARCODE_DATAMATRIX, 45, { 0, 0, "" }, "1", 217, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*276*/ { BARCODE_DATAMATRIX, 45, { 0, 0, "" }, "A", 160, 0, 24, 64 },
+        /*277*/ { BARCODE_DATAMATRIX, 45, { 0, 0, "" }, "A", 161, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*278*/ { BARCODE_DATAMATRIX, 45, { 0, 0, "" }, "\200", 106, 0, 24, 64 },
+        /*279*/ { BARCODE_DATAMATRIX, 45, { 0, 0, "" }, "\200", 107, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*280*/ { BARCODE_DATAMATRIX, 46, { 0, 0, "" }, "1", 140, 0, 26, 40 },
+        /*281*/ { BARCODE_DATAMATRIX, 46, { 0, 0, "" }, "1", 141, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*282*/ { BARCODE_DATAMATRIX, 46, { 0, 0, "" }, "A", 103, 0, 26, 40 },
+        /*283*/ { BARCODE_DATAMATRIX, 46, { 0, 0, "" }, "A", 104, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*284*/ { BARCODE_DATAMATRIX, 46, { 0, 0, "" }, "\200", 68, 0, 26, 40 },
+        /*285*/ { BARCODE_DATAMATRIX, 46, { 0, 0, "" }, "\200", 69, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*286*/ { BARCODE_DATAMATRIX, 47, { 0, 0, "" }, "1", 180, 0, 26, 48 },
+        /*287*/ { BARCODE_DATAMATRIX, 47, { 0, 0, "" }, "1", 181, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*288*/ { BARCODE_DATAMATRIX, 47, { 0, 0, "" }, "A", 133, 0, 26, 48 },
+        /*289*/ { BARCODE_DATAMATRIX, 47, { 0, 0, "" }, "A", 134, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*290*/ { BARCODE_DATAMATRIX, 47, { 0, 0, "" }, "\200", 88, 0, 26, 48 },
+        /*291*/ { BARCODE_DATAMATRIX, 47, { 0, 0, "" }, "\200", 89, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*292*/ { BARCODE_DATAMATRIX, 48, { 0, 0, "" }, "1", 236, 0, 26, 64 },
+        /*293*/ { BARCODE_DATAMATRIX, 48, { 0, 0, "" }, "1", 237, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*294*/ { BARCODE_DATAMATRIX, 48, { 0, 0, "" }, "A", 175, 0, 26, 64 },
+        /*295*/ { BARCODE_DATAMATRIX, 48, { 0, 0, "" }, "A", 176, ZINT_ERROR_TOO_LONG, -1, -1 },
+        /*296*/ { BARCODE_DATAMATRIX, 48, { 0, 0, "" }, "\200", 116, 0, 26, 64 },
+        /*297*/ { BARCODE_DATAMATRIX, 48, { 0, 0, "" }, "\200", 117, ZINT_ERROR_TOO_LONG, -1, -1 },
     };
     int data_size = ARRAY_SIZE(data);
+    int i, length, ret;
+    struct zint_symbol *symbol;
 
     char data_buf[3118];
 
-    for (int i = 0; i < data_size; i++) {
+    testStart("test_large");
+
+    for (i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        struct zint_symbol *symbol = ZBarcode_Create();
+        symbol = ZBarcode_Create();
         assert_nonnull(symbol, "Symbol not created\n");
 
         testUtilStrCpyRepeat(data_buf, data[i].pattern, data[i].length);
         assert_equal(data[i].length, (int) strlen(data_buf), "i:%d length %d != strlen(data_buf) %d\n", i, data[i].length, (int) strlen(data_buf));
 
-        int length = testUtilSetSymbol(symbol, data[i].symbology, -1 /*input_mode*/, -1 /*eci*/, -1 /*option_1*/, data[i].option_2, -1, -1 /*output_options*/, data_buf, data[i].length, debug);
+        length = testUtilSetSymbol(symbol, data[i].symbology, -1 /*input_mode*/, -1 /*eci*/, -1 /*option_1*/, data[i].option_2, -1, -1 /*output_options*/, data_buf, data[i].length, debug);
+        if (data[i].structapp.count) {
+            symbol->structapp = data[i].structapp;
+        }
 
         ret = ZBarcode_Encode(symbol, (unsigned char *) data_buf, length);
         assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
@@ -378,9 +385,6 @@ static void test_large(int index, int debug) {
 // Note need ZINT_SANITIZE set for these
 static void test_buffer(int index, int debug) {
 
-    testStart("");
-
-    int ret;
     struct item {
         int eci;
         int input_mode;
@@ -395,15 +399,19 @@ static void test_buffer(int index, int debug) {
         /*  1*/ { 3, UNICODE_MODE, 0, "000106j 05 Galeria A NaÃ§Ã£o0000000000", 0, "From Okapi, consecutive use of upper shift; #176" },
     };
     int data_size = ARRAY_SIZE(data);
+    int i, length, ret;
+    struct zint_symbol *symbol;
 
-    for (int i = 0; i < data_size; i++) {
+    testStart("test_buffer");
+
+    for (i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        struct zint_symbol *symbol = ZBarcode_Create();
+        symbol = ZBarcode_Create();
         assert_nonnull(symbol, "Symbol not created\n");
 
-        int length = testUtilSetSymbol(symbol, BARCODE_DATAMATRIX, data[i].input_mode, data[i].eci, -1 /*option_1*/, -1, -1, data[i].output_options, data[i].data, -1, debug);
+        length = testUtilSetSymbol(symbol, BARCODE_DATAMATRIX, data[i].input_mode, data[i].eci, -1 /*option_1*/, -1, -1, data[i].output_options, data[i].data, -1, debug);
 
         ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
         assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d\n", i, ret, data[i].ret);
@@ -416,44 +424,71 @@ static void test_buffer(int index, int debug) {
 
 static void test_options(int index, int debug) {
 
-    testStart("");
-
-    int ret;
     struct item {
         int symbology;
+        int input_mode;
         int option_1;
         int option_2;
         int option_3;
+        int output_options;
+        struct zint_structapp structapp;
         char *data;
         int ret;
 
         int expected_rows;
         int expected_width;
+        const char *expected_errtxt;
     };
     // s/\/\*[ 0-9]*\*\//\=printf("\/*%3d*\/", line(".") - line("'<"))
     struct item data[] = {
-        /*  0*/ { BARCODE_DATAMATRIX, -1, -1, -1, "1", 0, 10, 10 },
-        /*  1*/ { BARCODE_DATAMATRIX, 2, -1, -1, "1", ZINT_ERROR_INVALID_OPTION, -1, -1 },
-        /*  2*/ { BARCODE_DATAMATRIX, -1, 1, -1, "1", 0, 10, 10 },
-        /*  3*/ { BARCODE_DATAMATRIX, -1, 2, -1, "1", 0, 12, 12 },
-        /*  4*/ { BARCODE_DATAMATRIX, -1, 48, -1, "1", 0, 26, 64 },
-        /*  5*/ { BARCODE_DATAMATRIX, -1, 49, -1, "1", 0, 10, 10 }, // Ignored
-        /*  6*/ { BARCODE_DATAMATRIX, -1, -1, -1, "ABCDEFGHIJK", 0, 8, 32 },
-        /*  7*/ { BARCODE_DATAMATRIX, -1, -1, DM_SQUARE, "ABCDEFGHIJK", 0, 16, 16 },
-        /*  8*/ { BARCODE_DATAMATRIX, -1, -1, -1, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTU", 0, 32, 32 },
-        /*  9*/ { BARCODE_DATAMATRIX, -1, -1, DM_DMRE, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTU", 0, 20, 44 },
-        /* 10*/ { BARCODE_DATAMATRIX, -1, -1, 9999, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTU", 0, 32, 32 }, // Ignored
+        /*  0*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 0, 0, "" }, "1", 0, 10, 10, "" },
+        /*  1*/ { BARCODE_DATAMATRIX, -1, 2, -1, -1, -1, { 0, 0, "" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 524: Older Data Matrix standards are no longer supported" },
+        /*  2*/ { BARCODE_DATAMATRIX, -1, -1, 1, -1, -1, { 0, 0, "" }, "1", 0, 10, 10, "" },
+        /*  3*/ { BARCODE_DATAMATRIX, -1, -1, 2, -1, -1, { 0, 0, "" }, "1", 0, 12, 12, "" },
+        /*  4*/ { BARCODE_DATAMATRIX, -1, -1, 48, -1, -1, { 0, 0, "" }, "1", 0, 26, 64, "" },
+        /*  5*/ { BARCODE_DATAMATRIX, -1, -1, 49, -1, -1, { 0, 0, "" }, "1", 0, 10, 10, "" }, // Ignored
+        /*  6*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 0, 0, "" }, "ABCDEFGHIJK", 0, 8, 32, "" },
+        /*  7*/ { BARCODE_DATAMATRIX, -1, -1, -1, DM_SQUARE, -1, { 0, 0, "" }, "ABCDEFGHIJK", 0, 16, 16, "" },
+        /*  8*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTU", 0, 32, 32, "" },
+        /*  9*/ { BARCODE_DATAMATRIX, -1, -1, -1, DM_DMRE, -1, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTU", 0, 20, 44, "" },
+        /* 10*/ { BARCODE_DATAMATRIX, -1, -1, -1, 9999, -1, { 0, 0, "" }, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTU", 0, 32, 32, "" }, // Ignored
+        /* 11*/ { BARCODE_DATAMATRIX, GS1_MODE, -1, -1, -1, -1, { 0, 0, "" }, "[90]12", 0, 10, 10, "" },
+        /* 12*/ { BARCODE_DATAMATRIX, GS1_MODE | GS1PARENS_MODE, -1, -1, -1, -1, { 0, 0, "" }, "(90)12", 0, 10, 10, "" },
+        /* 13*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 1, 2, "" }, "1", 0, 12, 12, "" },
+        /* 14*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 16, 16, "" }, "1", 0, 12, 12, "" },
+        /* 15*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 1, 1, "" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 720: Structured Append count out of range (2-16)" },
+        /* 16*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 1, 17, "" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 720: Structured Append count out of range (2-16)" },
+        /* 17*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 0, 16, "" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 721: Structured Append index out of range (1-16)" },
+        /* 18*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 17, 16, "" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 721: Structured Append index out of range (1-16)" },
+        /* 19*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 2, 3, "1001" }, "1", 0, 12, 12, "" },
+        /* 20*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 2, 3, "A" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 723: Invalid Structured Append ID (digits only)" },
+        /* 21*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 2, 3, "0" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 724: Structured Append ID1 '000' and ID2 '000' out of range (001-254) (ID '000000')" },
+        /* 22*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 2, 3, "1" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 725: Structured Append ID1 '000' out of range (001-254) (ID '000001')" },
+        /* 23*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 2, 3, "1000" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 726: Structured Append ID2 '000' out of range (001-254) (ID '001000')" },
+        /* 24*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 2, 3, "001255" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 726: Structured Append ID2 '255' out of range (001-254) (ID '001255')" },
+        /* 25*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 2, 3, "255001" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 725: Structured Append ID1 '255' out of range (001-254) (ID '255001')" },
+        /* 26*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 2, 3, "255255" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 724: Structured Append ID1 '255' and ID2 '255' out of range (001-254) (ID '255255')" },
+        /* 27*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, -1, { 2, 3, "1234567" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 722: Structured Append ID too long (6 digit maximum)" },
+        /* 28*/ { BARCODE_DATAMATRIX, -1, -1, -1, -1, READER_INIT, { 2, 3, "1001" }, "1", ZINT_ERROR_INVALID_OPTION, -1, -1, "Error 727: Cannot have Structured Append and Reader Initialisation at the same time" },
+        /* 29*/ { BARCODE_DATAMATRIX, ESCAPE_MODE, -1, -1, -1, -1, { 2, 3, "1001" }, "[)>\\R05\\GA\\R\\E", 0, 12, 26, "" }, // Macro05/06 ignored if have Structured Append TODO: error/warning
     };
     int data_size = ARRAY_SIZE(data);
+    int i, length, ret;
+    struct zint_symbol *symbol;
 
-    for (int i = 0; i < data_size; i++) {
+    testStart("test_options");
+
+    for (i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        struct zint_symbol *symbol = ZBarcode_Create();
+        symbol = ZBarcode_Create();
         assert_nonnull(symbol, "Symbol not created\n");
 
-        int length = testUtilSetSymbol(symbol, data[i].symbology, -1 /*input_mode*/, -1 /*eci*/, data[i].option_1, data[i].option_2, data[i].option_3, -1 /*output_options*/, data[i].data, -1, debug);
+        length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/, data[i].option_1, data[i].option_2, data[i].option_3, data[i].output_options, data[i].data, -1, debug);
+        if (data[i].structapp.count) {
+            symbol->structapp = data[i].structapp;
+        }
 
         ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
         assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
@@ -462,6 +497,7 @@ static void test_options(int index, int debug) {
             assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, symbol->errtxt);
             assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n", i, symbol->width, data[i].expected_width, symbol->errtxt);
         }
+        assert_zero(strcmp(symbol->errtxt, data[i].expected_errtxt), "i:%d symbol->errtxt %s != %s\n", i, symbol->errtxt, data[i].expected_errtxt);
 
         ZBarcode_Delete(symbol);
     }
@@ -471,9 +507,6 @@ static void test_options(int index, int debug) {
 
 static void test_reader_init(int index, int generate, int debug) {
 
-    testStart("");
-
-    int ret;
     struct item {
         int symbology;
         int input_mode;
@@ -490,19 +523,23 @@ static void test_reader_init(int index, int generate, int debug) {
         /*  1*/ { BARCODE_DATAMATRIX, GS1_MODE, READER_INIT, "[91]A", ZINT_ERROR_INVALID_OPTION, 0, 0, "Error 521: Cannot encode in GS1 mode and Reader Initialisation at the same time", "" },
     };
     int data_size = ARRAY_SIZE(data);
+    int i, length, ret;
+    struct zint_symbol *symbol;
 
     char escaped[1024];
 
-    for (int i = 0; i < data_size; i++) {
+    testStart("test_reader_init");
+
+    for (i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        struct zint_symbol *symbol = ZBarcode_Create();
+        symbol = ZBarcode_Create();
         assert_nonnull(symbol, "Symbol not created\n");
 
         symbol->debug = ZINT_DEBUG_TEST; // Needed to get codeword dump in errtxt
 
-        int length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/, -1 /*option_1*/, -1 /*option_2*/, -1, data[i].output_options, data[i].data, -1, debug);
+        length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/, -1 /*option_1*/, -1 /*option_2*/, -1, data[i].output_options, data[i].data, -1, debug);
 
         ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
         assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
@@ -516,8 +553,8 @@ static void test_reader_init(int index, int generate, int debug) {
             if (ret < ZINT_ERROR) {
                 assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, data[i].data);
                 assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n", i, symbol->width, data[i].expected_width, data[i].data);
-                assert_zero(strcmp(symbol->errtxt, data[i].expected), "i:%d strcmp(%s, %s) != 0\n", i, symbol->errtxt, data[i].expected);
             }
+            assert_zero(strcmp(symbol->errtxt, data[i].expected), "i:%d strcmp(%s, %s) != 0\n", i, symbol->errtxt, data[i].expected);
         }
 
         ZBarcode_Delete(symbol);
@@ -528,160 +565,176 @@ static void test_reader_init(int index, int generate, int debug) {
 
 static void test_input(int index, int generate, int debug) {
 
-    testStart("");
-
-    int do_bwipp = (debug & ZINT_DEBUG_TEST_BWIPP) && testUtilHaveGhostscript(); // Only do BWIPP test if asked, too slow otherwise
-
-    int ret;
     struct item {
         int input_mode;
         int eci;
         int option_2;
         int option_3;
+        int output_options;
         char *data;
         int ret;
 
         int expected_eci;
         int expected_rows;
         int expected_width;
+        int bwipp_cmp;
         char *expected;
         char *comment;
     };
     struct item data[] = {
-        /*  0*/ { UNICODE_MODE, 0, -1, -1, "0466010592130100000k*AGUATY80", 0, 0, 18, 18, "(32) 86 C4 83 87 DE 8F 83 82 82 31 6C EE 08 85 D6 D2 EF 65 93 B0 1C 3C 76 FB D4 AB 16 11", "#208" },
-        /*  1*/ { UNICODE_MODE, 0, 5, -1, "0466010592130100000k*AGUATY80", 0, 0, 18, 18, "(32) 86 C4 83 87 DE 8F 83 82 82 31 6C EE 08 85 D6 D2 EF 65 93 B0 1C 3C 76 FB D4 AB 16 11", "" },
-        /*  2*/ { UNICODE_MODE, 0, -1, -1, "0466010592130100000k*AGUATY8", 0, 0, 18, 18, "(32) 86 C4 83 87 DE 8F 83 82 82 E6 19 5C 07 B7 82 5F D4 3D 65 B5 97 30 00 FC 2C 4C 30 52", "" },
-        /*  3*/ { UNICODE_MODE, 0, -1, -1, "0466010592130100000k*AGUATY80U", 0, 0, 20, 20, "(40) 86 C4 83 87 DE 8F 83 82 82 31 6C EE 08 85 D6 D2 EF 65 FE 56 81 76 4F AB 22 B8 6F 0A", "" },
-        /*  4*/ { UNICODE_MODE, 0, 5, -1, "0466010592130100000k*AGUATY80U", ZINT_ERROR_TOO_LONG, -1, 0, 0, "Error 522: Input too long for selected symbol size", "" },
-        /*  5*/ { UNICODE_MODE, 0, 6, -1, "0466010592130100000k*AGUATY80U", 0, 0, 20, 20, "(40) 86 C4 83 87 DE 8F 83 82 82 31 6C EE 08 85 D6 D2 EF 65 FE 56 81 76 4F AB 22 B8 6F 0A", "" },
-        /*  6*/ { UNICODE_MODE, 0, -1, -1, "0466010592130100000k*AGUATY80UA", 0, 0, 20, 20, "(40) 86 C4 83 87 DE 8F 83 82 82 31 6C E6 07 B7 82 5F D4 3D 1E 5F FE 81 1E 1B B0 FE E7 54", "" },
-        /*  7*/ { UNICODE_MODE, 0, -1, -1, ">*\015>*\015>", 0, 0, 14, 14, "EE 0C A9 0C A9 FE 3F 81 42 B2 11 A8 F9 0A EC C1 1E 41", "X12 symbols_left 3, process_p 1" },
-        /*  8*/ { UNICODE_MODE, 0, -1, -1, ">*\015>*\015>*", 0, 0, 14, 14, "EE 0C A9 0C A9 FE 3F 2B 3F 05 D2 10 1B 9A 55 2F 68 C5", "X12 symbols_left 3, process_p 2" },
-        /*  9*/ { UNICODE_MODE, 0, -1, -1, ">*\015>*\015>*\015", 0, 0, 14, 14, "EE 0C A9 0C A9 0C A9 FE 1F 30 3F EE 45 C1 1C D7 5F 7E", "X12 symbols_left 1, process_p 0" },
-        /* 10*/ { UNICODE_MODE, 0, -1, -1, "ABCDEF", 0, 0, 12, 12, "E6 59 E9 6D 24 3D 15 EF AA 21 F9 59", "C40 symbols_left 0, process_p 0" },
-        /* 11*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFG", 0, 0, 14, 14, "E6 59 E9 6D 24 FE 48 81 8C 7E 09 5E 10 64 BC 5F 4C 91", "C40 symbols_left 3, process_p 1" },
-        /* 12*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGH", 0, 0, 14, 14, "E6 59 E9 6D 24 FE 48 49 2E 31 00 73 3B 8F 4B 55 93 19", "C40 symbols_left 3, process_p 2" },
-        /* 13*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGHI", 0, 0, 14, 14, "E6 59 E9 6D 24 80 5F FE 01 DE 20 9F AA C2 FF 8F 08 97", "C40 symbols_left 1, process_p 0" },
-        /* 14*/ { UNICODE_MODE, 0, -1, -1, "ABCDEF\001G", 0, 0, 14, 14, "E6 59 E9 6D 24 00 3D FE 5D 5A F5 0A 8A 4E 1D 63 07 B9", "C40 symbols_left 1, process_p 0" },
-        /* 15*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFG\001", 0, 0, 14, 14, "E6 59 E9 6D 24 7D 02 FE 14 A3 27 63 01 2F B1 94 FE FA", "C40 symbols_left 1, process_p 0" },
-        /* 16*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFG\001H", 0, 0, 14, 14, "E6 59 E9 6D 24 7D 02 49 C2 E6 DD 06 89 51 BA 8E 9D 1F", "C40 symbols_left 1, process_p 1" },
-        /* 17*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGH\001", 0, 0, 8, 32, "E6 59 E9 6D 24 FE 48 49 02 81 BD 6D F3 94 FF 82 A6 BF BB F1 4F", "C40 symbols_left 1, process_p 1, backtracks" },
-        /* 18*/ { UNICODE_MODE, 0, -1, DM_SQUARE, "ABCDEFGH\001", 0, 0, 16, 16, "E6 59 E9 6D 24 FE 48 49 02 81 FB 93 AE 8B 1C 90 DF FE EB C5 A0 2A 6A 4F", "C40 symbols_left 1, process_p 1, backtracks" },
-        /* 19*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGH\001I", 0, 0, 8, 32, "E6 59 E9 6D 24 FE 48 49 02 4A E1 0D DD BC 56 E4 66 52 E6 AE 02", "C40 symbols_left 3, process_p 2, backtracks" },
-        /* 20*/ { UNICODE_MODE, 0, -1, DM_SQUARE, "ABCDEFGH\001I", 0, 0, 16, 16, "E6 59 E9 6D 24 FE 48 49 02 4A 81 93 51 DF C0 0C D3 F9 72 13 17 52 5B 7E", "C40 symbols_left 5, process_p 2, backtracks" },
-        /* 21*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGHI\001", 0, 0, 8, 32, "E6 59 E9 6D 24 80 5F FE 02 81 47 6C 3E 49 D3 FA 46 47 53 6E E5", "Switches to ASC for last char" },
-        /* 22*/ { UNICODE_MODE, 0, -1, DM_SQUARE, "ABCDEFGHI\001", 0, 0, 16, 16, "E6 59 E9 6D 24 80 5F FE 02 81 FB 93 33 E3 4F F7 2D 08 8A BF 64 C3 B0 26", "Switches to ASC for last char" },
-        /* 23*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGH\001I\001", 0, 0, 16, 16, "E6 59 E9 6D 24 FE 48 49 02 4A 02 81 BD 5D C0 B9 09 25 87 3A 09 23 9D C0", "C40 symbols_left 1, process_p 1, backtracks 2" },
-        /* 24*/ { UNICODE_MODE, 0, -1, -1, "ABCDEF+G", 0, 0, 14, 14, "E6 59 E9 6D 24 07 E5 FE 6B 35 71 7F 3D 57 59 46 F7 B9", "C40 symbols_left 1, process_p 0" },
-        /* 25*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFG+", 0, 0, 14, 14, "E6 59 E9 6D 24 7D 33 FE 33 F5 97 60 73 48 13 2E E5 74", "C40 symbols_left 1, process_p 0" },
-        /* 26*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFG+H", 0, 0, 14, 14, "E6 59 E9 6D 24 7D 33 49 E5 B0 6D 05 FB 36 18 34 86 91", "C40 symbols_left 1, process_p 1" },
-        /* 27*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGH+", 0, 0, 8, 32, "E6 59 E9 6D 24 FE 48 49 2C 81 02 BD 40 CF 3B 06 C2 DF 36 E0 48", "C40 symbols_left 1, process_p 1, backtracks" },
-        /* 28*/ { UNICODE_MODE, 0, -1, DM_SQUARE, "ABCDEFGH+", 0, 0, 16, 16, "E6 59 E9 6D 24 FE 48 49 2C 81 FB 93 F6 78 B5 69 0B 83 C6 32 62 1A D2 FF", "C40 symbols_left 1, process_p 1, backtracks" },
-        /* 29*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGH+I", 0, 0, 8, 32, "E6 59 E9 6D 24 FE 48 49 2C 4A 5E DD 6E E7 92 60 02 32 6B BF 05", "C40 symbols_left 3, process_p 2, backtracks" },
-        /* 30*/ { UNICODE_MODE, 0, -1, DM_SQUARE, "ABCDEFGH+I", 0, 0, 16, 16, "E6 59 E9 6D 24 FE 48 49 2C 4A 81 93 09 2C 69 F5 07 84 5F E4 D5 62 E3 CE", "C40 symbols_left 5, process_p 2, backtracks" },
-        /* 31*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGHI+", 0, 0, 8, 32, "E6 59 E9 6D 24 80 5F FE 2C 81 F8 BC 8D 12 17 7E 22 27 DE 7F E2", "C40 symbols_left 3, process_p 2, backtracks" },
-        /* 32*/ { UNICODE_MODE, 0, -1, DM_SQUARE, "ABCDEFGHI+", 0, 0, 16, 16, "E6 59 E9 6D 24 80 5F FE 2C 81 FB 93 6B 10 E6 0E F9 75 A7 48 A6 F3 08 96", "Switches to ASC for last char" },
-        /* 33*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFjG", 0, 0, 14, 14, "E6 59 E9 6D 24 0E 25 FE DA 14 D7 15 47 69 9D 4A 54 6D", "C40 symbols_left 1, process_p 0" },
-        /* 34*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGj", 0, 0, 14, 14, "E6 59 E9 6D 24 7D 5B FE B5 F3 24 0A 99 26 D6 CC A8 40", "C40 symbols_left 1, process_p 0" },
-        /* 35*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGjH", 0, 0, 14, 14, "E6 59 E9 6D 24 7D 5B 49 63 B6 DE 6F 11 58 DD D6 CB A5", "C40 symbols_left 1, process_p 1" },
-        /* 36*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGHj", 0, 0, 8, 32, "E6 59 E9 6D 24 FE 48 49 6B 81 ED 78 CB 9F 52 EE 52 88 91 67 96", "C40 symbols_left 1, process_p 1, backtracks" },
-        /* 37*/ { UNICODE_MODE, 0, -1, DM_SQUARE, "ABCDEFGHj", 0, 0, 16, 16, "E6 59 E9 6D 24 FE 48 49 6B 81 FB 93 BF 72 03 35 09 37 98 FF 39 A7 E3 6D", "C40 symbols_left 1, process_p 1, backtracks" },
-        /* 38*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGHjI", 0, 0, 8, 32, "E6 59 E9 6D 24 FE 48 49 6B 4A B1 18 E5 B7 FB 88 92 65 CC 38 DB", "C40 symbols_left 3, process_p 2, backtracks" },
-        /* 39*/ { UNICODE_MODE, 0, -1, DM_SQUARE, "ABCDEFGHjI", 0, 0, 16, 16, "E6 59 E9 6D 24 FE 48 49 6B 4A 81 93 40 26 DF A9 05 30 01 29 8E DF D2 5C", "C40 symbols_left 5, process_p 2, backtracks" },
-        /* 40*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGHIj", 0, 0, 8, 32, "E6 59 E9 6D 24 80 5F FE 6B 81 17 79 06 42 7E 96 B2 70 79 F8 3C", "Switches to ASC for last char" },
-        /* 41*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGHIJÊ", 0, 0, 16, 16, "E6 59 E9 6D 24 80 5F FE 4B EB 4B 81 DD D9 F9 C9 C5 38 F3 4B DB 80 92 A7", "Switches to ASC for last 2 chars" },
-        /* 42*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGHIJKÊ", 0, 0, 16, 16, "E6 59 E9 6D 24 80 5F FE 4B 4C EB 4B 15 17 46 06 70 F3 15 74 45 26 72 2D", "C40 symbols_left 3, process_p 2, backtracks" },
-        /* 43*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGHIJKª", 0, 0, 16, 16, "E6 59 E9 6D 24 80 5F 93 82 BB B2 FE 11 5C 60 32 A6 DE FC 7B 30 F1 03 56", "C40 symbols_left 1, process_p 0" },
-        /* 44*/ { UNICODE_MODE, 0, -1, -1, "ABCDEFGHIJKê", 0, 0, 16, 16, "E6 59 E9 6D 24 80 5F 93 82 BB DB FE 78 43 69 3C C2 FE F5 2E 1B 4F B6 04", "C40 symbols_left 1, process_p 0" },
-        /* 45*/ { UNICODE_MODE, 0, -1, -1, "abcdef", 0, 0, 12, 12, "EF 59 E9 6D 24 E2 CC D9 B4 55 E2 6A", "TEX symbols_left 0, process_p 0" },
-        /* 46*/ { UNICODE_MODE, 0, -1, -1, "abcdefg", 0, 0, 14, 14, "EF 59 E9 6D 24 FE 68 81 A9 65 CD 3A A2 E9 E0 B7 E1 E5", "TEX symbols_left 3, process_p 1" },
-        /* 47*/ { UNICODE_MODE, 0, -1, -1, "abcdefgh", 0, 0, 14, 14, "EF 59 E9 6D 24 FE 68 69 68 36 28 3C 85 5A E9 D4 49 9A", "TEX symbols_left 3, process_p 2" },
-        /* 48*/ { UNICODE_MODE, 0, -1, -1, "abcdefghi", 0, 0, 14, 14, "EF 59 E9 6D 24 80 5F FE DA BF FA 16 71 15 22 4D E3 F3", "TEX symbols_left 1, process_p 0" },
-        /* 49*/ { UNICODE_MODE, 0, -1, -1, "abcdef\001g", 0, 0, 14, 14, "EF 59 E9 6D 24 00 3D FE 86 3B 2F 83 51 99 C0 A1 EC DD", "TEX symbols_left 1, process_p 0" },
-        /* 50*/ { UNICODE_MODE, 0, -1, -1, "abcdefg\001", 0, 0, 14, 14, "EF 59 E9 6D 24 7D 02 FE CF C2 FD EA DA F8 6C 56 15 9E", "TEX symbols_left 1, process_p 0" },
-        /* 51*/ { UNICODE_MODE, 0, -1, -1, "abcdefg\001h", 0, 0, 14, 14, "EF 59 E9 6D 24 7D 02 69 7A 9B EB A4 5E DE 99 25 01 8C", "TEX symbols_left 1, process_p 1" },
-        /* 52*/ { UNICODE_MODE, 0, -1, -1, "abcdefgh\001", 0, 0, 8, 32, "EF 59 E9 6D 24 FE 68 69 02 81 EB 84 25 32 6E 1B 5A FB 1D 25 4A", "TEX symbols_left 1, process_p 1, backtracks" },
-        /* 53*/ { UNICODE_MODE, 0, -1, DM_SQUARE, "abcdefgh\001", 0, 0, 16, 16, "EF 59 E9 6D 24 FE 68 69 02 81 FB 93 93 FD 1E 3B BA 1D 16 4D 59 41 EC B9", "TEX symbols_left 1, process_p 1, backtracks" },
-        /* 54*/ { UNICODE_MODE, 0, -1, -1, "abcdefgh\001i", 0, 0, 8, 32, "EF 59 E9 6D 24 FE 68 69 02 6A 31 35 48 9B 93 6E 15 BB 02 9D F4", "TEX symbols_left 3, process_p 2, backtracks" },
-        /* 55*/ { UNICODE_MODE, 0, -1, DM_SQUARE, "abcdefgh\001i", 0, 0, 16, 16, "EF 59 E9 6D 24 FE 68 69 02 6A 81 93 DE D7 EC 9B 7D 72 9C 68 B8 6E CF 31", "TEX symbols_left 3, process_p 2, backtracks" },
-        /* 56*/ { UNICODE_MODE, 0, -1, -1, "abcdefghi\001", 0, 0, 8, 32, "EF 59 E9 6D 24 80 5F FE 02 81 4D AB 30 86 CD D1 9D F3 15 F5 B1", "Switches to ASC for last char" },
-        /* 57*/ { UNICODE_MODE, 0, -1, -1, "abcdefgh\001i\001", 0, 0, 16, 16, "EF 59 E9 6D 24 FE 68 69 02 6A 02 81 32 55 EC 2E A7 AE 69 41 A6 1F 09 8F", "TEX symbols_left 1, process_p 1, backtracks 2" },
-        /* 58*/ { UNICODE_MODE, 0, -1, -1, "abcdefJg", 0, 0, 14, 14, "EF 59 E9 6D 24 0E 25 FE 01 75 0D 9C 9C BE 40 88 BF 09", "TEX symbols_left 1, process_p 0" },
-        /* 59*/ { UNICODE_MODE, 0, -1, -1, "abcdefgJ", 0, 0, 14, 14, "EF 59 E9 6D 24 7D 5B FE 6E 92 FE 83 42 F1 0B 0E 43 24", "TEX symbols_left 1, process_p 0" },
-        /* 60*/ { UNICODE_MODE, 0, -1, -1, "abcdefgJh", 0, 0, 14, 14, "EF 59 E9 6D 24 7D 5B 69 DB CB E8 CD C6 D7 FE 7D 57 36", "TEX symbols_left 1, process_p 1" },
-        /* 61*/ { UNICODE_MODE, 0, -1, -1, "abcdefghJ", 0, 0, 8, 32, "EF 59 E9 6D 24 FE 68 69 4B 81 15 8A 35 57 7F 33 B3 48 01 E0 BD", "TEX symbols_left 1, process_p 1, backtracks" },
-        /* 62*/ { UNICODE_MODE, 0, -1, DM_SQUARE, "abcdefghJ", 0, 0, 16, 16, "EF 59 E9 6D 24 FE 68 69 4B 81 FB 93 5B D4 D2 8B EE 85 F2 3E 3F 8E E5 04", "TEX symbols_left 1, process_p 1, backtracks" },
-        /* 63*/ { UNICODE_MODE, 0, -1, -1, "abcdefghJi", 0, 0, 8, 32, "EF 59 E9 6D 24 FE 68 69 4B 6A CF 3B 58 FE 82 46 FC 08 1E 58 03", "TEX symbols_left 3, process_p 2, backtracks" },
-        /* 64*/ { UNICODE_MODE, 0, -1, DM_SQUARE, "abcdefghJi", 0, 0, 16, 16, "EF 59 E9 6D 24 FE 68 69 4B 6A 81 93 16 FE 20 2B 29 EA 78 1B DE A1 C6 8C", "TEX symbols_left 3, process_p 2, backtracks" },
-        /* 65*/ { UNICODE_MODE, 0, -1, -1, "abcdefghiJ", 0, 0, 8, 32, "EF 59 E9 6D 24 80 5F FE 4B 81 B3 A5 20 E3 DC F9 74 40 09 30 46", "Switches to ASC for last char" },
-        /* 66*/ { UNICODE_MODE, 0, -1, -1, "abcdefghijkÊ", 0, 0, 16, 16, "EF 59 E9 6D 24 80 5F 93 82 BB DB FE 3E C8 EC 73 58 A7 42 46 10 49 25 99", "TEX symbols_left 1, process_p 0" },
-        /* 67*/ { UNICODE_MODE, 0, -1, -1, "abcdefghijkª", 0, 0, 16, 16, "EF 59 E9 6D 24 80 5F 93 82 BB B2 FE 57 D7 E5 7D 3C 87 4B 13 3B F7 90 CB", "TEX symbols_left 1, process_p 0" },
-        /* 68*/ { UNICODE_MODE, 0, -1, -1, "abcdefghijkê", 0, 0, 16, 16, "EF 59 E9 6D 24 80 5F FE 6B 6C EB 6B 59 43 1A B1 96 F4 FF C5 B5 08 AE 2F", "TEX symbols_left 3, process_p 2, backtracks" },
-        /* 69*/ { UNICODE_MODE, 0, -1, -1, "\015*>\015*>", 0, 0, 12, 12, "EE 00 2B 00 2B 83 3B 0A CE 32 36 65", "X12 symbols_left 0, process_p 0" },
-        /* 70*/ { UNICODE_MODE, 0, -1, -1, "\015*>\015*>\015", 0, 0, 14, 14, "EE 00 2B 00 2B FE 0E 81 C0 6C BF 37 F6 D6 48 71 E2 38", "Switches to ASC for last char" },
-        /* 71*/ { UNICODE_MODE, 0, -1, -1, "\015*>\015*>\015*", 0, 0, 14, 14, "EE 00 2B 00 2B FE 0E 2B BD DB 7C 8F 14 46 F1 9F 94 BC", "Switches to ASC for last 2 chars" },
-        /* 72*/ { UNICODE_MODE, 0, -1, -1, "\015*>\015*>\015*>", 0, 0, 14, 14, "EE 00 2B 00 2B 00 2B FE BF 81 70 74 1C 65 10 0C 06 38", "X12 symbols_left 1, process_p 0, ASC unlatch at end" },
-        /* 73*/ { UNICODE_MODE, 0, -1, -1, "\015*>\015*>\015*>\015", 0, 0, 14, 14, "EE 00 2B 00 2B 00 2B 0E 1C DB D8 26 3E EC CF 9C C3 4A", "X12 symbols_left 1, process_p 1, ASC no latch at end" },
-        /* 74*/ { UNICODE_MODE, 0, -1, -1, "\015*>\015*>\015*>\015*", 0, 0, 8, 32, "EE 00 2B 00 2B 00 2B FE 0E 2B 65 37 5F 2F F3 96 BE 9A 03 55 68", "X12 symbols_left 3, process_p 2, ASC last 2 chars" },
-        /* 75*/ { UNICODE_MODE, 0, -1, -1, "\015*>\015*>\015*>\015*>", 0, 0, 8, 32, "EE 00 2B 00 2B 00 2B 00 2B FE 6E 95 3A 10 58 4E 96 06 79 09 94", "X12 symbols_left 1, process_p 0, ASC unlatch at end" },
-        /* 76*/ { UNICODE_MODE, 0, -1, -1, "@A1^B2?C", 0, 0, 14, 14, "F0 00 1C 5E 0B 2F C3 81 2D 71 45 13 9B FF A1 B0 0B E2", "EDIFACT symbols_left 1, process_p 0" },
-        /* 77*/ { UNICODE_MODE, 0, -1, -1, "@A1^B2?C3", 0, 0, 14, 14, "F0 00 1C 5E 0B 2F C3 34 81 E8 6C 9E CE 12 CB F5 58 3F", "EDIFACT symbols_left 1, process_p 1" },
-        /* 78*/ { UNICODE_MODE, 0, -1, -1, "@A1^B2?C3+", 0, 0, 8, 32, "F0 00 1C 5E 0B 2F C3 CE B7 C0 33 C6 81 E1 63 6E 5E B4 27 30 C9", "EDIFACT symbols_left 3, process_p 2" },
-        /* 79*/ { UNICODE_MODE, 0, -1, -1, "@A1^B2?C3+D", 0, 0, 8, 32, "F0 00 1C 5E 0B 2F C3 CE B1 1F 4D E1 79 04 2B BC 05 6C 38 73 39", "EDIFACT symbols_left 3, process_p 3" },
-        /* 80*/ { UNICODE_MODE, 0, -1, -1, "@A1^B2?C3+D4", 0, 0, 8, 32, "F0 00 1C 5E 0B 2F C3 CE B1 34 F4 EC B3 DC 03 A3 1F B5 86 C3 F7", "EDIFACT symbols_left 0, process_p 0" },
-        /* 81*/ { UNICODE_MODE, 0, -1, -1, "@A1^B2?C3+D4=", 0, 0, 16, 16, "F0 00 1C 5E 0B 2F C3 CE B1 34 3E 81 42 96 43 6E 92 0D A9 B1 65 3C CF 9B", "EDIFACT symbols_left 2, process_p 1" },
-        /* 82*/ { UNICODE_MODE, 0, -1, -1, "@A1^B2?C3+D4=E", 0, 0, 16, 16, "F0 00 1C 5E 0B 2F C3 CE B1 34 3E 46 AD 8C F2 D8 5D AF F3 65 08 1F E3 A5", "EDIFACT symbols_left 2, process_p 2" },
-        /* 83*/ { DATA_MODE, 0, -1, -1, "\377\376", 0, 0, 12, 12, "EB 80 EB 7F 81 6F A8 0F 21 6F 5F 88", "FN4 A7F FN4 A7E, 1 pad" },
-        /* 84*/ { DATA_MODE, 0, -1, -1, "\377\376\375", 0, 0, 12, 12, "E7 2C C0 55 E9 67 45 8A D2 7E A9 23", "BAS BFF BFE BFD, no padding" },
-        /* 85*/ { DATA_MODE, 3, -1, -1, "\101\102\103\104\300\105\310", 0, 3, 16, 16, "F1 04 E7 5E 2D C4 5B F1 03 1D 36 81 64 0E C0 77 9A 18 52 B2 F9 F0 04 39", "ECI 4 BAS B41 B42 B43 B44 BC0 B45 BC8" },
-        /* 86*/ { UNICODE_MODE, 26, -1, -1, "ABCDÀEÈ", 0, 26, 12, 26, "F1 1B E7 60 2D C4 5B F1 06 58 B3 C7 21 81 57 ED 3D C0 12 2E 6C 80 58 CC 2C 05 0D 31 FC 2D", "ECI 27 BAS B41 B42 B43 B44 BC3 B80 B45 BC3 B88" },
-        /* 87*/ { UNICODE_MODE, 0, -1, -1, "β", ZINT_WARN_USES_ECI, 9, 12, 12, "Warning F1 0A EB 63 81 41 56 DA C0 3D 2D CC", "ECI 10 FN4 A62" },
-        /* 88*/ { UNICODE_MODE, 127, -1, -1, "A", 0, 127, 12, 12, "F1 80 01 42 81 14 A2 86 07 F5 27 30", "ECI 128 A41" },
-        /* 89*/ { UNICODE_MODE, 16382, -1, -1, "A", 0, 16382, 12, 12, "F1 BF FE 42 81 29 57 AA A0 92 B2 45", "ECI 16383 A41" },
-        /* 90*/ { UNICODE_MODE, 810899, -1, -1, "A", 0, 810899, 12, 12, "F1 CC 51 05 42 BB A5 A7 8A C6 6E 0F", "ECI 810900 A41" },
-        /* 91*/ { UNICODE_MODE | ESCAPE_MODE, -1, -1, -1, "[)>\\R05\\GA\\R\\E", 0, 0, 10, 10, "EC 42 81 5D 17 49 F6 B6", "Macro05 A41" },
+        /*  0*/ { UNICODE_MODE, 0, -1, -1, -1, "0466010592130100000k*AGUATY80", 0, 0, 18, 18, 1, "(32) 86 C4 83 87 DE 8F 83 82 82 31 6C EE 08 85 D6 D2 EF 65 93 B0 1C 3C 76 FB D4 AB 16 11", "#208" },
+        /*  1*/ { UNICODE_MODE, 0, 5, -1, -1, "0466010592130100000k*AGUATY80", 0, 0, 18, 18, 1, "(32) 86 C4 83 87 DE 8F 83 82 82 31 6C EE 08 85 D6 D2 EF 65 93 B0 1C 3C 76 FB D4 AB 16 11", "" },
+        /*  2*/ { UNICODE_MODE, 0, -1, -1, -1, "0466010592130100000k*AGUATY8", 0, 0, 18, 18, 1, "(32) 86 C4 83 87 DE 8F 83 82 82 E6 19 5C 07 B7 82 5F D4 3D 65 B5 97 30 00 FC 2C 4C 30 52", "" },
+        /*  3*/ { UNICODE_MODE, 0, -1, -1, -1, "0466010592130100000k*AGUATY80U", 0, 0, 20, 20, 1, "(40) 86 C4 83 87 DE 8F 83 82 82 31 6C EE 08 85 D6 D2 EF 65 FE 56 81 76 4F AB 22 B8 6F 0A", "" },
+        /*  4*/ { UNICODE_MODE, 0, 5, -1, -1, "0466010592130100000k*AGUATY80U", ZINT_ERROR_TOO_LONG, -1, 0, 0, 0, "Error 522: Input too long for selected symbol size", "" },
+        /*  5*/ { UNICODE_MODE, 0, 6, -1, -1, "0466010592130100000k*AGUATY80U", 0, 0, 20, 20, 1, "(40) 86 C4 83 87 DE 8F 83 82 82 31 6C EE 08 85 D6 D2 EF 65 FE 56 81 76 4F AB 22 B8 6F 0A", "" },
+        /*  6*/ { UNICODE_MODE, 0, -1, -1, -1, "0466010592130100000k*AGUATY80UA", 0, 0, 20, 20, 0, "(40) 86 C4 83 87 DE 8F 83 82 82 E6 19 5C 07 B7 82 5F D4 3D 1E 5F FE 81 BB 90 01 2A 31 9F", "BWIPP different encodation" },
+        /*  7*/ { UNICODE_MODE, 0, -1, -1, -1, ">*\015>*\015>", 0, 0, 14, 14, 1, "EE 0C A9 0C A9 FE 3F 81 42 B2 11 A8 F9 0A EC C1 1E 41", "X12 symbols_left 3, process_p 1" },
+        /*  8*/ { UNICODE_MODE, 0, -1, -1, -1, ">*\015>*\015>*", 0, 0, 14, 14, 1, "EE 0C A9 0C A9 FE 3F 2B 3F 05 D2 10 1B 9A 55 2F 68 C5", "X12 symbols_left 3, process_p 2" },
+        /*  9*/ { UNICODE_MODE, 0, -1, -1, -1, ">*\015>*\015>*\015", 0, 0, 14, 14, 1, "EE 0C A9 0C A9 0C A9 FE 1F 30 3F EE 45 C1 1C D7 5F 7E", "X12 symbols_left 1, process_p 0" },
+        /* 10*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEF", 0, 0, 12, 12, 1, "E6 59 E9 6D 24 3D 15 EF AA 21 F9 59", "C40 symbols_left 0, process_p 0" },
+        /* 11*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFG", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 FE 48 81 8C 7E 09 5E 10 64 BC 5F 4C 91", "C40 symbols_left 3, process_p 1" },
+        /* 12*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGH", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 FE 48 49 2E 31 00 73 3B 8F 4B 55 93 19", "C40 symbols_left 3, process_p 2" },
+        /* 13*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHI", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 80 5F FE 01 DE 20 9F AA C2 FF 8F 08 97", "C40 symbols_left 1, process_p 0" },
+        /* 14*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHIJ", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 80 5F 4B AD 47 09 12 FF 2F 95 CA 5B 4A", "C40 symbols_left 1, process_p 1" },
+        /* 15*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHIJK", 0, 0, 8, 32, 1, "E6 59 E9 6D 24 80 5F FE 4B 4C D8 69 88 60 B9 33 B9 31 E6 BF CA", "C40 symbols_left 3, process_p 2" },
+        /* 16*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEF\001G", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 00 3D FE 5D 5A F5 0A 8A 4E 1D 63 07 B9", "C40 symbols_left 1, process_p 0" },
+        /* 17*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFG\001", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 7D 02 FE 14 A3 27 63 01 2F B1 94 FE FA", "C40 symbols_left 1, process_p 0" },
+        /* 18*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFG\001H", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 7D 02 49 C2 E6 DD 06 89 51 BA 8E 9D 1F", "C40 symbols_left 1, process_p 1" },
+        /* 19*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGH\001", 0, 0, 8, 32, 1, "E6 59 E9 6D 24 FE 48 49 02 81 BD 6D F3 94 FF 82 A6 BF BB F1 4F", "C40 symbols_left 1, process_p 1, backtracks" },
+        /* 20*/ { UNICODE_MODE, 0, -1, DM_SQUARE, -1, "ABCDEFGH\001", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 FE 48 49 02 81 FB 93 AE 8B 1C 90 DF FE EB C5 A0 2A 6A 4F", "C40 symbols_left 1, process_p 1, backtracks" },
+        /* 21*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGH\001I", 0, 0, 8, 32, 1, "E6 59 E9 6D 24 FE 48 49 02 4A E1 0D DD BC 56 E4 66 52 E6 AE 02", "C40 symbols_left 3, process_p 2, backtracks" },
+        /* 22*/ { UNICODE_MODE, 0, -1, DM_SQUARE, -1, "ABCDEFGH\001I", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 FE 48 49 02 4A 81 93 51 DF C0 0C D3 F9 72 13 17 52 5B 7E", "C40 symbols_left 5, process_p 2, backtracks" },
+        /* 23*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHI\001", 0, 0, 8, 32, 1, "E6 59 E9 6D 24 80 5F FE 02 81 47 6C 3E 49 D3 FA 46 47 53 6E E5", "Switches to ASC for last char" },
+        /* 24*/ { UNICODE_MODE, 0, -1, DM_SQUARE, -1, "ABCDEFGHI\001", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 80 5F FE 02 81 FB 93 33 E3 4F F7 2D 08 8A BF 64 C3 B0 26", "Switches to ASC for last char" },
+        /* 25*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGH\001I\001", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 FE 48 49 02 4A 02 81 BD 5D C0 B9 09 25 87 3A 09 23 9D C0", "C40 symbols_left 1, process_p 1, backtracks 2" },
+        /* 26*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEF+G", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 07 E5 FE 6B 35 71 7F 3D 57 59 46 F7 B9", "C40 symbols_left 1, process_p 0" },
+        /* 27*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFG+", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 7D 33 FE 33 F5 97 60 73 48 13 2E E5 74", "C40 symbols_left 1, process_p 0" },
+        /* 28*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFG+H", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 7D 33 49 E5 B0 6D 05 FB 36 18 34 86 91", "C40 symbols_left 1, process_p 1" },
+        /* 29*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGH+", 0, 0, 8, 32, 1, "E6 59 E9 6D 24 FE 48 49 2C 81 02 BD 40 CF 3B 06 C2 DF 36 E0 48", "C40 symbols_left 1, process_p 1, backtracks" },
+        /* 30*/ { UNICODE_MODE, 0, -1, DM_SQUARE, -1, "ABCDEFGH+", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 FE 48 49 2C 81 FB 93 F6 78 B5 69 0B 83 C6 32 62 1A D2 FF", "C40 symbols_left 1, process_p 1, backtracks" },
+        /* 31*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGH+I", 0, 0, 8, 32, 1, "E6 59 E9 6D 24 FE 48 49 2C 4A 5E DD 6E E7 92 60 02 32 6B BF 05", "C40 symbols_left 3, process_p 2, backtracks" },
+        /* 32*/ { UNICODE_MODE, 0, -1, DM_SQUARE, -1, "ABCDEFGH+I", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 FE 48 49 2C 4A 81 93 09 2C 69 F5 07 84 5F E4 D5 62 E3 CE", "C40 symbols_left 5, process_p 2, backtracks" },
+        /* 33*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHI+", 0, 0, 8, 32, 1, "E6 59 E9 6D 24 80 5F FE 2C 81 F8 BC 8D 12 17 7E 22 27 DE 7F E2", "C40 symbols_left 3, process_p 2, backtracks" },
+        /* 34*/ { UNICODE_MODE, 0, -1, DM_SQUARE, -1, "ABCDEFGHI+", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 80 5F FE 2C 81 FB 93 6B 10 E6 0E F9 75 A7 48 A6 F3 08 96", "Switches to ASC for last char" },
+        /* 35*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFjG", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 0E 25 FE DA 14 D7 15 47 69 9D 4A 54 6D", "C40 symbols_left 1, process_p 0" },
+        /* 36*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGj", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 7D 5B FE B5 F3 24 0A 99 26 D6 CC A8 40", "C40 symbols_left 1, process_p 0" },
+        /* 37*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGjH", 0, 0, 14, 14, 1, "E6 59 E9 6D 24 7D 5B 49 63 B6 DE 6F 11 58 DD D6 CB A5", "C40 symbols_left 1, process_p 1" },
+        /* 38*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHj", 0, 0, 8, 32, 1, "E6 59 E9 6D 24 FE 48 49 6B 81 ED 78 CB 9F 52 EE 52 88 91 67 96", "C40 symbols_left 1, process_p 1, backtracks" },
+        /* 39*/ { UNICODE_MODE, 0, -1, DM_SQUARE, -1, "ABCDEFGHj", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 FE 48 49 6B 81 FB 93 BF 72 03 35 09 37 98 FF 39 A7 E3 6D", "C40 symbols_left 1, process_p 1, backtracks" },
+        /* 40*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHjI", 0, 0, 8, 32, 1, "E6 59 E9 6D 24 FE 48 49 6B 4A B1 18 E5 B7 FB 88 92 65 CC 38 DB", "C40 symbols_left 3, process_p 2, backtracks" },
+        /* 41*/ { UNICODE_MODE, 0, -1, DM_SQUARE, -1, "ABCDEFGHjI", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 FE 48 49 6B 4A 81 93 40 26 DF A9 05 30 01 29 8E DF D2 5C", "C40 symbols_left 5, process_p 2, backtracks" },
+        /* 42*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHIj", 0, 0, 8, 32, 1, "E6 59 E9 6D 24 80 5F FE 6B 81 17 79 06 42 7E 96 B2 70 79 F8 3C", "Switches to ASC for last char" },
+        /* 43*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHIJÊ", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 80 5F FE 4B EB 4B 81 DD D9 F9 C9 C5 38 F3 4B DB 80 92 A7", "Switches to ASC for last 2 chars" },
+        /* 44*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHIJKÊ", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 80 5F FE 4B 4C EB 4B 15 17 46 06 70 F3 15 74 45 26 72 2D", "C40 symbols_left 3, process_p 2, backtracks" },
+        /* 45*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHIJKª", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 80 5F 93 82 BB B2 FE 11 5C 60 32 A6 DE FC 7B 30 F1 03 56", "C40 symbols_left 1, process_p 0" },
+        /* 46*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHIJKê", 0, 0, 16, 16, 1, "E6 59 E9 6D 24 80 5F 93 82 BB DB FE 78 43 69 3C C2 FE F5 2E 1B 4F B6 04", "C40 symbols_left 1, process_p 0" },
+        /* 47*/ { GS1_MODE, 0, -1, -1, -1, "[10]ABCDEFGH[10]ABc", 0, 0, 12, 26, 1, "E8 8C E6 59 E9 6D 24 80 4A A9 8D FE 42 43 64 81 83 B4 8F 6B 95 F6 CE A6 3C 5C 77 86 08 50", "C40 symbols_left 3, process_p 1, backtracks" },
+        /* 48*/ { GS1_MODE, 0, -1, -1, GS1_GS_SEPARATOR, "[10]ABCDEFGH[10]ABc", 0, 0, 12, 26, 1, "E8 8C E6 59 E9 6D 24 80 49 B6 0D FE 42 43 64 81 79 E4 20 33 76 5C C7 23 E6 C5 FA 4C FF 88", "C40 symbols_left 3, process_p 1, backtracks" },
+        /* 49*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdef", 0, 0, 12, 12, 1, "EF 59 E9 6D 24 E2 CC D9 B4 55 E2 6A", "TEX symbols_left 0, process_p 0" },
+        /* 50*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefg", 0, 0, 14, 14, 1, "EF 59 E9 6D 24 FE 68 81 A9 65 CD 3A A2 E9 E0 B7 E1 E5", "TEX symbols_left 3, process_p 1" },
+        /* 51*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefgh", 0, 0, 14, 14, 1, "EF 59 E9 6D 24 FE 68 69 68 36 28 3C 85 5A E9 D4 49 9A", "TEX symbols_left 3, process_p 2" },
+        /* 52*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefghi", 0, 0, 14, 14, 1, "EF 59 E9 6D 24 80 5F FE DA BF FA 16 71 15 22 4D E3 F3", "TEX symbols_left 1, process_p 0" },
+        /* 53*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdef\001g", 0, 0, 14, 14, 1, "EF 59 E9 6D 24 00 3D FE 86 3B 2F 83 51 99 C0 A1 EC DD", "TEX symbols_left 1, process_p 0" },
+        /* 54*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefg\001", 0, 0, 14, 14, 1, "EF 59 E9 6D 24 7D 02 FE CF C2 FD EA DA F8 6C 56 15 9E", "TEX symbols_left 1, process_p 0" },
+        /* 55*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefg\001h", 0, 0, 14, 14, 1, "EF 59 E9 6D 24 7D 02 69 7A 9B EB A4 5E DE 99 25 01 8C", "TEX symbols_left 1, process_p 1" },
+        /* 56*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefgh\001", 0, 0, 8, 32, 1, "EF 59 E9 6D 24 FE 68 69 02 81 EB 84 25 32 6E 1B 5A FB 1D 25 4A", "TEX symbols_left 1, process_p 1, backtracks" },
+        /* 57*/ { UNICODE_MODE, 0, -1, DM_SQUARE, -1, "abcdefgh\001", 0, 0, 16, 16, 1, "EF 59 E9 6D 24 FE 68 69 02 81 FB 93 93 FD 1E 3B BA 1D 16 4D 59 41 EC B9", "TEX symbols_left 1, process_p 1, backtracks" },
+        /* 58*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefgh\001i", 0, 0, 8, 32, 1, "EF 59 E9 6D 24 FE 68 69 02 6A 31 35 48 9B 93 6E 15 BB 02 9D F4", "TEX symbols_left 3, process_p 2, backtracks" },
+        /* 59*/ { UNICODE_MODE, 0, -1, DM_SQUARE, -1, "abcdefgh\001i", 0, 0, 16, 16, 1, "EF 59 E9 6D 24 FE 68 69 02 6A 81 93 DE D7 EC 9B 7D 72 9C 68 B8 6E CF 31", "TEX symbols_left 3, process_p 2, backtracks" },
+        /* 60*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefghi\001", 0, 0, 8, 32, 1, "EF 59 E9 6D 24 80 5F FE 02 81 4D AB 30 86 CD D1 9D F3 15 F5 B1", "Switches to ASC for last char" },
+        /* 61*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefgh\001i\001", 0, 0, 16, 16, 1, "EF 59 E9 6D 24 FE 68 69 02 6A 02 81 32 55 EC 2E A7 AE 69 41 A6 1F 09 8F", "TEX symbols_left 1, process_p 1, backtracks 2" },
+        /* 62*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefJg", 0, 0, 14, 14, 1, "EF 59 E9 6D 24 0E 25 FE 01 75 0D 9C 9C BE 40 88 BF 09", "TEX symbols_left 1, process_p 0" },
+        /* 63*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefgJ", 0, 0, 14, 14, 1, "EF 59 E9 6D 24 7D 5B FE 6E 92 FE 83 42 F1 0B 0E 43 24", "TEX symbols_left 1, process_p 0" },
+        /* 64*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefgJh", 0, 0, 14, 14, 1, "EF 59 E9 6D 24 7D 5B 69 DB CB E8 CD C6 D7 FE 7D 57 36", "TEX symbols_left 1, process_p 1" },
+        /* 65*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefghJ", 0, 0, 8, 32, 1, "EF 59 E9 6D 24 FE 68 69 4B 81 15 8A 35 57 7F 33 B3 48 01 E0 BD", "TEX symbols_left 1, process_p 1, backtracks" },
+        /* 66*/ { UNICODE_MODE, 0, -1, DM_SQUARE, -1, "abcdefghJ", 0, 0, 16, 16, 1, "EF 59 E9 6D 24 FE 68 69 4B 81 FB 93 5B D4 D2 8B EE 85 F2 3E 3F 8E E5 04", "TEX symbols_left 1, process_p 1, backtracks" },
+        /* 67*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefghJi", 0, 0, 8, 32, 1, "EF 59 E9 6D 24 FE 68 69 4B 6A CF 3B 58 FE 82 46 FC 08 1E 58 03", "TEX symbols_left 3, process_p 2, backtracks" },
+        /* 68*/ { UNICODE_MODE, 0, -1, DM_SQUARE, -1, "abcdefghJi", 0, 0, 16, 16, 1, "EF 59 E9 6D 24 FE 68 69 4B 6A 81 93 16 FE 20 2B 29 EA 78 1B DE A1 C6 8C", "TEX symbols_left 3, process_p 2, backtracks" },
+        /* 69*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefghiJ", 0, 0, 8, 32, 1, "EF 59 E9 6D 24 80 5F FE 4B 81 B3 A5 20 E3 DC F9 74 40 09 30 46", "Switches to ASC for last char" },
+        /* 70*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefghijkÊ", 0, 0, 16, 16, 1, "EF 59 E9 6D 24 80 5F 93 82 BB DB FE 3E C8 EC 73 58 A7 42 46 10 49 25 99", "TEX symbols_left 1, process_p 0" },
+        /* 71*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefghijkª", 0, 0, 16, 16, 1, "EF 59 E9 6D 24 80 5F 93 82 BB B2 FE 57 D7 E5 7D 3C 87 4B 13 3B F7 90 CB", "TEX symbols_left 1, process_p 0" },
+        /* 72*/ { UNICODE_MODE, 0, -1, -1, -1, "abcdefghijkê", 0, 0, 16, 16, 1, "EF 59 E9 6D 24 80 5F FE 6B 6C EB 6B 59 43 1A B1 96 F4 FF C5 B5 08 AE 2F", "TEX symbols_left 3, process_p 2, backtracks" },
+        /* 73*/ { GS1_MODE, 0, -1, -1, -1, "[10]abcdefgh[10]abC", 0, 0, 12, 26, 1, "E8 8C EF 59 E9 6D 24 80 4A A9 8D FE 62 63 44 81 88 DC 73 33 70 A1 83 EA 50 CB 4E 17 90 DB", "TEX symbols left 3, process_p 1, backtracks" },
+        /* 74*/ { GS1_MODE, 0, -1, -1, GS1_GS_SEPARATOR, "[10]abcdefgh[10]abC", 0, 0, 12, 26, 1, "E8 8C EF 59 E9 6D 24 80 49 B6 0D FE 62 63 44 81 72 8C DC 6B 93 0B 8A 6F 8A 52 C3 DD 67 03", "TEX symbols left 3, process_p 1, backtracks" },
+        /* 75*/ { UNICODE_MODE, 0, -1, -1, -1, "\015*>\015*>", 0, 0, 12, 12, 1, "EE 00 2B 00 2B 83 3B 0A CE 32 36 65", "X12 symbols_left 0, process_p 0" },
+        /* 76*/ { UNICODE_MODE, 0, -1, -1, -1, "\015*>\015*>\015", 0, 0, 14, 14, 1, "EE 00 2B 00 2B FE 0E 81 C0 6C BF 37 F6 D6 48 71 E2 38", "Switches to ASC for last char" },
+        /* 77*/ { UNICODE_MODE, 0, -1, -1, -1, "\015*>\015*>\015*", 0, 0, 14, 14, 1, "EE 00 2B 00 2B FE 0E 2B BD DB 7C 8F 14 46 F1 9F 94 BC", "Switches to ASC for last 2 chars" },
+        /* 78*/ { UNICODE_MODE, 0, -1, -1, -1, "\015*>\015*>\015*>", 0, 0, 14, 14, 1, "EE 00 2B 00 2B 00 2B FE BF 81 70 74 1C 65 10 0C 06 38", "X12 symbols_left 1, process_p 0, ASC unlatch at end" },
+        /* 79*/ { UNICODE_MODE, 0, -1, -1, -1, "\015*>\015*>\015*>\015", 0, 0, 14, 14, 1, "EE 00 2B 00 2B 00 2B 0E 1C DB D8 26 3E EC CF 9C C3 4A", "X12 symbols_left 1, process_p 1, ASC no latch at end" },
+        /* 80*/ { UNICODE_MODE, 0, -1, -1, -1, "\015*>\015*>\015*>\015*", 0, 0, 8, 32, 1, "EE 00 2B 00 2B 00 2B FE 0E 2B 65 37 5F 2F F3 96 BE 9A 03 55 68", "X12 symbols_left 3, process_p 2, ASC last 2 chars" },
+        /* 81*/ { UNICODE_MODE, 0, -1, -1, -1, "\015*>\015*>\015*>\015*>", 0, 0, 8, 32, 1, "EE 00 2B 00 2B 00 2B 00 2B FE 6E 95 3A 10 58 4E 96 06 79 09 94", "X12 symbols_left 1, process_p 0, ASC unlatch at end" },
+        /* 82*/ { UNICODE_MODE, 0, -1, -1, -1, "@A1^B2?C", 0, 0, 14, 14, 1, "F0 00 1C 5E 0B 2F C3 81 2D 71 45 13 9B FF A1 B0 0B E2", "EDIFACT symbols_left 1, process_p 0" },
+        /* 83*/ { UNICODE_MODE, 0, -1, -1, -1, "@A1^B2?C3", 0, 0, 14, 14, 1, "F0 00 1C 5E 0B 2F C3 34 81 E8 6C 9E CE 12 CB F5 58 3F", "EDIFACT symbols_left 1, process_p 1" },
+        /* 84*/ { UNICODE_MODE, 0, -1, -1, -1, "@A1^B2?C3+", 0, 0, 8, 32, 1, "F0 00 1C 5E 0B 2F C3 CE B7 C0 33 C6 81 E1 63 6E 5E B4 27 30 C9", "EDIFACT symbols_left 3, process_p 2" },
+        /* 85*/ { UNICODE_MODE, 0, -1, -1, -1, "@A1^B2?C3+D", 0, 0, 8, 32, 1, "F0 00 1C 5E 0B 2F C3 CE B1 1F 4D E1 79 04 2B BC 05 6C 38 73 39", "EDIFACT symbols_left 3, process_p 3" },
+        /* 86*/ { UNICODE_MODE, 0, -1, -1, -1, "@A1^B2?C3+D4", 0, 0, 8, 32, 1, "F0 00 1C 5E 0B 2F C3 CE B1 34 F4 EC B3 DC 03 A3 1F B5 86 C3 F7", "EDIFACT symbols_left 0, process_p 0" },
+        /* 87*/ { UNICODE_MODE, 0, -1, -1, -1, "@A1^B2?C3+D4=", 0, 0, 16, 16, 1, "F0 00 1C 5E 0B 2F C3 CE B1 34 3E 81 42 96 43 6E 92 0D A9 B1 65 3C CF 9B", "EDIFACT symbols_left 2, process_p 1" },
+        /* 88*/ { UNICODE_MODE, 0, -1, -1, -1, "@A1^B2?C3+D4=E", 0, 0, 16, 16, 1, "F0 00 1C 5E 0B 2F C3 CE B1 34 3E 46 AD 8C F2 D8 5D AF F3 65 08 1F E3 A5", "EDIFACT symbols_left 2, process_p 2" },
+        /* 89*/ { DATA_MODE, 0, -1, -1, -1, "\377\376", 0, 0, 12, 12, 1, "EB 80 EB 7F 81 6F A8 0F 21 6F 5F 88", "FN4 A7F FN4 A7E, 1 pad" },
+        /* 90*/ { DATA_MODE, 0, -1, -1, -1, "\377\376\375", 0, 0, 12, 12, 1, "E7 2C C0 55 E9 67 45 8A D2 7E A9 23", "BAS BFF BFE BFD, no padding" },
+        /* 91*/ { DATA_MODE, 3, -1, -1, -1, "\101\102\103\104\300\105\310", 0, 3, 16, 16, 1, "F1 04 E7 5E 2D C4 5B F1 03 1D 36 81 64 0E C0 77 9A 18 52 B2 F9 F0 04 39", "ECI 4 BAS B41 B42 B43 B44 BC0 B45 BC8" },
+        /* 92*/ { UNICODE_MODE, 26, -1, -1, -1, "ABCDÀEÈ", 0, 26, 12, 26, 1, "F1 1B E7 60 2D C4 5B F1 06 58 B3 C7 21 81 57 ED 3D C0 12 2E 6C 80 58 CC 2C 05 0D 31 FC 2D", "ECI 27 BAS B41 B42 B43 B44 BC3 B80 B45 BC3 B88" },
+        /* 93*/ { UNICODE_MODE, 0, -1, -1, -1, "β", ZINT_WARN_USES_ECI, 9, 12, 12, 1, "Warning F1 0A EB 63 81 41 56 DA C0 3D 2D CC", "ECI 10 FN4 A62" },
+        /* 94*/ { UNICODE_MODE, 127, -1, -1, -1, "A", 0, 127, 12, 12, 1, "F1 80 01 42 81 14 A2 86 07 F5 27 30", "ECI 128 A41" },
+        /* 95*/ { UNICODE_MODE, 16382, -1, -1, -1, "A", 0, 16382, 12, 12, 1, "F1 BF FE 42 81 29 57 AA A0 92 B2 45", "ECI 16383 A41" },
+        /* 96*/ { UNICODE_MODE, 810899, -1, -1, -1, "A", 0, 810899, 12, 12, 1, "F1 CC 51 05 42 BB A5 A7 8A C6 6E 0F", "ECI 810900 A41" },
+        /* 97*/ { UNICODE_MODE | ESCAPE_MODE, -1, -1, -1, -1, "[)>\\R05\\GA\\R\\E", 0, 0, 10, 10, 1, "EC 42 81 5D 17 49 F6 B6", "Macro05 A41" },
+        /* 98*/ { UNICODE_MODE, 0, -1, -1, -1, "ABCDEFGHIJKLM*", 0, 0, 16, 16, 1, "EE 59 E9 6D 24 80 5F 93 9A FE 4E 2B 09 FF 50 A2 83 BE 32 E1 2F 17 1E F3", "C40 == X12, p_r_6_2_1 true" },
     };
     int data_size = ARRAY_SIZE(data);
+    int i, length, ret;
+    struct zint_symbol *symbol;
 
     char escaped[8192];
     char bwipp_buf[32768];
     char bwipp_msg[1024];
 
-    for (int i = 0; i < data_size; i++) {
+    int do_bwipp = (debug & ZINT_DEBUG_TEST_BWIPP) && testUtilHaveGhostscript(); // Only do BWIPP test if asked, too slow otherwise
+
+    testStart("test_input");
+
+    for (i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        struct zint_symbol *symbol = ZBarcode_Create();
+        symbol = ZBarcode_Create();
         assert_nonnull(symbol, "Symbol not created\n");
 
         symbol->debug = ZINT_DEBUG_TEST; // Needed to get codeword dump in errtxt
 
-        int length = testUtilSetSymbol(symbol, BARCODE_DATAMATRIX, data[i].input_mode, data[i].eci, -1 /*option_1*/, data[i].option_2, data[i].option_3, -1 /*output_options*/, data[i].data, -1, debug);
+        length = testUtilSetSymbol(symbol, BARCODE_DATAMATRIX, data[i].input_mode, data[i].eci, -1 /*option_1*/, data[i].option_2, data[i].option_3, data[i].output_options, data[i].data, -1, debug);
 
         ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
         assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
 
         if (generate) {
-            printf("        /*%3d*/ { %s, %d, %d, %s, \"%s\", %s, %d, %d, %d, \"%s\", \"%s\" },\n",
+            printf("        /*%3d*/ { %s, %d, %d, %s, %s, \"%s\", %s, %d, %d, %d, %d, \"%s\", \"%s\" },\n",
                     i, testUtilInputModeName(data[i].input_mode), data[i].eci, data[i].option_2, testUtilOption3Name(data[i].option_3),
-                    testUtilEscape(data[i].data, length, escaped, sizeof(escaped)),
-                    testUtilErrorName(data[i].ret), ret < ZINT_ERROR ? symbol->eci : -1, symbol->rows, symbol->width, symbol->errtxt, data[i].comment);
+                    testUtilOutputOptionsName(data[i].output_options), testUtilEscape(data[i].data, length, escaped, sizeof(escaped)),
+                    testUtilErrorName(data[i].ret), ret < ZINT_ERROR ? symbol->eci : -1, symbol->rows, symbol->width, data[i].bwipp_cmp, symbol->errtxt, data[i].comment);
         } else {
             if (ret < ZINT_ERROR) {
                 assert_equal(symbol->eci, data[i].expected_eci, "i:%d eci %d != %d\n", i, symbol->eci, data[i].expected_eci);
                 assert_equal(symbol->rows, data[i].expected_rows, "i:%d rows %d != %d\n", i, symbol->rows, data[i].expected_rows);
                 assert_equal(symbol->width, data[i].expected_width, "i:%d width %d != %d\n", i, symbol->width, data[i].expected_width);
-                assert_zero(strcmp(symbol->errtxt, data[i].expected), "i:%d strcmp(%s, %s) != 0\n", i, symbol->errtxt, data[i].expected);
+            }
+            assert_zero(strcmp(symbol->errtxt, data[i].expected), "i:%d strcmp(%s, %s) != 0\n", i, symbol->errtxt, data[i].expected);
 
+            if (ret < ZINT_ERROR) {
                 if (do_bwipp && testUtilCanBwipp(i, symbol, -1, data[i].option_2, data[i].option_3, debug)) {
-                    char modules_dump[8192];
-                    assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1, "i:%d testUtilModulesDump != -1\n", i);
-                    ret = testUtilBwipp(i, symbol, -1, data[i].option_2, data[i].option_3, data[i].data, length, NULL, bwipp_buf, sizeof(bwipp_buf));
-                    assert_zero(ret, "i:%d %s testUtilBwipp ret %d != 0\n", i, testUtilBarcodeName(symbol->symbology), ret);
+                    if (!data[i].bwipp_cmp) {
+                        if (debug & ZINT_DEBUG_TEST_PRINT) printf("i:%d %s not BWIPP compatible (%s)\n", i, testUtilBarcodeName(symbol->symbology), data[i].comment);
+                    } else {
+                        char modules_dump[8192];
+                        assert_notequal(testUtilModulesDump(symbol, modules_dump, sizeof(modules_dump)), -1, "i:%d testUtilModulesDump == -1\n", i);
+                        ret = testUtilBwipp(i, symbol, -1, data[i].option_2, data[i].option_3, data[i].data, length, NULL, bwipp_buf, sizeof(bwipp_buf));
+                        assert_zero(ret, "i:%d %s testUtilBwipp ret %d != 0\n", i, testUtilBarcodeName(symbol->symbology), ret);
 
-                    ret = testUtilBwippCmp(symbol, bwipp_msg, bwipp_buf, modules_dump);
-                    assert_zero(ret, "i:%d %s testUtilBwippCmp %d != 0 %s\n  actual: %s\nexpected: %s\n",
-                                   i, testUtilBarcodeName(symbol->symbology), ret, bwipp_msg, bwipp_buf, modules_dump);
+                        ret = testUtilBwippCmp(symbol, bwipp_msg, bwipp_buf, modules_dump);
+                        assert_zero(ret, "i:%d %s testUtilBwippCmp %d != 0 %s\n  actual: %s\nexpected: %s\n",
+                                       i, testUtilBarcodeName(symbol->symbology), ret, bwipp_msg, bwipp_buf, modules_dump);
+                    }
                 }
             }
         }
@@ -694,11 +747,6 @@ static void test_input(int index, int generate, int debug) {
 
 static void test_encode(int index, int generate, int debug) {
 
-    testStart("");
-
-    int do_bwipp = (debug & ZINT_DEBUG_TEST_BWIPP) && testUtilHaveGhostscript(); // Only do BWIPP test if asked, too slow otherwise
-
-    int ret;
     struct item {
         int symbology;
         int input_mode;
@@ -1036,38 +1084,38 @@ static void test_encode(int index, int generate, int debug) {
                     "100000101110000100"
                     "111111111111111111"
                 },
-        /* 16*/ { BARCODE_DATAMATRIX, GS1_MODE, -1, -1, -1, -1, "[01]00012345678905[17]180401[21]ABCDEFGHIJKL12345678[91]ABCDEFGHI123456789[92]abcdefghi", 0, 32, 32, 1, "GGS Figure 5.6.3.2-3 (left) **NOT SAME** different encodation",
+        /* 16*/ { BARCODE_DATAMATRIX, GS1_MODE, -1, -1, -1, -1, "[01]00012345678905[17]180401[21]ABCDEFGHIJKL12345678[91]ABCDEFGHI123456789[92]abcdefghi", 0, 32, 32, 0, "GGS Figure 5.6.3.2-3 (left) **NOT SAME** different encodation; BWIPP different encodation",
                     "10101010101010101010101010101010"
                     "11001000010111111000100110101011"
                     "10001001100001101100110010100010"
                     "10110111001101111110011001000111"
-                    "11100010001100101001101001011110"
-                    "10101101101011011110000000100101"
-                    "11111010010011001101000010011110"
-                    "10010100101100111001101100101111"
-                    "10101000101100101111111100110100"
-                    "11001110001010111111110000010001"
-                    "10001010000010101101001111010110"
-                    "11110000111000111101011110001001"
-                    "11010001101011001000001010001010"
-                    "11011000111001111001010101011001"
-                    "10111110101001101111110101110110"
+                    "11100010001100101100101001011110"
+                    "10101101101011111110000000100101"
+                    "11111010010010101101000010011110"
+                    "10010100101111011101101100101111"
+                    "10101000101101101111111100110100"
+                    "11001110011000111111110000001001"
+                    "10001010001010101101001111001110"
+                    "11110001000000111101011100101101"
+                    "11010001111011001000011010000010"
+                    "11011100101001111001000111111111"
+                    "10111100101001101111011101000010"
                     "11111111111111111111111111111111"
                     "10101010101010101010101010101010"
-                    "11000011111011111011110011110111"
-                    "11111111010011001110011111011010"
-                    "10000001010111111011000001101011"
-                    "11000000000011101011010110110010"
-                    "10001110000010011010001001011001"
-                    "11110101000000001101101111110000"
-                    "10101011001100011101001110111111"
-                    "11000101011101101111010101110010"
-                    "11111101000001111010001111111101"
-                    "11010100101001001101010000110010"
-                    "10100100110100011001001011001011"
-                    "10111111110001101001111111111110"
-                    "10011001010001111101000111101001"
-                    "11111000001001101010111001010110"
+                    "11010100111011111001101111100111"
+                    "11100111010011001011100001001010"
+                    "11111001010111011101111000110011"
+                    "11110000000010101101001110000110"
+                    "11101110000001111011101000010101"
+                    "11110101001101101101110000001000"
+                    "10101011000111111010111001100111"
+                    "11000101010010001100000011101010"
+                    "11111101110111011001111011001101"
+                    "11010111011010001000011101001010"
+                    "10100111111110111101010111100011"
+                    "10111011111010001001001100101110"
+                    "10010101001110111101000101111101"
+                    "11110110001001001010110111010110"
                     "11111111111111111111111111111111"
                 },
         /* 17*/ { BARCODE_DATAMATRIX, GS1_MODE, -1, -1, 30, -1, "[01]00012345678905[17]180401[21]ABCDEFGHIJKL12345678[91]abcdefghi", 0, 16, 48, 1, "GGS Figure 5.6.3.2-3 (right) **NOT SAME** different encodation",
@@ -2040,19 +2088,25 @@ static void test_encode(int index, int generate, int debug) {
                 },
     };
     int data_size = ARRAY_SIZE(data);
+    int i, length, ret;
+    struct zint_symbol *symbol;
 
     char escaped[8192];
     char bwipp_buf[32768];
     char bwipp_msg[1024];
 
-    for (int i = 0; i < data_size; i++) {
+    int do_bwipp = (debug & ZINT_DEBUG_TEST_BWIPP) && testUtilHaveGhostscript(); // Only do BWIPP test if asked, too slow otherwise
+
+    testStart("test_encode");
+
+    for (i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        struct zint_symbol *symbol = ZBarcode_Create();
+        symbol = ZBarcode_Create();
         assert_nonnull(symbol, "Symbol not created\n");
 
-        int length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, data[i].eci, -1 /*option_1*/, data[i].option_2, data[i].option_3, data[i].output_options, data[i].data, -1, debug);
+        length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, data[i].eci, -1 /*option_1*/, data[i].option_2, data[i].option_3, data[i].output_options, data[i].data, -1, debug);
 
         ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
         assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d\n", i, ret, data[i].ret);
@@ -2066,10 +2120,11 @@ static void test_encode(int index, int generate, int debug) {
             printf("                },\n");
         } else {
             if (ret < ZINT_ERROR) {
+                int width, row;
+
                 assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, data[i].data);
                 assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n", i, symbol->width, data[i].expected_width, data[i].data);
 
-                int width, row;
                 ret = testUtilModulesCmp(symbol, data[i].expected, &width, &row);
                 assert_zero(ret, "i:%d testUtilModulesCmp ret %d != 0 width %d row %d (%s)\n", i, ret, width, row, data[i].data);
 
@@ -2101,11 +2156,6 @@ static void test_encode(int index, int generate, int debug) {
 // Not a real test, just performance indicator
 static void test_perf(int index, int debug) {
 
-    if (!(debug & ZINT_DEBUG_TEST_PERFORMANCE)) { /* -d 256 */
-        return;
-    }
-
-    int ret;
     struct item {
         int symbology;
         int input_mode;
@@ -2155,20 +2205,26 @@ static void test_perf(int index, int debug) {
                     0, 120, 120, "960 chars, byte" },
     };
     int data_size = ARRAY_SIZE(data);
+    int i, length, ret;
 
     clock_t start, total_encode = 0, total_buffer = 0, diff_encode, diff_buffer;
 
-    for (int i = 0; i < data_size; i++) {
+    if (!(debug & ZINT_DEBUG_TEST_PERFORMANCE)) { /* -d 256 */
+        return;
+    }
+
+    for (i = 0; i < data_size; i++) {
+        int j;
 
         if (index != -1 && i != index) continue;
 
         diff_encode = diff_buffer = 0;
 
-        for (int j = 0; j < TEST_PERF_ITERATIONS; j++) {
+        for (j = 0; j < TEST_PERF_ITERATIONS; j++) {
             struct zint_symbol *symbol = ZBarcode_Create();
             assert_nonnull(symbol, "Symbol not created\n");
 
-            int length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/, data[i].option_1, data[i].option_2, -1, -1 /*output_options*/, data[i].data, -1, debug);
+            length = testUtilSetSymbol(symbol, data[i].symbology, data[i].input_mode, -1 /*eci*/, data[i].option_1, data[i].option_2, -1, -1 /*output_options*/, data[i].data, -1, debug);
 
             start = clock();
             ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
