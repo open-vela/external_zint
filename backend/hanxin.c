@@ -305,8 +305,7 @@ static int in_numeric(const unsigned int gbdata[], const int length, const int i
         return 0;
     }
     *p_end = i;
-    *p_cost = digit_cnt == 1
-                ? 60 /* 10 * HX_MULT */ : digit_cnt == 2 ? 30 /* (10 / 2) * HX_MULT */ : 20 /* (10 / 3) * HX_MULT */;
+    *p_cost = digit_cnt == 1 ? 60 /* 10 * HX_MULT */ : digit_cnt == 2 ? 30 /* (10 / 2) * HX_MULT */ : 20 /* (10 / 3) * HX_MULT */;
     return 1;
 }
 
@@ -346,7 +345,7 @@ static void hx_define_mode(char *mode, const unsigned int gbdata[], const int le
     static const char mode_types[] = { 'n', 't', 'b', '1', '2', 'd', 'f', '\0' };
 
     /* Initial mode costs */
-    static const unsigned int head_costs[HX_NUM_MODES] = {
+    static unsigned int head_costs[HX_NUM_MODES] = {
     /*  N            T            B                   1            2            D            F */
         4 * HX_MULT, 4 * HX_MULT, (4 + 13) * HX_MULT, 4 * HX_MULT, 4 * HX_MULT, 4 * HX_MULT, 0
     };
@@ -450,7 +449,7 @@ static void hx_define_mode(char *mode, const unsigned int gbdata[], const int le
         for (j = 0; j < HX_NUM_MODES; j++) { /* To mode */
             for (k = 0; k < HX_NUM_MODES; k++) { /* From mode */
                 if (j != k && char_modes[cm_i + k]) {
-                    const unsigned int new_cost = cur_costs[k] + switch_costs[k][j];
+                    unsigned int new_cost = cur_costs[k] + switch_costs[k][j];
                     if (!char_modes[cm_i + j] || new_cost < cur_costs[j]) {
                         cur_costs[j] = new_cost;
                         char_modes[cm_i + j] = mode_types[k];
@@ -474,7 +473,7 @@ static void hx_define_mode(char *mode, const unsigned int gbdata[], const int le
 
     /* Get optimal mode for each code point by tracing backwards */
     for (i = length - 1, cm_i = i * HX_NUM_MODES; i >= 0; i--, cm_i -= HX_NUM_MODES) {
-        j = posn(mode_types, cur_mode);
+        j = strchr(mode_types, cur_mode) - mode_types;
         cur_mode = char_modes[cm_i + j];
         mode[i] = cur_mode;
     }
@@ -533,17 +532,19 @@ static void calculate_binary(char binary[], const char mode[], unsigned int sour
                 i = 0;
 
                 while (i < block_length) {
-                    const int first = ctoi((const char) source[position + i]);
+                    int first = 0;
+
+                    first = posn(NEON, (char) source[position + i]);
                     count = 1;
                     encoding_value = first;
 
                     if (i + 1 < block_length && mode[position + i + 1] == 'n') {
-                        const int second = ctoi((const char) source[position + i + 1]);
+                        int second = posn(NEON, (char) source[position + i + 1]);
                         count = 2;
                         encoding_value = (encoding_value * 10) + second;
 
                         if (i + 2 < block_length && mode[position + i + 2] == 'n') {
-                            const int third = ctoi((const char) source[position + i + 2]);
+                            int third = posn(NEON, (char) source[position + i + 2]);
                             count = 3;
                             encoding_value = (encoding_value * 10) + third;
                         }
@@ -641,7 +642,7 @@ static void calculate_binary(char binary[], const char mode[], unsigned int sour
                     bp = bin_append_posn(source[i + position], source[i + position] > 0xFF ? 16 : 8, binary, bp);
 
                     if (debug & ZINT_DEBUG_PRINT) {
-                        printf("%d ", (int) source[i + position]);
+                        printf("%d ", source[i + position]);
                     }
 
                     i++;
@@ -692,12 +693,10 @@ static void calculate_binary(char binary[], const char mode[], unsigned int sour
                 }
 
                 /* Terminator */
-                bp = bin_append_posn(position + block_length == length || mode[position + block_length] != '2'
-                                    ? 4095 : 4094, 12, binary, bp);
+                bp = bin_append_posn(position + block_length == length || mode[position + block_length] != '2' ? 4095 : 4094, 12, binary, bp);
 
                 if (debug & ZINT_DEBUG_PRINT) {
-                    printf("(TERM %x)\n", position + block_length == length || mode[position + block_length] != '2'
-                            ? 4095 : 4094);
+                    printf("(TERM %x)\n", position + block_length == length || mode[position + block_length] != '2' ? 4095 : 4094);
                 }
 
                 break;
@@ -729,12 +728,10 @@ static void calculate_binary(char binary[], const char mode[], unsigned int sour
                 }
 
                 /* Terminator */
-                bp = bin_append_posn(position + block_length == length || mode[position + block_length] != '1'
-                                    ? 4095 : 4094, 12, binary, bp);
+                bp = bin_append_posn(position + block_length == length || mode[position + block_length] != '1' ? 4095 : 4094, 12, binary, bp);
 
                 if (debug & ZINT_DEBUG_PRINT) {
-                    printf("(TERM %x)\n", position + block_length == length || mode[position + block_length] != '1'
-                            ? 4095 : 4094);
+                    printf("(TERM %x)\n", position + block_length == length || mode[position + block_length] != '1' ? 4095 : 4094);
                 }
 
                 break;
@@ -844,7 +841,7 @@ static void hx_place_finder_top_left(unsigned char *grid, const int size) {
 /* Finder pattern for top right and bottom left of symbol */
 static void hx_place_finder(unsigned char *grid, const int size, const int x, const int y) {
     int xp, yp;
-    static const char finder[] = {0x7F, 0x01, 0x7D, 0x05, 0x75, 0x75, 0x75};
+    char finder[] = {0x7F, 0x01, 0x7D, 0x05, 0x75, 0x75, 0x75};
 
     for (xp = 0; xp < 7; xp++) {
         for (yp = 0; yp < 7; yp++) {
@@ -860,9 +857,8 @@ static void hx_place_finder(unsigned char *grid, const int size, const int x, co
 /* Finder pattern for bottom right of symbol */
 static void hx_place_finder_bottom_right(unsigned char *grid, const int size) {
     int xp, yp;
-    const int x = size - 7;
-    const int y = x;
-    static const char finder[] = {0x75, 0x75, 0x75, 0x05, 0x7D, 0x01, 0x7F};
+    int x = size - 7, y = size - 7;
+    char finder[] = {0x75, 0x75, 0x75, 0x05, 0x7D, 0x01, 0x7F};
 
     for (xp = 0; xp < 7; xp++) {
         for (yp = 0; yp < 7; yp++) {
@@ -887,8 +883,7 @@ static void hx_safe_plot(unsigned char *grid, const int size, const int x, const
 }
 
 /* Plot an alignment pattern around top and right of a module */
-static void hx_plot_alignment(unsigned char *grid, const int size, const int x, const int y, const int w,
-            const int h) {
+static void hx_plot_alignment(unsigned char *grid, const int size, const int x, const int y, const int w, const int h) {
     int i;
     hx_safe_plot(grid, size, x, y, 0x11);
     hx_safe_plot(grid, size, x - 1, y + 1, 0x10);
@@ -970,9 +965,9 @@ static void hx_setup_grid(unsigned char *grid, const int size, const int version
     }
 
     if (version > 3) {
-        const int k = hx_module_k[version - 1];
-        const int r = hx_module_r[version - 1];
-        const int m = hx_module_m[version - 1];
+        int k = hx_module_k[version - 1];
+        int r = hx_module_r[version - 1];
+        int m = hx_module_m[version - 1];
         int x, y, row_switch, column_switch;
         int module_height, module_width;
         int mod_x, mod_y;
@@ -1081,15 +1076,15 @@ static void hx_add_ecc(unsigned char fullstream[], const unsigned char datastrea
     int i, j, block;
     int input_position = -1;
     int output_position = -1;
-    const int table_d1_pos = ((version - 1) * 36) + ((ecc_level - 1) * 9);
+    int table_d1_pos = ((version - 1) * 36) + ((ecc_level - 1) * 9);
     rs_t rs;
 
     rs_init_gf(&rs, 0x163); // x^8 + x^6 + x^5 + x + 1 = 0
 
     for (i = 0; i < 3; i++) {
-        const int batch_size = hx_table_d1[table_d1_pos + (3 * i)];
-        const int data_length = hx_table_d1[table_d1_pos + (3 * i) + 1];
-        const int ecc_length = hx_table_d1[table_d1_pos + (3 * i) + 2];
+        int batch_size = hx_table_d1[table_d1_pos + (3 * i)];
+        int data_length = hx_table_d1[table_d1_pos + (3 * i) + 1];
+        int ecc_length = hx_table_d1[table_d1_pos + (3 * i) + 2];
 
         rs_init_code(&rs, ecc_length, 1);
 
@@ -1153,8 +1148,7 @@ static void hx_set_function_info(unsigned char *grid, const int size, const int 
     }
 
     if (debug & ZINT_DEBUG_PRINT) {
-        printf("Version: %d, ECC: %d, Mask: %d, Structural Info: %.34s\n", version, ecc_level, bitmask,
-                function_information);
+        printf("Version: %d, ECC: %d, Mask: %d, Structural Info: %.34s\n", version, ecc_level, bitmask, function_information);
     }
 
     /* Add function information to symbol */
@@ -1185,8 +1179,10 @@ static void make_picket_fence(const unsigned char fullstream[], unsigned char pi
 
     for (start = 0; start < 13; start++) {
         for (i = start; i < streamsize; i += 13) {
-            picket_fence[output_position] = fullstream[i];
-            output_position++;
+            if (i < streamsize) {
+                picket_fence[output_position] = fullstream[i];
+                output_position++;
+            }
         }
     }
 }
@@ -1293,8 +1289,7 @@ static int hx_evaluate(const unsigned char *local, const int size) {
      * position of the module.” - however i being the length of the run of the
      * same colour (i.e. "block" below) in the same fashion as ISO/IEC 18004
      * makes more sense. -- Confirmed by Wang Yi */
-    /* Fixed in ISO/IEC 20830 (draft 2019-10-10) section 5.8.3.2 "In Table 12 below, i refers to the modules with
-       same color." */
+    /* Fixed in ISO/IEC 20830 (draft 2019-10-10) section 5.8.3.2 "In Table 12 below, i refers to the modules with same color." */
 
     /* Vertical */
     for (x = 0; x < size; x++) {
@@ -1350,14 +1345,14 @@ static void hx_apply_bitmask(unsigned char *grid, const int size, const int vers
     int pattern, penalty[4] = {0};
     int best_pattern;
     int bit;
-    const int size_squared = size * size;
+    int size_squared = size * size;
 
 #ifndef _MSC_VER
     unsigned char mask[size_squared];
     unsigned char local[size_squared];
 #else
-    unsigned char *mask = (unsigned char *) _alloca(size_squared);
-    unsigned char *local = (unsigned char *) _alloca(size_squared);
+    unsigned char *mask = (unsigned char *) _alloca(size_squared * sizeof(unsigned char));
+    unsigned char *local = (unsigned char *) _alloca(size_squared * sizeof(unsigned char));
 #endif
 
     /* Perform data masking */
@@ -1446,7 +1441,7 @@ static void hx_apply_bitmask(unsigned char *grid, const int size, const int vers
 }
 
 /* Han Xin Code - main */
-INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int length) {
+INTERNAL int han_xin(struct zint_symbol *symbol, unsigned char source[], int length) {
     int est_binlen;
     int ecc_level = symbol->option_1;
     int i, j, j_max, version;
@@ -1456,7 +1451,7 @@ INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int leng
     int size_squared;
     int codewords;
     int bin_len;
-    const int eci_length = get_eci_length(symbol->eci, source, length);
+    int eci_length = get_eci_length(symbol->eci, source, length);
 
 #ifndef _MSC_VER
     unsigned int gbdata[eci_length + 1];
@@ -1488,7 +1483,7 @@ INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int leng
             if (error_number == 0) {
                 done = 1;
             } else if (symbol->eci) {
-                sprintf(symbol->errtxt, "545: Invalid character in input data for ECI %d", symbol->eci);
+                strcpy(symbol->errtxt, "575: Invalid characters in input data");
                 return error_number;
             }
         }
@@ -1548,7 +1543,7 @@ INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int leng
                     data_codewords = hx_data_codewords_L4[i - 1];
                 }
                 break;
-            default: /* Not reached */
+            default:
                 assert(0);
                 break;
         }
@@ -1574,8 +1569,7 @@ INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int leng
 
     /* If there is spare capacity, increase the level of ECC */
 
-    /* Unless explicitly specified (within min/max bounds) by user */
-    if (symbol->option_1 == -1 || symbol->option_1 != ecc_level) {
+    if (symbol->option_1 == -1 || symbol->option_1 != ecc_level) { /* Unless explicitly specified (within min/max bounds) by user */
         if ((ecc_level == 1) && (codewords < hx_data_codewords_L2[version - 1])) {
             ecc_level = 2;
             data_codewords = hx_data_codewords_L2[version - 1];
@@ -1601,10 +1595,10 @@ INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int leng
     unsigned char picket_fence[hx_total_codewords[version - 1]];
     unsigned char grid[size_squared];
 #else
-    datastream = (unsigned char *) _alloca(data_codewords);
-    fullstream = (unsigned char *) _alloca(hx_total_codewords[version - 1]);
-    picket_fence = (unsigned char *) _alloca(hx_total_codewords[version - 1]);
-    grid = (unsigned char *) _alloca(size_squared);
+    datastream = (unsigned char *) _alloca((data_codewords) * sizeof (unsigned char));
+    fullstream = (unsigned char *) _alloca((hx_total_codewords[version - 1]) * sizeof (unsigned char));
+    picket_fence = (unsigned char *) _alloca((hx_total_codewords[version - 1]) * sizeof (unsigned char));
+    grid = (unsigned char *) _alloca(size_squared * sizeof(unsigned char));
 #endif
 
     memset(datastream, 0, data_codewords);
@@ -1655,7 +1649,7 @@ INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int leng
     symbol->rows = size;
 
     for (i = 0; i < size; i++) {
-        const int r = i * size;
+        int r = i * size;
         for (j = 0; j < size; j++) {
             if (grid[r + j] & 0x01) {
                 set_module(symbol, i, j);
@@ -1663,7 +1657,6 @@ INTERNAL int hanxin(struct zint_symbol *symbol, unsigned char source[], int leng
         }
         symbol->row_height[i] = 1;
     }
-    symbol->height = size;
 
     return 0;
 }
