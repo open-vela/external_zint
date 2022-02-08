@@ -31,9 +31,6 @@
  */
 /* vim: set ts=4 sw=4 et : */
 
-#ifndef NO_PNG
-
-#include <errno.h>
 #include <stdio.h>
 #ifdef _MSC_VER
 #include <fcntl.h>
@@ -42,29 +39,35 @@
 #endif
 #include "common.h"
 
+#ifndef NO_PNG
 #include <png.h>
 #include <zlib.h>
 #include <setjmp.h>
 
-/* Note if change this need to change "backend/tests/test_png.c" definition also */
-struct wpng_error_type {
-    struct zint_symbol *symbol;
+#define SSET	"0123456789ABCDEF"
+
+struct mainprog_info_type {
+    long width;
+    long height;
+    FILE *outfile;
     jmp_buf jmpbuf;
 };
 
-STATIC_UNLESS_ZINT_TEST void wpng_error_handler(png_structp png_ptr, png_const_charp msg) {
-    struct wpng_error_type *wpng_error_ptr;
+static void writepng_error_handler(png_structp png_ptr, png_const_charp msg) {
+    struct mainprog_info_type *graphic;
 
-    wpng_error_ptr = (struct wpng_error_type *) png_get_error_ptr(png_ptr);
-    if (wpng_error_ptr == NULL) {
+    fprintf(stderr, "writepng libpng error: %s (F30)\n", msg);
+    fflush(stderr);
+
+    graphic = (struct mainprog_info_type*) png_get_error_ptr(png_ptr);
+    if (graphic == NULL) {
         /* we are completely hosed now */
-        fprintf(stderr, "Error 636: libpng error: %s\n", msg ? msg : "<NULL>");
-        fprintf(stderr, "Error 637: jmpbuf not recoverable, terminating\n");
+        fprintf(stderr,
+                "writepng severe error:  jmpbuf not recoverable; terminating. (F31)\n");
         fflush(stderr);
-        return; /* libpng will call abort() */
+        return;
     }
-    sprintf(wpng_error_ptr->symbol->errtxt, "635: libpng error: %.60s", msg ? msg : "<NULL>");
-    longjmp(wpng_error_ptr->jmpbuf, 1);
+    longjmp(graphic->jmpbuf, 1);
 }
 
 /* Guestimate best compression strategy */
@@ -88,8 +91,8 @@ static int guess_compression_strategy(struct zint_symbol *symbol, unsigned char 
 }
 
 INTERNAL int png_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf) {
-    struct wpng_error_type wpng_error;
-    FILE *outfile;
+    struct mainprog_info_type wpng_info;
+    struct mainprog_info_type *graphic;
     png_structp png_ptr;
     png_infop info_ptr;
     int i;
@@ -104,15 +107,17 @@ INTERNAL int png_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     int bit_depth;
     int compression_strategy;
     unsigned char *pb;
-    const int output_to_stdout = symbol->output_options & BARCODE_STDOUT;
 
 #ifndef _MSC_VER
     unsigned char outdata[symbol->bitmap_width];
 #else
-    unsigned char *outdata = (unsigned char *) _alloca(symbol->bitmap_width);
+    unsigned char* outdata = (unsigned char*) _alloca(symbol->bitmap_width);
 #endif
 
-    wpng_error.symbol = symbol;
+    graphic = &wpng_info;
+
+    graphic->width = symbol->bitmap_width;
+    graphic->height = symbol->bitmap_height;
 
     fg.red = (16 * ctoi(symbol->fgcolour[0])) + ctoi(symbol->fgcolour[1]);
     fg.green = (16 * ctoi(symbol->fgcolour[2])) + ctoi(symbol->fgcolour[3]);
@@ -136,7 +141,7 @@ INTERNAL int png_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     num_trans = 0;
     if (symbol->symbology == BARCODE_ULTRA) {
         static const int ultra_chars[8] = { 'W', 'C', 'B', 'M', 'R', 'Y', 'G', 'K' };
-        static const png_color ultra_colours[8] = {
+        static png_color ultra_colours[8] = {
             { 0xff, 0xff, 0xff, }, /* White */
             {    0, 0xff, 0xff, }, /* Cyan */
             {    0,    0, 0xff, }, /* Blue */
@@ -158,24 +163,10 @@ INTERNAL int png_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
             num_trans = 8;
         }
 
-        /* For Ultracode, have foreground only if have bind/box */
-        if (symbol->border_width > 0 && (symbol->output_options & (BARCODE_BIND | BARCODE_BOX))) {
-            /* Check whether can re-use black */
-            if (fg.red == 0 && fg.green == 0 && fg.blue == 0) {
-                map['1'] = 7; /* Re-use black */
-            } else {
-                map['1'] = num_palette;
-                palette[num_palette++] = fg;
-                if (fg_alpha != 0xff) {
-                    trans_alpha[num_trans++] = fg_alpha;
-                }
-            }
-        }
-
         /* For Ultracode, have background only if have whitespace/quiet zones */
-        if (symbol->whitespace_width > 0 || symbol->whitespace_height > 0
-                || ((symbol->output_options & BARCODE_QUIET_ZONES)
-                    && !(symbol->output_options & BARCODE_NO_QUIET_ZONES))) {
+        if (pixelbuf[0] == '0' || pixelbuf[symbol->bitmap_width - 1] == '0'
+                || pixelbuf[symbol->bitmap_height * (symbol->bitmap_width - 1)] == '0'
+                || pixelbuf[symbol->bitmap_height * symbol->bitmap_width - 1] == '0') {
             /* Check whether can re-use white */
             if (bg.red == 0xff && bg.green == 0xff && bg.blue == 0xff && bg_alpha == fg_alpha) {
                 map['0'] = 0; /* Re-use white */
@@ -220,57 +211,51 @@ INTERNAL int png_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
 
     if (num_palette <= 2) {
         bit_depth = 1;
-    } else {
+    } else if (num_palette <= 16) {
         bit_depth = 4;
+    } else {
+        bit_depth = 8;
     }
 
     /* Open output file in binary mode */
-    if (output_to_stdout) {
+    if (symbol->output_options & BARCODE_STDOUT) {
 #ifdef _MSC_VER
         if (-1 == _setmode(_fileno(stdout), _O_BINARY)) {
-            sprintf(symbol->errtxt, "631: Could not set stdout to binary (%d: %.30s)", errno, strerror(errno));
+            strcpy(symbol->errtxt, "631: Can't open output file");
             return ZINT_ERROR_FILE_ACCESS;
         }
 #endif
-        outfile = stdout;
+        graphic->outfile = stdout;
     } else {
-        if (!(outfile = fopen(symbol->outfile, "wb"))) {
-            sprintf(symbol->errtxt, "632: Could not open output file (%d: %.30s)", errno, strerror(errno));
+        if (!(graphic->outfile = fopen(symbol->outfile, "wb"))) {
+            strcpy(symbol->errtxt, "632: Can't open output file");
             return ZINT_ERROR_FILE_ACCESS;
         }
     }
 
     /* Set up error handling routine as proc() above */
-    png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, &wpng_error, wpng_error_handler, NULL);
+    png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, graphic, writepng_error_handler, NULL);
     if (!png_ptr) {
-        strcpy(symbol->errtxt, "633: Insufficient memory for PNG write structure buffer");
-        if (!output_to_stdout) {
-            fclose(outfile);
-        }
+        strcpy(symbol->errtxt, "633: Out of memory");
         return ZINT_ERROR_MEMORY;
     }
 
     info_ptr = png_create_info_struct(png_ptr);
     if (!info_ptr) {
         png_destroy_write_struct(&png_ptr, NULL);
-        strcpy(symbol->errtxt, "634: Insufficient memory for PNG info structure buffer");
-        if (!output_to_stdout) {
-            fclose(outfile);
-        }
+        strcpy(symbol->errtxt, "634: Out of memory");
         return ZINT_ERROR_MEMORY;
     }
 
     /* catch jumping here */
-    if (setjmp(wpng_error.jmpbuf)) {
+    if (setjmp(graphic->jmpbuf)) {
         png_destroy_write_struct(&png_ptr, &info_ptr);
-        if (!output_to_stdout) {
-            fclose(outfile);
-        }
+        strcpy(symbol->errtxt, "635: libpng error occurred");
         return ZINT_ERROR_MEMORY;
     }
 
     /* open output file with libpng */
-    png_init_io(png_ptr, outfile);
+    png_init_io(png_ptr, graphic->outfile);
 
     /* set compression */
     png_set_compression_level(png_ptr, 9);
@@ -282,7 +267,7 @@ INTERNAL int png_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     }
 
     /* set Header block */
-    png_set_IHDR(png_ptr, info_ptr, symbol->bitmap_width, symbol->bitmap_height,
+    png_set_IHDR(png_ptr, info_ptr, graphic->width, graphic->height,
             bit_depth, PNG_COLOR_TYPE_PALETTE, PNG_INTERLACE_NONE,
             PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
@@ -298,34 +283,35 @@ INTERNAL int png_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     pb = pixelbuf;
     if (bit_depth == 1) {
         for (row = 0; row < symbol->bitmap_height; row++) {
-            if (row && memcmp(pb, pb - symbol->bitmap_width, symbol->bitmap_width) == 0) {
-                pb += symbol->bitmap_width;
-            } else {
-                unsigned char *image_data = outdata;
-                for (column = 0; column < symbol->bitmap_width; column += 8, image_data++) {
-                    unsigned char byte = 0;
-                    for (i = 0; i < 8 && column + i < symbol->bitmap_width; i++, pb++) {
-                        byte |= map[*pb] << (7 - i);
-                    }
-                    *image_data = byte;
+            unsigned char *image_data = outdata;
+            for (column = 0; column < symbol->bitmap_width; column += 8, image_data++) {
+                unsigned char byte = 0;
+                for (i = 0; i < 8 && column + i < symbol->bitmap_width; i++, pb++) {
+                    byte |= map[*pb] << (7 - i);
                 }
+                *image_data = byte;
             }
             /* write row contents to file */
             png_write_row(png_ptr, outdata);
         }
-    } else { /* Bit depth 4 */
+    } else if (bit_depth == 4) {
         for (row = 0; row < symbol->bitmap_height; row++) {
-            if (row && memcmp(pb, pb - symbol->bitmap_width, symbol->bitmap_width) == 0) {
-                pb += symbol->bitmap_width;
-            } else {
-                unsigned char *image_data = outdata;
-                for (column = 0; column < symbol->bitmap_width; column += 2, image_data++) {
-                    unsigned char byte = map[*pb++] << 4;
-                    if (column + 1 < symbol->bitmap_width) {
-                        byte |= map[*pb++];
-                    }
-                    *image_data = byte;
+            unsigned char *image_data = outdata;
+            for (column = 0; column < symbol->bitmap_width; column += 2, image_data++) {
+                unsigned char byte = map[*pb++] << 4;
+                if (column + 1 < symbol->bitmap_width) {
+                    byte |= map[*pb++];
                 }
+                *image_data = byte;
+            }
+            /* write row contents to file */
+            png_write_row(png_ptr, outdata);
+        }
+    } else { /* Bit depth 8 */
+        for (row = 0; row < symbol->bitmap_height; row++) {
+            unsigned char *image_data = outdata;
+            for (column = 0; column < symbol->bitmap_width; column++, pb++, image_data++) {
+                *image_data = map[*pb];
             }
             /* write row contents to file */
             png_write_row(png_ptr, outdata);
@@ -336,17 +322,13 @@ INTERNAL int png_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     png_write_end(png_ptr, NULL);
 
     /* make sure we have disengaged */
-    png_destroy_write_struct(&png_ptr, &info_ptr);
-
-    if (output_to_stdout) {
-        fflush(outfile);
+    if (png_ptr && info_ptr) png_destroy_write_struct(&png_ptr, &info_ptr);
+    if (symbol->output_options & BARCODE_STDOUT) {
+        fflush(wpng_info.outfile);
     } else {
-        fclose(outfile);
+        fclose(wpng_info.outfile);
     }
 
     return 0;
 }
-#else
-/* https://stackoverflow.com/a/26541331 Suppresses gcc warning ISO C forbids an empty translation unit */
-typedef int make_iso_compilers_happy;
 #endif /* NO_PNG */

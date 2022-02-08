@@ -5,28 +5,25 @@ QT += widgets
 
 # Input
 HEADERS += barcodeitem.h \
-         cliwindow.h \
          datawindow.h \
          exportwindow.h \
          mainwindow.h \
-         sequencewindow.h
+         sequencewindow.h \
+         qzint.h
 
-FORMS += extCLI.ui \
-         extData.ui \
+FORMS += extData.ui \
          extExport.ui \
          extSequence.ui \
          grpAztec.ui \
          grpC11.ui \
          grpC128.ui \
          grpC16k.ui \
-         grpC25.ui \
          grpC39.ui \
          grpC49.ui \
          grpChannel.ui \
          grpCodabar.ui \
          grpCodablockF.ui \
          grpCodeOne.ui \
-         grpDAFT.ui \
          grpDBExtend.ui \
          grpDM.ui \
          grpDotCode.ui \
@@ -40,26 +37,24 @@ FORMS += extCLI.ui \
          grpPDF417.ui \
          grpQR.ui \
          grpRMQR.ui \
-         grpUltra.ui \
          grpUPCA.ui \
          grpUPCEAN.ui \
          grpVIN.ui \
          mainWindow.ui
 
 SOURCES += barcodeitem.cpp \
-        cliwindow.cpp \
         datawindow.cpp \
         exportwindow.cpp \
         main.cpp \
         mainwindow.cpp \
-        sequencewindow.cpp
-
+        sequencewindow.cpp \
+        qzint.cpp
+        
 RESOURCES += resources.qrc
 
 RC_FILE += res/qtZint.rc
 
-INCLUDEPATH += ../backend_qt ../backend
+INCLUDEPATH += ../backend
 
-LIBS += -lQtZintDLL -lzint
-QMAKE_LIBDIR += ../backend_qt/release
+LIBS += -lzint
 QMAKE_LIBDIR += ../win32/Release
