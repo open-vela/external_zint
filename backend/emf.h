@@ -1,7 +1,7 @@
 /*  emf.h - header structure for Microsoft EMF
 
     libzint - the open source barcode library
-    Copyright (C) 2016-2021 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2016-2017 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -28,12 +28,11 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
 
 #ifndef EMF_H
-#define EMF_H
+#define	EMF_H
 
-#ifdef  __cplusplus
+#ifdef	__cplusplus
 extern "C" {
 #endif
 
@@ -216,7 +215,7 @@ extern "C" {
         uint32_t size;
         color_ref_t color;
     } emr_settextcolor_t;
-
+    
     typedef struct emr_exttextoutw {
         uint32_t type;
         uint32_t size;
@@ -244,8 +243,10 @@ extern "C" {
 
 #pragma pack()
 
-#ifdef  __cplusplus
+#ifdef	__cplusplus
 }
 #endif
 
-#endif  /* EMF_H */
+#endif	/* EMF_H */
+
+

@@ -6,23 +6,20 @@ CONFIG += 	warn_on \
 			uitools
 
 FORMS = mainWindow.ui \
-		extCLI.ui \
-		extSequence.ui \
+		extSequence.ui \ 
 		extExport.ui \
 		extData.ui
 
 HEADERS = 	mainwindow.h \
 			barcodeitem.h \
-			cliwindow.h \
 			datawindow.h \
 			exportwindow.h \
 			sequencewindow.h \
 			qzint.h
 
-SOURCES = 	main.cpp \
+SOURCES = 	main.cpp \ 
 			mainwindow.cpp \
 			barcodeitem.cpp \
-			cliwindow.cpp \
 			datawindow.cpp \
 			exportwindow.cpp \
 			sequencewindow.cpp
@@ -33,5 +30,5 @@ RESOURCES = resources.qrc
 INCLUDEPATH += ../backend
 
 RC_FILE = ./res/qtZint.rc
-
+         
 LIBS = QtZint2.lib
