@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2009 - 2020 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009 - 2021 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -31,8 +31,8 @@
  */
 /* vim: set ts=4 sw=4 et : */
 
+#include <errno.h>
 #include <stdio.h>
-#include <string.h>
 #include "common.h"
 #include <math.h>
 #ifdef _MSC_VER
@@ -41,10 +41,11 @@
 #include <malloc.h>
 #endif
 
-#define SSET    "0123456789ABCDEF"
+/* Limit initial LZW buffer size to this in expectation that compressed data will fit for typical scalings */
+#define GIF_LZW_PAGE_SIZE   0x100000 /* Megabyte */
 
 typedef struct s_statestruct {
-    unsigned char * pOut;
+    unsigned char *pOut;
     unsigned char *pIn;
     unsigned int InLen;
     unsigned int OutLength;
@@ -81,7 +82,7 @@ static unsigned char NextPaletteIndex(statestruct *pState)
 }
 
 
-static char BufferNextByte(statestruct *pState) {
+static int BufferNextByte(statestruct *pState) {
     (pState->OutPosCur)++;
     /* Check if this position is a byte count position
      * fg_f_bytecountbyte_set indicates, if byte count position bytes should be
@@ -95,18 +96,24 @@ static char BufferNextByte(statestruct *pState) {
         pState->OutByteCountPos = pState->OutPosCur;
         (pState->OutPosCur)++;
     }
-    if (pState->OutPosCur >= pState->OutLength)
-        return 1;
+    if (pState->OutPosCur >= pState->OutLength) {
+        unsigned char *pOut;
+        pState->OutLength += GIF_LZW_PAGE_SIZE;
+        /* Note pState->pOut not free()d by realloc() on failure */
+        if (!(pOut = (unsigned char *) realloc(pState->pOut, pState->OutLength))) {
+            return 1;
+        }
+        pState->pOut = pOut;
+    }
 
     (pState->pOut)[pState->OutPosCur] = 0x00;
     return 0;
 }
 
-static char AddCodeToBuffer(statestruct *pState, unsigned short CodeIn, unsigned char CodeBits) {
+static int AddCodeToBuffer(statestruct *pState, unsigned short CodeIn, unsigned char CodeBits) {
     /* Check, if we may fill up the current byte completely */
     if (CodeBits >= pState->OutBitsFree) {
-        (pState->pOut)[pState->OutPosCur] |= (unsigned char)
-                (CodeIn << (8 - pState->OutBitsFree));
+        (pState->pOut)[pState->OutPosCur] |= (unsigned char) (CodeIn << (8 - pState->OutBitsFree));
         if (BufferNextByte(pState))
             return -1;
         CodeIn = (unsigned short) (CodeIn >> pState->OutBitsFree);
@@ -123,8 +130,7 @@ static char AddCodeToBuffer(statestruct *pState, unsigned short CodeIn, unsigned
     }
     /* The remaining bits of CodeIn fit in the current byte. */
     if (CodeBits > 0) {
-        (pState->pOut)[pState->OutPosCur] |= (unsigned char)
-            (CodeIn << (8 - pState->OutBitsFree));
+        (pState->pOut)[pState->OutPosCur] |= (unsigned char) (CodeIn << (8 - pState->OutBitsFree));
         pState->OutBitsFree -= CodeBits;
     }
     return 0;
@@ -149,7 +155,7 @@ static unsigned short FindPixelOutlet(statestruct *pState, unsigned short HeadNo
     return 0;
 }
 
-static char NextCode(statestruct *pState, unsigned char * pPixelValueCur, unsigned char CodeBits) {
+static int NextCode(statestruct *pState, unsigned char *pPixelValueCur, unsigned char CodeBits) {
     unsigned short UpNode;
     unsigned short DownNode;
     /* start with the root node for last pixel chain */
@@ -203,9 +209,9 @@ static int gif_lzw(statestruct *pState, int paletteBitSize) {
         paletteBitSize = 2;
 
     /* initial size of compression codes */
-    CodeBits = paletteBitSize+1;
+    CodeBits = paletteBitSize + 1;
     pState->ClearCode = (1 << paletteBitSize);
-    pState->FreeCode = pState->ClearCode+2;
+    pState->FreeCode = pState->ClearCode + 2;
     pState->OutBitsFree = 8;
     pState->OutPosCur = -1;
     pState->fByteCountByteSet = 0;
@@ -232,7 +238,7 @@ static int gif_lzw(statestruct *pState, int paletteBitSize) {
         return 0;
 
     for (;;) {
-        char Res;
+        int Res;
         /* generate and save the next code, which may consist of multiple input pixels. */
         Res = NextCode(pState, &PixelValueCur, CodeBits);
         if (Res < 0)
@@ -249,7 +255,8 @@ static int gif_lzw(statestruct *pState, int paletteBitSize) {
             }
             // > Update last bytecount byte;
             if (pState->OutByteCountPos < pState->OutPosCur) {
-                (pState->pOut)[pState->OutByteCountPos] = (unsigned char) (pState->OutPosCur - pState->OutByteCountPos - 1);
+                (pState->pOut)[pState->OutByteCountPos]
+                    = (unsigned char) (pState->OutPosCur - pState->OutByteCountPos - 1);
             }
             pState->OutPosCur++;
             return pState->OutPosCur;
@@ -281,12 +288,13 @@ INTERNAL int gif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     int colourCount;
     unsigned char paletteRGB[10][3];
     int paletteCount, paletteCountCur, paletteIndex;
-    int pixelIndex;
+    unsigned int pixelIndex;
     int paletteBitSize;
     int paletteSize;
     statestruct State;
     int transparent_index;
     int bgindex = -1, fgindex = -1;
+    const int output_to_stdout = symbol->output_options & BARCODE_STDOUT;
 
     unsigned char backgroundColourIndex;
     unsigned char RGBCur[3];
@@ -297,18 +305,13 @@ INTERNAL int gif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     int fFound;
 
     unsigned char pixelColour;
+    unsigned int bitmapSize = symbol->bitmap_height * symbol->bitmap_width;
 
     /* Allow for overhead of 4 == code size + byte count + overflow byte + zero terminator */
-    unsigned int lzoutbufSize = symbol->bitmap_height * symbol->bitmap_width + 4;
-#ifdef _MSC_VER
-    char * lzwoutbuf;
-#endif
-
-#ifndef _MSC_VER
-    char lzwoutbuf[lzoutbufSize];
-#else
-    lzwoutbuf = (char *) _alloca(lzoutbufSize);
-#endif /* _MSC_VER */
+    unsigned int lzoutbufSize = bitmapSize + 4;
+    if (lzoutbufSize > GIF_LZW_PAGE_SIZE) {
+        lzoutbufSize = GIF_LZW_PAGE_SIZE;
+    }
 
     /*
      * Build a table of the used palette items.
@@ -344,8 +347,7 @@ INTERNAL int gif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     colourCount = 0;
     paletteCount = 0;
     /* loop over all pixels */
-    for ( pixelIndex = 0; pixelIndex < (symbol->bitmap_height * symbol->bitmap_width); pixelIndex++)
-    {
+    for (pixelIndex = 0; pixelIndex < bitmapSize; pixelIndex++) {
         fFound = 0;
         /* get pixel colour code */
         pixelColour = pixelbuf[pixelIndex];
@@ -398,7 +400,7 @@ INTERNAL int gif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
                 RGBCur[0] = 0; RGBCur[1] = 0; RGBCur[2] = 0;
                 break;
             default: /* error case - return  */
-                strcpy(symbol->errtxt, "611: unknown pixel colour");
+                strcpy(symbol->errtxt, "612: unknown pixel colour");
                 return ZINT_ERROR_INVALID_DATA;
         }
         /* Search, if RGB value is already present */
@@ -434,7 +436,7 @@ INTERNAL int gif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
 
     /* Set transparency */
     /* Note: does not allow both transparent foreground and background -
-     * background takes prioroty */
+     * background takes priority */
     transparent_index = -1;
     if (strlen(symbol->fgcolour) > 6) {
         if ((symbol->fgcolour[6] == '0') && (symbol->fgcolour[7] == '0')) {
@@ -453,7 +455,7 @@ INTERNAL int gif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
 
     /* 1,2 -> 1, 3,4 ->2, 5,6,7,8->3 */
     paletteBitSize = 0;
-    paletteCountCur = paletteCount-1;
+    paletteCountCur = paletteCount - 1;
     while (paletteCountCur != 0) {
         paletteBitSize++;
         paletteCountCur >>= 1;
@@ -463,20 +465,20 @@ INTERNAL int gif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
         paletteBitSize = 1;
 
     /* palette size 2 ^ bit size */
-    paletteSize = 1<<paletteBitSize;
+    paletteSize = 1 << paletteBitSize;
 
     /* Open output file in binary mode */
-    if ((symbol->output_options & BARCODE_STDOUT) != 0) {
+    if (output_to_stdout) {
 #ifdef _MSC_VER
         if (-1 == _setmode(_fileno(stdout), _O_BINARY)) {
-            strcpy(symbol->errtxt, "610: Can't open output file");
+            sprintf(symbol->errtxt, "610: Could not set stdout to binary (%d: %.30s)", errno, strerror(errno));
             return ZINT_ERROR_FILE_ACCESS;
         }
 #endif
         gif_file = stdout;
     } else {
         if (!(gif_file = fopen(symbol->outfile, "wb"))) {
-            strcpy(symbol->errtxt, "611: Can't open output file");
+            sprintf(symbol->errtxt, "611: Could not open output file (%d: %.30s)", errno, strerror(errno));
             return ZINT_ERROR_FILE_ACCESS;
         }
     }
@@ -581,21 +583,36 @@ INTERNAL int gif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
 
     /* prepare state array */
     State.pIn = pixelbuf;
-    State.InLen = symbol->bitmap_height * symbol->bitmap_width;
-    State.pOut = (unsigned char *) lzwoutbuf;
+    State.InLen = bitmapSize;
+    if (!(State.pOut = (unsigned char *) malloc(lzoutbufSize))) {
+        if (!output_to_stdout) {
+            fclose(gif_file);
+        }
+        strcpy(symbol->errtxt, "614: Insufficient memory for LZW buffer");
+        return ZINT_ERROR_MEMORY;
+    }
     State.OutLength = lzoutbufSize;
 
     /* call lzw encoding */
     byte_out = gif_lzw(&State, paletteBitSize);
     if (byte_out <= 0) {
-        fclose(gif_file);
+        free(State.pOut);
+        if (!output_to_stdout) {
+            fclose(gif_file);
+        }
+        strcpy(symbol->errtxt, "613: Insufficient memory for LZW buffer");
         return ZINT_ERROR_MEMORY;
     }
-    fwrite(lzwoutbuf, byte_out, 1, gif_file);
+    fwrite((const char *) State.pOut, byte_out, 1, gif_file);
+    free(State.pOut);
 
     /* GIF terminator */
     fputc('\x3b', gif_file);
-    fclose(gif_file);
+    if (output_to_stdout) {
+        fflush(gif_file);
+    } else {
+        fclose(gif_file);
+    }
 
     return 0;
 }
