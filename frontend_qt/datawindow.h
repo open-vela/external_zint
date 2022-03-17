@@ -1,6 +1,6 @@
 /*
     Zint Barcode Generator - the open source barcode generator
-    Copyright (C) 2009-2021 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2017 Robin Stuart <rstuart114@gmail.com>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,7 +16,6 @@
     with this program; if not, write to the Free Software Foundation, Inc.,
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
-/* vim: set ts=4 sw=4 et : */
 
 #ifndef DATAWINDOW_H
 #define DATAWINDOW_H
@@ -25,20 +24,20 @@
 
 class DataWindow : public QDialog, private Ui::DataDialog
 {
-    Q_OBJECT
+	Q_OBJECT
 
 public:
-    DataWindow(const QString &input, bool isEscaped);
-    ~DataWindow();
-
-    bool Valid;
-    bool Escaped;
-    QString DataOutput;
+	DataWindow();
+    explicit DataWindow(const QString &input);
+	~DataWindow();
+	int Valid;
+	QString DataOutput;
 
 private slots:
-    void clear_data();
-    void okay();
-    void from_file();
+	void quit_now();
+	void clear_data();
+	void okay();
+	void from_file();
 };
 
 #endif
