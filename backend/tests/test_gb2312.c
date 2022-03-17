@@ -36,17 +36,14 @@
 // As control convert to GB 2312 using simple table generated from unicode.org GB2312.TXT plus simple processing
 // GB2312.TXT no longer on unicode.org site but available from https://haible.de/bruno/charsets/conversion-tables/GB2312.html
 static int gb2312_wctomb_zint2(unsigned int *r, unsigned int wc) {
-    int tab_length, start_i, end_i;
-    int i;
-
     // Shortcut
     if ((wc > 0x0451 && wc < 0x2015) || (wc > 0x3229 && wc < 0x4E00) || (wc > 0x9FA0 && wc < 0xFF01) || wc > 0xFFE5) {
         return 0;
     }
-    tab_length = ARRAY_SIZE(test_gb2312_tab);
-    start_i = test_gb2312_tab_ind[wc >> 10];
-    end_i = start_i + 0x800 > tab_length ? tab_length : start_i + 0x800;
-    for (i = start_i; i < end_i; i += 2) {
+    int tab_length = sizeof(test_gb2312_tab) / sizeof(unsigned int);
+    int start_i = test_gb2312_tab_ind[wc >> 10];
+    int end_i = start_i + 0x800 > tab_length ? tab_length : start_i + 0x800;
+    for (int i = start_i; i < end_i; i += 2) {
         if (test_gb2312_tab[i + 1] == wc) {
             *r = test_gb2312_tab[i] + 0x8080; // Table in GB 2312 not EUC-CN
             return 2;
@@ -57,13 +54,12 @@ static int gb2312_wctomb_zint2(unsigned int *r, unsigned int wc) {
 
 static void test_gb2312_wctomb_zint(void) {
 
+    testStart("");
+
     int ret, ret2;
     unsigned int val, val2;
-    unsigned int i;
 
-    testStart("test_gb2312_wctomb_zint");
-
-    for (i = 0; i < 0xFFFE; i++) {
+    for (unsigned int i = 0; i < 0xFFFE; i++) {
         if (i < 0x80) { // ASCII is straight through and not dealt with by gb2312_wctomb_zint()
             continue;
         }
@@ -74,18 +70,18 @@ static void test_gb2312_wctomb_zint(void) {
         ret = gb2312_wctomb_zint(&val, i);
         ret2 = gb2312_wctomb_zint2(&val2, i);
         if (i == 0xB7) { // Extra mapping middle dot U+00B7 to 0xA1A4, duplicate of U+30FB (Katakana middle dot)
-            assert_equal(ret, 2, "i:%d 0x%04X ret %d != 2, val 0x%04X\n", (int) i, i, ret, val);
-            assert_equal(val, 0xA1A4, "i:%d 0x%04X val 0x%04X != 0xA1A4\n", (int) i, i, val);
-            assert_zero(ret2, "i:%d 0x%04X ret2 %d != 0, val2 0x%04X\n", (int) i, i, ret2, val2);
+            assert_equal(ret, 2, "i:%d 0x%04X ret %d != 2, val 0x%04X\n", i, i, ret, val);
+            assert_equal(val, 0xA1A4, "i:%d 0x%04X val 0x%04X != 0xA1A4\n", i, i, val);
+            assert_zero(ret2, "i:%d 0x%04X ret2 %d != 0, val2 0x%04X\n", i, i, ret2, val2);
         } else if (i == 0x2014) { // Extra mapping em dash U+2014 to 0xA1AA, duplicate of U+2015 (horizontal bar)
-            assert_equal(ret, 2, "i:%d 0x%04X ret %d != 2, val 0x%04X\n", (int) i, i, ret, val);
-            assert_equal(val, 0xA1AA, "i:%d 0x%04X val 0x%04X != 0xA1AA\n", (int) i, i, val);
-            assert_zero(ret2, "i:%d 0x%04X ret2 %d != 0, val2 0x%04X\n", (int) i, i, ret2, val2);
+            assert_equal(ret, 2, "i:%d 0x%04X ret %d != 2, val 0x%04X\n", i, i, ret, val);
+            assert_equal(val, 0xA1AA, "i:%d 0x%04X val 0x%04X != 0xA1AA\n", i, i, val);
+            assert_zero(ret2, "i:%d 0x%04X ret2 %d != 0, val2 0x%04X\n", i, i, ret2, val2);
         } else {
-            assert_equal(ret, ret2, "i:%d 0x%04X ret %d != ret2 %d, val 0x%04X, val2 0x%04X\n", (int) i, i, ret, ret2, val, val2);
+            assert_equal(ret, ret2, "i:%d 0x%04X ret %d != ret2 %d, val 0x%04X, val2 0x%04X\n", i, i, ret, ret2, val, val2);
         }
         if (ret2) {
-            assert_equal(val, val2, "i:%d 0x%04X val 0x%04X != val2 0x%04X\n", (int) i, i, val, val2);
+            assert_equal(val, val2, "i:%d 0x%04X val 0x%04X != val2 0x%04X\n", i, i, val, val2);
         }
     }
 
@@ -94,6 +90,9 @@ static void test_gb2312_wctomb_zint(void) {
 
 static void test_gb2312_utf8(int index) {
 
+    testStart("");
+
+    int ret;
     struct item {
         char *data;
         int length;
@@ -115,36 +114,31 @@ static void test_gb2312_utf8(int index) {
         /*  0*/ { "é", -1, 0, 1, { 0xA8A6 }, "" },
         /*  1*/ { "β", -1, 0, 1, { 0xA6C2 }, "" },
         /*  2*/ { "¤", -1, 0, 1, { 0xA1E8 }, "" },
-        /*  3*/ { "¥", -1, ZINT_ERROR_INVALID_DATA, -1, {0}, "" },
+        /*  3*/ { "¥", -1, ZINT_ERROR_INVALID_DATA, -1, {}, "" },
         /*  4*/ { "・", -1, 0, 1, { 0xA1A4 }, "GB2312.TXT mapping" },
         /*  5*/ { "·", -1, 0, 1, { 0xA1A4 }, "GB 18030 subset mapping" },
         /*  6*/ { "―", -1, 0, 1, { 0xA1AA }, "GB2312.TXT mapping" },
         /*  7*/ { "—", -1, 0, 1, { 0xA1AA }, "GB 18030 subset mapping" },
         /*  8*/ { "aβc・·—é—Z", -1, 0, 9, { 'a', 0xA6C2, 'c', 0xA1A4, 0xA1A4, 0xA1AA, 0xA8A6, 0xA1AA, 'Z' }, "" },
-        /*  9*/ { "\200", -1, ZINT_ERROR_INVALID_DATA, -1, {0}, "Invalid UTF-8" },
     };
-    int data_size = ARRAY_SIZE(data);
-    int i, length, ret;
 
-    struct zint_symbol symbol = {0};
+    int data_size = sizeof(data) / sizeof(struct item);
+
+    struct zint_symbol symbol;
     unsigned int gbdata[20];
 
-    testStart("test_gb2312_utf8");
-
-    for (i = 0; i < data_size; i++) {
-        int ret_length;
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
-        ret_length = length;
+        int length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
+        int ret_length = length;
 
         ret = gb2312_utf8(&symbol, (unsigned char *) data[i].data, &ret_length, gbdata);
         assert_equal(ret, data[i].ret, "i:%d ret %d != %d (%s)\n", i, ret, data[i].ret, symbol.errtxt);
         if (ret == 0) {
-            int j;
             assert_equal(ret_length, data[i].ret_length, "i:%d ret_length %d != %d\n", i, ret_length, data[i].ret_length);
-            for (j = 0; j < (int) ret_length; j++) {
+            for (int j = 0; j < (int) ret_length; j++) {
                 assert_equal(gbdata[j], data[i].expected_gbdata[j], "i:%d gbdata[%d] %04X != %04X\n", i, j, gbdata[j], data[i].expected_gbdata[j]);
             }
         }
@@ -155,6 +149,9 @@ static void test_gb2312_utf8(int index) {
 
 static void test_gb2312_utf8_to_eci(int index) {
 
+    testStart("");
+
+    int ret;
     struct item {
         int eci;
         int full_multibyte;
@@ -181,8 +178,8 @@ static void test_gb2312_utf8_to_eci(int index) {
     struct item data[] = {
         /*  0*/ { 3, 0, "é", -1, 0, 1, { 0xE9 }, "Not full multibyte" },
         /*  1*/ { 3, 1, "é", -1, 0, 1, { 0xE9 }, "First byte in range but only one byte" },
-        /*  2*/ { 3, 0, "β", -1, ZINT_ERROR_INVALID_DATA, -1, {0}, "Not in ECI 3 (ISO 8859-1)" },
-        /*  3*/ { 3, 1, "β", -1, ZINT_ERROR_INVALID_DATA, -1, {0}, "Not in ECI 3 (ISO 8859-1)" },
+        /*  2*/ { 3, 0, "β", -1, ZINT_ERROR_INVALID_DATA, -1, {}, "Not in ECI 3 (ISO 8859-1)" },
+        /*  3*/ { 3, 1, "β", -1, ZINT_ERROR_INVALID_DATA, -1, {}, "Not in ECI 3 (ISO 8859-1)" },
         /*  4*/ { 9, 0, "β", -1, 0, 1, { 0xE2 }, "In ECI 9 (ISO 8859-7)" },
         /*  5*/ { 9, 1, "β", -1, 0, 1, { 0xE2 }, "In ECI 9 (ISO 8859-7)" },
         /*  6*/ { 3, 0, "¥", -1, 0, 1, { 0xA5 }, "Not full multibyte" },
@@ -218,33 +215,29 @@ static void test_gb2312_utf8_to_eci(int index) {
         /* 36*/ { 29, 1, "崂", -1, 0, 1, { 0xE1C0 }, "GB 2312" },
         /* 37*/ { 29, 0, "・", -1, 0, 2, { 0xA1, 0xA4 }, "GB 2312 U+30FB" },
         /* 38*/ { 29, 1, "・", -1, 0, 1, { 0xA1A4 }, "GB 2312" },
-        /* 39*/ { 29, 0, "釦", -1, ZINT_ERROR_INVALID_DATA, -1, {0}, "GB 18030 U+91E6 not in GB 2312" },
+        /* 39*/ { 29, 0, "釦", -1, ZINT_ERROR_INVALID_DATA, -1, {}, "GB 18030 U+91E6 not in GB 2312" },
         /* 40*/ { 30, 0, "¡¡", -1, 0, 4, { 0x22 + 0x80, 0x2E + 0x80, 0x22 + 0x80, 0x2E + 0x80 }, "EUC-KR U+00A1 (0xA2AE)" },
         /* 41*/ { 30, 1, "¡¡", -1, 0, 2, { 0x222E + 0x8080, 0x222E + 0x8080 }, "EUC-KR 0xA2AE in GB 2312 Hanzi mode range" },
         /* 42*/ { 30, 0, "詰", -1, 0, 2, { 0x7D + 0x80, 0x7E + 0x80 }, "EUC-KR U+8A70 (0xFDFE)" },
         /* 43*/ { 30, 1, "詰", -1, 0, 2, { 0x7D + 0x80, 0x7E + 0x80 }, "EUC-KR 0xFDFE > 0xF7FE so not in GB 2312 Hanzi mode range" },
     };
-    int data_size = ARRAY_SIZE(data);
-    int i, length, ret;
+
+    int data_size = sizeof(data) / sizeof(struct item);
 
     unsigned int gbdata[20];
 
-    testStart("test_gb2312_utf8_to_eci");
-
-    for (i = 0; i < data_size; i++) {
-        int ret_length;
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
-        ret_length = length;
+        int length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
+        int ret_length = length;
 
         ret = gb2312_utf8_to_eci(data[i].eci, (unsigned char *) data[i].data, &ret_length, gbdata, data[i].full_multibyte);
         assert_equal(ret, data[i].ret, "i:%d ret %d != %d\n", i, ret, data[i].ret);
         if (ret == 0) {
-            int j;
             assert_equal(ret_length, data[i].ret_length, "i:%d ret_length %d != %d\n", i, ret_length, data[i].ret_length);
-            for (j = 0; j < (int) ret_length; j++) {
+            for (int j = 0; j < (int) ret_length; j++) {
                 assert_equal(gbdata[j], data[i].expected_gbdata[j], "i:%d gbdata[%d] 0x%04X != 0x%04X\n", i, j, gbdata[j], data[i].expected_gbdata[j]);
             }
         }
@@ -254,6 +247,8 @@ static void test_gb2312_utf8_to_eci(int index) {
 }
 
 static void test_gb2312_cpy(int index) {
+
+    testStart("");
 
     struct item {
         int full_multibyte;
@@ -277,25 +272,21 @@ static void test_gb2312_cpy(int index) {
         /*  8*/ { 0, "\241\240\241\376\367\376\367\377", -1, 0, 8, { 0xA1, 0xA0, 0xA1, 0xFE, 0xF7, 0xFE, 0xF7, 0xFF }, "" },
         /*  9*/ { 1, "\241\240\241\376\367\376\367\377", -1, 0, 6, { 0xA1, 0xA0, 0xA1FE, 0xF7FE, 0xF7, 0xFF }, "" },
     };
-    int data_size = ARRAY_SIZE(data);
-    int i, length;
+
+    int data_size = sizeof(data) / sizeof(struct item);
 
     unsigned int gbdata[20];
 
-    testStart("test_gb2312_cpy");
-
-    for (i = 0; i < data_size; i++) {
-        int ret_length;
-        int j;
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
-        ret_length = length;
+        int length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
+        int ret_length = length;
 
         gb2312_cpy((unsigned char *) data[i].data, &ret_length, gbdata, data[i].full_multibyte);
         assert_equal(ret_length, data[i].ret_length, "i:%d ret_length %d != %d\n", i, ret_length, data[i].ret_length);
-        for (j = 0; j < (int) ret_length; j++) {
+        for (int j = 0; j < (int) ret_length; j++) {
             assert_equal(gbdata[j], data[i].expected_gbdata[j], "i:%d gbdata[%d] %04X != %04X\n", i, j, gbdata[j], data[i].expected_gbdata[j]);
         }
     }

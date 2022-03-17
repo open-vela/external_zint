@@ -34,6 +34,9 @@
 
 static void test_numeric(int index) {
 
+    testStart("");
+
+    int ret;
     struct item {
         int data;
         int ret;
@@ -375,11 +378,8 @@ static void test_numeric(int index) {
         /*332*/ { 2000, 0 },
     };
     int data_size = ARRAY_SIZE(data);
-    int i, ret;
 
-    testStart("test_numeric");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
@@ -420,16 +420,17 @@ static int bc_iso3166_numeric(int cc) {
         /*VIR*/ 850, /*BFA*/ 854, /*URY*/ 858, /*UZB*/ 860, /*VEN*/ 862, /*WLF*/ 876, /*WSM*/ 882, /*YEM*/ 887, /*ZMB*/ 894,
     };
 
-    int s = 0, e = ARRAY_SIZE(codes) - 1;
+    int s = 0, e = sizeof(codes) / sizeof(codes[0]) - 1;
 
     while (s <= e) {
         int m = (s + e) / 2;
+        if (codes[m] == cc) {
+            return 1;
+        }
         if (codes[m] < cc) {
             s = m + 1;
-        } else if (codes[m] > cc) {
-            e = m - 1;
         } else {
-            return 1;
+            e = m - 1;
         }
     }
 
@@ -438,11 +439,11 @@ static int bc_iso3166_numeric(int cc) {
 
 static void test_numeric_bc(void) {
 
-    int i, ret, bc_ret;
+    testStart("");
 
-    testStart("test_numeric_bc");
+    int ret, bc_ret;
 
-    for (i = 0; i < 1001; i++) {
+    for (int i = 0; i < 1001; i++) {
         ret = iso3166_numeric(i);
         bc_ret = bc_iso3166_numeric(i);
         assert_equal(ret, bc_ret, "i:%d ret %d != bc_ret %d\n", i, ret, bc_ret);
@@ -453,6 +454,9 @@ static void test_numeric_bc(void) {
 
 static void test_alpha2(int index) {
 
+    testStart("");
+
+    int ret;
     struct item {
         const char *data;
         int ret;
@@ -675,11 +679,8 @@ static void test_alpha2(int index) {
         /*213*/ { "\377", 0 },
     };
     int data_size = ARRAY_SIZE(data);
-    int i, ret;
 
-    testStart("test_alpha2");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
@@ -725,12 +726,13 @@ static int bc_iso3166_alpha2(const char *cc) {
     while (s <= e) {
         int m = (s + e) / 2;
         int cmp = strncmp(codes[m], cc, 2);
+        if (cmp == 0) {
+            return 1;
+        }
         if (cmp < 0) {
             s = m + 1;
-        } else if (cmp > 0) {
-            e = m - 1;
         } else {
-            return 1;
+            e = m - 1;
         }
     }
 
@@ -739,14 +741,13 @@ static int bc_iso3166_alpha2(const char *cc) {
 
 static void test_alpha2_bc(void) {
 
-    int i, ret, bc_ret;
+    testStart("");
+
+    int ret, bc_ret;
     char data[2];
 
-    testStart("test_alpha2_bc");
-
-    for (i = 0; i < 128; i++) {
-        int j;
-        for (j = 0; j < 128; j++) {
+    for (int i = 0; i < 128; i++) {
+        for (int j = 0; j < 128; j++) {
             data[0] = i;
             data[1] = j;
             ret = iso3166_alpha2(data);
