@@ -1,39 +1,36 @@
-# Copyright (C) 2008 by BogDan Vatra < bogdan@licentia.eu >
-# Copyright (C) 2009-2021 Robin Stuart <rstuart114@gmail.com>
+# (c) 2008 by BogDan Vatra < bogdan@licentia.eu >
 # vim: set ts=4 sw=4 et :
 
 project(zint-qt)
 
-set(CMAKE_AUTORCC ON)
+include_directories(BEFORE "${CMAKE_SOURCE_DIR}/backend")
 
-set(${PROJECT_NAME}_SRCS barcodeitem.cpp main.cpp mainwindow.cpp
-                            cliwindow.cpp datawindow.cpp sequencewindow.cpp exportwindow.cpp)
+set(zint-qt_SRCS barcodeitem.cpp  main.cpp  mainwindow.cpp datawindow.cpp sequencewindow.cpp exportwindow.cpp qzint.cpp)
 
 if(USE_QT6)
-    qt6_wrap_cpp(zint-qt_SRCS mainwindow.h cliwindow.h datawindow.h sequencewindow.h exportwindow.h)
-    qt6_wrap_ui(zint-qt_SRCS mainWindow.ui extCLI.ui extData.ui extSequence.ui extExport.ui)
+    qt6_wrap_cpp(zint-qt_SRCS mainwindow.h datawindow.h sequencewindow.h exportwindow.h qzint.h)
+    qt6_wrap_ui(zint-qt_SRCS mainWindow.ui extData.ui extSequence.ui extExport.ui)
+    qt6_add_resources(zint-qt_SRCS resources.qrc)
 else()
-    qt5_wrap_cpp(zint-qt_SRCS mainwindow.h cliwindow.h datawindow.h sequencewindow.h exportwindow.h)
-    qt5_wrap_ui(zint-qt_SRCS mainWindow.ui extCLI.ui extData.ui extSequence.ui extExport.ui)
+    qt5_wrap_cpp(zint-qt_SRCS mainwindow.h datawindow.h sequencewindow.h exportwindow.h qzint.h)
+    qt5_wrap_ui(zint-qt_SRCS mainWindow.ui extData.ui extSequence.ui extExport.ui)
+    qt5_add_resources(zint-qt_SRCS resources.qrc)
+endif()
+#               grpAztec.ui  grpC49.ui         grpDBExtend.ui  grpLOGMARS.ui   grpPDF417.ui  grpUPCEAN.ui
+#               grpC11.ui    grpChannel.ui     grpDM.ui        grpMaxicode.ui  grpQR.ui      grpVIN.ui
+#               grpC128.ui   grpCodabar.ui     grpDotCode.ui   grpMicroPDF.ui  grpRMQR.ui
+#               grpC16k.ui   grpCodablockF.ui  grpGrid.ui      grpMQR.ui       grpUltra.ui
+#               grpC39.ui    grpCodeOne.ui     grpHX.ui        grpMSICheck.ui  grpUPCA.ui
+
+add_executable(zint-qt ${zint-qt_SRCS})
+add_dependencies(zint-qt zint)
+
+link_directories( "${CMAKE_BINARY_DIR}/backend" )
+
+if(USE_QT6)
+    target_link_libraries(zint-qt zint Qt6::UiTools Qt6::Xml Qt6::Gui Qt6::Core)
+else()
+    target_link_libraries(zint-qt zint Qt5::UiTools Qt5::Xml Qt5::Gui Qt5::Core)
 endif()
 
-#               grpAztec.ui  grpC39.ui      grpCodablockF.ui  grpDotCode.ui  grpMaxicode.ui  grpQR.ui      grpVIN.ui
-#               grpC11.ui    grpC49.ui      grpCodeOne.ui     grpGrid.ui     grpMicroPDF.ui  grpRMQR.ui
-#               grpC128.ui   grpC93.ui      grpDAFT.ui        grpHX.ui       grpMQR.ui       grpUltra.ui
-#               grpC16k.ui   grpChannel.ui  grpDBExtend.ui    grpITF14.ui    grpMSICheck.ui  grpUPCA.ui
-#               grpC25.ui    grpCodabar.ui  grpDM.ui          grpLOGMARS.ui  grpPDF417.ui    grpUPCEAN.ui
-
-add_executable(${PROJECT_NAME} ${zint-qt_SRCS} resources.qrc)
-
-if(WIN32)
-    target_sources(${PROJECT_NAME} PRIVATE res/qtZint.rc)
-endif()
-
-target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/backend" "${CMAKE_SOURCE_DIR}/backend_qt")
-
-target_link_libraries(${PROJECT_NAME} zint QZint
-                        Qt${QT_VERSION_MAJOR}::UiTools Qt${QT_VERSION_MAJOR}::Xml Qt${QT_VERSION_MAJOR}::Gui
-                        Qt${QT_VERSION_MAJOR}::Core)
-
-
-install(TARGETS ${PROJECT_NAME} DESTINATION "${BIN_INSTALL_DIR}" RUNTIME)
+install(TARGETS zint-qt DESTINATION "${BIN_INSTALL_DIR}" RUNTIME)

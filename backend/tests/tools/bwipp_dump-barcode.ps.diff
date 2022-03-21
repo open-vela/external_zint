@@ -1,54 +1,6 @@
---- /home/mburke/code/gitlost/postscriptbarcode/build/monolithic/barcode.ps	2022-02-10 22:21:47.533942041 +0000
-+++ backend/tests/tools/bwipp_dump.ps	2022-01-02 22:32:35.289274072 +0000
-@@ -206,8 +206,8 @@
- 
- % --BEGIN RESOURCE gs1lint--
- % --REQUIRES preamble raiseerror--
--%%BeginResource: uk.co.terryburton.bwipp gs1lint 0.0 2021092800 362430 390472
--%%BeginData:       1674 ASCII Lines
-+%%BeginResource: uk.co.terryburton.bwipp gs1lint 0.0 2021092800 362243 386853
-+%%BeginData:       1673 ASCII Lines
- /setpacking where {pop currentpacking true setpacking} if
- 2 dict
- dup /raiseerror dup /uk.co.terryburton.bwipp findresource put
-@@ -409,7 +409,7 @@
-     } bind def
- 
-     /lintiban {
--        dup length 4 le { pop pop /bwipp.GS1tooShort (IBAN too short) false exit } if
-+        dup length 4 lt { pop pop /bwipp.GS1tooShort (IBAN too short) false exit } if
-         dup true exch {
-             1 string dup 0 4 -1 roll put
-             (0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ)
-@@ -1655,7 +1655,6 @@
-         (712) exch dup
-         (713) exch dup
-         (714) exch dup
--        (715) exch dup
-         pop
- 
-         [
-@@ -7706,7 +7705,7 @@
- % --EXAM: (01)95012345678903(3103)000123
- % --EXOP:
- % --RNDR: renlinear renmatrix
--%%BeginResource: uk.co.terryburton.bwipp databarexpanded 0.0 2021092800 242827 244887
-+%%BeginResource: uk.co.terryburton.bwipp databarexpanded 0.0 2021092800 242723 244887
- %%BeginData:        886 ASCII Lines
- /setpacking where {pop currentpacking true setpacking} if
- 1 dict
-@@ -15180,8 +15179,8 @@
-         } bind
-         /fime {
-             /sbs [2.25 6.75 2.25 15.75 2.25 6.75 2.25] def
--            /bhs [.625 .625 .625 .625 .625 .625 .625] def
--            /bbs [0 0 0 0 0 0 0] def
-+            /bhs [.625 .625 .625 .625] def
-+            /bbs [0 0 0 0] def
-         } bind
-     >> def
- 
-@@ -26438,34 +26437,80 @@
+--- ../../../../postscriptbarcode/build/monolithic/barcode.ps	2021-03-22 15:06:47.498155878 +0000
++++ ../tools/bwipp_dump.ps	2021-03-27 03:44:50.998203506 +0000
+@@ -26198,34 +26198,80 @@
          pop
      } ifelse
  
@@ -64,21 +16,7 @@
 +    linear options //ean13 exec
 +    dontdraw not {
 +        //renlinear exec
- 
--    % Plot the separator
--    -1 72 rmoveto <<
--        /ren //renmatrix
--        /pixs [
--            0 1  93 {0} repeat  1 0
--            1 0  93 {0} repeat  0 1
--            0 1  93 {0} repeat  1 0
--        ]
--        /pixx 97
--        /pixy 3
--        /height 6 72 div
--        /width 97 72 div
--        /opt options
--    >> //renmatrix exec
++
 +        % Plot the separator
 +        -1 72 rmoveto <<
 +            /ren //renmatrix
@@ -94,12 +32,25 @@
 +            /opt options
 +        >> //renmatrix exec
  
--    % Plot the 2D part
--    -2 6 rmoveto comp options //gs1-cc exec //renmatrix exec
+-    % Plot the separator
+-    -1 72 rmoveto <<
+-        /ren //renmatrix
+-        /pixs [
+-            0 1  93 {0} repeat  1 0
+-            1 0  93 {0} repeat  0 1
+-            0 1  93 {0} repeat  1 0
+-        ]
+-        /pixx 97
+-        /pixy 3
+-        /height 6 72 div
+-        /width 97 72 div
+-        /opt options
+-    >> //renmatrix exec
 +        % Plot the 2D part
 +        -2 6 rmoveto comp options //gs1-cc exec //renmatrix exec
  
--    grestore
+-    % Plot the 2D part
+-    -2 6 rmoveto comp options //gs1-cc exec //renmatrix exec
 +        grestore
 +    } {
 +        /linsym exch def
@@ -122,7 +73,8 @@
 +            /ccrpad 0 array def
 +            /pixx ccpixx def
 +        } ifelse
-+
+ 
+-    grestore
 +        /pixs [
 +            0 ccpixx ccpixs length 1 sub {
 +                /i exch def
@@ -148,7 +100,7 @@
  
      end
  
-@@ -26524,7 +26569,7 @@
+@@ -26284,7 +26330,7 @@
          pop
      } ifelse
  
@@ -157,7 +109,7 @@
  
      % Get the result of encoding with ean8 and gs1-cc
      options (lintype) (ean8) put
-@@ -26532,29 +26577,75 @@
+@@ -26292,29 +26338,75 @@
      options (dontdraw) true put
  
      % Plot the linear part
@@ -165,21 +117,7 @@
 +    linear options //ean8 exec
 +    dontdraw not {
 +        //renlinear exec
- 
--    % Plot the separator
--    -1 72 rmoveto <<
--        /ren //renmatrix
--        /pixs [
--            0 1  65 {0} repeat  1 0
--            1 0  65 {0} repeat  0 1
--            0 1  65 {0} repeat  1 0
--        ]
--        /pixx 69
--        /pixy 3
--        /height 6 72 div
--        /width 69 72 div
--        /opt options
--    >> //renmatrix exec
++
 +        % Plot the separator
 +        -1 72 rmoveto <<
 +            /ren //renmatrix
@@ -200,10 +138,20 @@
 +        dup (pixx) get 69 exch sub 6 rmoveto
 +        //renmatrix exec
  
--    % Plot the 2D part
--    comp options //gs1-cc exec
--    dup (pixx) get 69 exch sub 6 rmoveto
--    //renmatrix exec
+-    % Plot the separator
+-    -1 72 rmoveto <<
+-        /ren //renmatrix
+-        /pixs [
+-            0 1  65 {0} repeat  1 0
+-            1 0  65 {0} repeat  0 1
+-            0 1  65 {0} repeat  1 0
+-        ]
+-        /pixx 69
+-        /pixy 3
+-        /height 6 72 div
+-        /width 69 72 div
+-        /opt options
+-    >> //renmatrix exec
 +        grestore
 +    } {
 +        /linsym exch def
@@ -211,8 +159,7 @@
 +            linsym /sbs get { cvi 1 index 1 eq {{0}} {{1}} ifelse repeat } forall  % Alternates x 1/0's
 +        ] def
 +        /linheight linsym /bhs get 0 get 72 mul cvi def
- 
--    grestore
++
 +        /compsym comp options //gs1-cc exec def
 +        /ccpixs compsym /pixs get def
 +        /ccpixx compsym /pixx get def
@@ -227,7 +174,11 @@
 +            /ccrpad 0 array def
 +            /pixx ccpixx def
 +        } ifelse
-+
+ 
+-    % Plot the 2D part
+-    comp options //gs1-cc exec
+-    dup (pixx) get 69 exch sub 6 rmoveto
+-    //renmatrix exec
 +        /pixs [
 +            0 ccpixx ccpixs length 1 sub {
 +                /i exch def
@@ -238,7 +189,8 @@
 +            2 { linpad aload pop 0 1  65 {0} repeat  1 0 ccrpad aload pop } repeat
 +            linheight { linpad aload pop 0 linpixs aload pop 0 } repeat
 +        ] def
-+
+ 
+-    grestore
 +        /pixy pixs length pixx idiv def
 +        <<
 +        /ren //renmatrix
@@ -253,7 +205,7 @@
  
      end
  
-@@ -26613,34 +26704,80 @@
+@@ -26373,34 +26465,80 @@
          pop
      } ifelse
  
@@ -269,21 +221,7 @@
 +    linear options //upca exec
 +    dontdraw not {
 +        //renlinear exec
- 
--    % Plot the separator
--    -1 72 rmoveto <<
--        /ren //renmatrix
--        /pixs [
--            0 1  93 {0} repeat  1 0
--            1 0  93 {0} repeat  0 1
--            0 1  93 {0} repeat  1 0
--        ]
--        /pixx 97
--        /pixy 3
--        /height 6 72 div
--        /width 97 72 div
--        /opt options
--    >> //renmatrix exec
++
 +        % Plot the separator
 +        -1 72 rmoveto <<
 +            /ren //renmatrix
@@ -299,12 +237,25 @@
 +            /opt options
 +        >> //renmatrix exec
  
--    % Plot the 2D part
--    -2 6 rmoveto comp options //gs1-cc exec //renmatrix exec
+-    % Plot the separator
+-    -1 72 rmoveto <<
+-        /ren //renmatrix
+-        /pixs [
+-            0 1  93 {0} repeat  1 0
+-            1 0  93 {0} repeat  0 1
+-            0 1  93 {0} repeat  1 0
+-        ]
+-        /pixx 97
+-        /pixy 3
+-        /height 6 72 div
+-        /width 97 72 div
+-        /opt options
+-    >> //renmatrix exec
 +        % Plot the 2D part
 +        -2 6 rmoveto comp options //gs1-cc exec //renmatrix exec
  
--    grestore
+-    % Plot the 2D part
+-    -2 6 rmoveto comp options //gs1-cc exec //renmatrix exec
 +        grestore
 +    } {
 +        /linsym exch def
@@ -327,7 +278,8 @@
 +            /ccrpad 0 array def
 +            /pixx ccpixx def
 +        } ifelse
-+
+ 
+-    grestore
 +        /pixs [
 +            0 ccpixx ccpixs length 1 sub {
 +                /i exch def
@@ -353,7 +305,7 @@
  
      end
  
-@@ -26714,34 +26851,80 @@
+@@ -26474,34 +26612,80 @@
          /opt options
      >> def
  
@@ -369,21 +321,7 @@
 +    linear options //upce exec
 +    dontdraw not {
 +        //renlinear exec
- 
--    % Plot the separator
--    -1 72 rmoveto <<
--        /ren //renmatrix
--        /pixs [
--            0 1  49 {0} repeat  1 0
--            1 0  49 {0} repeat  0 1
--            0 1  49 {0} repeat  1 0
--        ]
--        /pixx 53
--        /pixy 3
--        /height 6 72 div
--        /width 53 72 div
--        /opt options
--    >> //renmatrix exec
++
 +        % Plot the separator
 +        -1 72 rmoveto <<
 +            /ren //renmatrix
@@ -399,12 +337,25 @@
 +            /opt options
 +        >> //renmatrix exec
  
--    % Plot the 2D part
--    -2 6 rmoveto comp options //gs1-cc exec //renmatrix exec
+-    % Plot the separator
+-    -1 72 rmoveto <<
+-        /ren //renmatrix
+-        /pixs [
+-            0 1  49 {0} repeat  1 0
+-            1 0  49 {0} repeat  0 1
+-            0 1  49 {0} repeat  1 0
+-        ]
+-        /pixx 53
+-        /pixy 3
+-        /height 6 72 div
+-        /width 53 72 div
+-        /opt options
+-    >> //renmatrix exec
 +        % Plot the 2D part
 +        -2 6 rmoveto comp options //gs1-cc exec //renmatrix exec
  
--    grestore
+-    % Plot the 2D part
+-    -2 6 rmoveto comp options //gs1-cc exec //renmatrix exec
 +        grestore
 +    } {
 +        /linsym exch def
@@ -427,7 +378,8 @@
 +            /ccrpad 0 array def
 +            /pixx ccpixx def
 +        } ifelse
-+
+ 
+-    grestore
 +        /pixs [
 +            0 ccpixx ccpixs length 1 sub {
 +                /i exch def
@@ -453,7 +405,7 @@
  
      end
  
-@@ -26800,7 +26983,7 @@
+@@ -26560,7 +26744,7 @@
          pop
      } ifelse
  
@@ -462,7 +414,7 @@
  
      options (lintype) (databaromni) put
      options (linkage) true put
-@@ -26811,7 +26994,7 @@
+@@ -26571,7 +26755,7 @@
      linear options //databaromni exec
      dup (sbs) get /linsbs exch def
      dup (bhs) get 0 get 72 mul /linheight exch def
@@ -471,7 +423,7 @@
  
      % Plot the separator
      /sepfinder {
-@@ -26842,20 +27025,66 @@
+@@ -26602,20 +26786,66 @@
      sep 0 [0 0 0] putinterval
      sep sep length 4 sub [0 0 0 0] putinterval
      18 sepfinder 64 sepfinder
@@ -550,7 +502,7 @@
  
      end
  
-@@ -26913,7 +27142,7 @@
+@@ -26673,7 +26903,7 @@
          pop
      } ifelse
  
@@ -559,7 +511,7 @@
  
      options (lintype) (databarstacked) put
      options (linkage) true put
-@@ -26924,7 +27153,7 @@
+@@ -26684,7 +26914,7 @@
      linear options //databarstacked exec
      dup (pixs) get 0 2 index (pixx) get getinterval /bot exch def
      dup (pixy) get /linheight exch def
@@ -568,7 +520,7 @@
  
      % Plot the separator
      /sepfinder {
-@@ -26952,20 +27181,52 @@
+@@ -26712,20 +26942,52 @@
      sep 0 [ 0 0 0 0 ] putinterval
      sep sep length 4 sub [ 0 0 0 0 ] putinterval
      18 sepfinder
@@ -633,7 +585,7 @@
  
      end
  
-@@ -27023,7 +27284,7 @@
+@@ -26783,7 +27045,7 @@
          pop
      } ifelse
  
@@ -642,7 +594,7 @@
  
      options (lintype) (databarstackedomni) put
      options (linkage) true put
-@@ -27034,7 +27295,7 @@
+@@ -26794,7 +27056,7 @@
      linear options //databarstackedomni exec
      dup (pixs) get 0 2 index (pixx) get getinterval /bot exch def
      dup (pixy) get /linheight exch def
@@ -651,7 +603,7 @@
  
      % Plot the separator
      /sepfinder {
-@@ -27062,20 +27323,52 @@
+@@ -26822,20 +27084,52 @@
      sep 0 [ 0 0 0 0 ] putinterval
      sep sep length 4 sub [ 0 0 0 0 ] putinterval
      18 sepfinder
@@ -716,7 +668,7 @@
  
      end
  
-@@ -27248,7 +27541,7 @@
+@@ -27008,7 +27302,7 @@
          pop
      } ifelse
  
@@ -725,7 +677,7 @@
  
      options (lintype) (databarlimited) put
      options (linkage) true put
-@@ -27259,7 +27552,7 @@
+@@ -27019,7 +27313,7 @@
      linear options //databarlimited exec
      dup (sbs) get /linsbs exch def
      dup (bhs) get 0 get 72 mul /linheight exch def
@@ -734,7 +686,7 @@
  
      % Plot the separator
      mark
-@@ -27267,22 +27560,68 @@
+@@ -27027,22 +27321,68 @@
      counttomark 1 sub array astore /sep exch def pop pop
      sep 0 [0 0 0] putinterval
      sep sep length 9 sub [0 0 0 0 0 0 0 0 0] putinterval % 4 + 5 right guard spaces
@@ -772,8 +724,7 @@
 +        /compsym comp options //gs1-cc exec def
 +        /ccpixs compsym /pixs get def
 +        /ccpixx compsym /pixx get def
- 
--    grestore
++
 +        /linpixs [ 0  % Begin with left guard space
 +            linsbs { cvi 1 index 0 eq {{1}} {{0}} ifelse repeat } forall  % Alternates x 1/0's
 +        ] def
@@ -802,7 +753,8 @@
 +            ] def
 +            /pixx ccpixx 1 add def
 +        } ifelse
-+
+ 
+-    grestore
 +        /pixy pixs length pixx idiv def
 +        <<
 +        /ren //renmatrix
@@ -817,7 +769,7 @@
  
      end
  
-@@ -27341,7 +27680,7 @@
+@@ -27101,7 +27441,7 @@
          pop
      } ifelse
  
@@ -826,7 +778,7 @@
  
      options (lintype) (databarexpanded) put
      options (linkage) true put
-@@ -27352,7 +27691,7 @@
+@@ -27112,7 +27452,7 @@
      linear options //databarexpanded exec
      dup (sbs) get /linsbs exch def
      dup (bhs) get 0 get 72 mul /linheight exch def
@@ -835,7 +787,7 @@
  
      % Plot the separator
      /sepfinder {
-@@ -27381,20 +27720,60 @@
+@@ -27141,20 +27481,60 @@
          18 98 bot length 13 sub {} for
          69 98 bot length 13 sub {} for
      ] {sepfinder} forall
@@ -908,7 +860,7 @@
  
      end
  
-@@ -27452,7 +27831,7 @@
+@@ -27212,7 +27592,7 @@
          pop
      } ifelse
  
@@ -917,7 +869,7 @@
  
      options (lintype) (databarexpandedstacked) put
      options (linkage) true put
-@@ -27463,7 +27842,7 @@
+@@ -27223,7 +27603,7 @@
      linear options //databarexpandedstacked exec
      dup (pixs) get 0 2 index (pixx) get getinterval /bot exch def
      dup (pixy) get /linheight exch def
@@ -926,7 +878,7 @@
  
      % Plot the separator
      /sepfinder {
-@@ -27489,21 +27868,49 @@
+@@ -27249,21 +27629,49 @@
          19 98 bot length 13 sub {} for
          70 98 bot length 13 sub {} for
      ] {sepfinder} forall
@@ -989,7 +941,7 @@
  
      end
  
-@@ -27562,7 +27969,7 @@
+@@ -27322,7 +27730,7 @@
          pop
      } ifelse
  
@@ -998,7 +950,7 @@
  
      options (inkspread) (0) put
      options (dontdraw) true put
-@@ -27589,35 +27996,87 @@
+@@ -27349,35 +27757,87 @@
      linear << options {} forall >> //gs1-128 exec
      dup (sbs) get /linsbs exch def
      dup (bhs) get 0 get 72 mul /linheight exch def
@@ -1100,16 +1052,7 @@
  
      end
  
-@@ -28074,7 +28533,7 @@
- % --EXAM: (235)5vBZIF%!<B;?oa%(01)01234567890128(8008)19052001
- % --EXOP: rows=16
- % --RNDR: renmatrix
--%%BeginResource: uk.co.terryburton.bwipp gs1dotcode 0.0 2021092800 77802 77819
-+%%BeginResource: uk.co.terryburton.bwipp gs1dotcode 0.0 2021092800 77802 77923
- %%BeginData:        133 ASCII Lines
- /setpacking where {pop currentpacking true setpacking} if
- 1 dict
-@@ -29050,3 +29509,189 @@
+@@ -28810,3 +29270,189 @@
  % --END ENCODER hibcazteccode--
  
  % --END TEMPLATE--

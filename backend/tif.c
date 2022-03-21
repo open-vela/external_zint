@@ -32,7 +32,6 @@
  */
 /* vim: set ts=4 sw=4 et : */
 
-#include <errno.h>
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
@@ -57,13 +56,13 @@
 #define TIF_NO_COMPRESSION      1
 #define TIF_LZW                 5
 
-static void to_color_map(const unsigned char rgb[4], tiff_color_t *color_map_entry) {
+static void to_color_map(unsigned char rgb[4], tiff_color_t *color_map_entry) {
     color_map_entry->red = (rgb[0] << 8) | rgb[0];
     color_map_entry->green = (rgb[1] << 8) | rgb[1];
     color_map_entry->blue = (rgb[2] << 8) | rgb[2];
 }
 
-static void to_cmyk(const unsigned char rgb[3], const unsigned char alpha, unsigned char *cmyk) {
+static void to_cmyk(unsigned char rgb[3], unsigned char alpha, unsigned char *cmyk) {
     unsigned char max = rgb[0];
     if (rgb[1] > max) {
         max = rgb[1];
@@ -94,7 +93,7 @@ INTERNAL int tif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     int samples_per_pixel;
     int pixels_per_sample;
     unsigned char map[128];
-    tiff_color_t color_map[256] = {{0}};
+    tiff_color_t color_map[256] = {0};
     unsigned char palette[32][5];
     int color_map_size = 0;
     int extra_samples = 0;
@@ -108,7 +107,6 @@ INTERNAL int tif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     int compression = TIF_NO_COMPRESSION;
     tif_lzw_state lzw_state;
     long file_pos;
-    const int output_to_stdout = symbol->output_options & BARCODE_STDOUT;
 #ifdef _MSC_VER
     uint32_t* strip_offset;
     uint32_t* strip_bytes;
@@ -145,7 +143,7 @@ INTERNAL int tif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
 
     if (symbol->symbology == BARCODE_ULTRA) {
         static const int ultra_chars[8] = { 'W', 'C', 'B', 'M', 'R', 'Y', 'G', 'K' };
-        static const unsigned char ultra_rgbs[8][3] = {
+        static unsigned char ultra_rgbs[8][3] = {
             { 0xff, 0xff, 0xff, }, /* White */
             {    0, 0xff, 0xff, }, /* Cyan */
             {    0,    0, 0xff, }, /* Blue */
@@ -230,8 +228,8 @@ INTERNAL int tif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
             pixels_per_sample = 8;
         } else if (bg[0] == 0 && bg[1] == 0 && bg[2] == 0 && bg[3] == 0xff
                 && fg[0] == 0xff && fg[1] == 0xff && fg[2] == 0xff && fg[3] == 0xff) {
-            map['0'] = 0;
-            map['1'] = 1;
+            map['0'] = 1;
+            map['1'] = 0;
 
             pmi = TIF_PMI_BLACKISZERO;
             bits_per_sample = 1;
@@ -314,8 +312,7 @@ INTERNAL int tif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
             strip_bytes[i] = bytes_per_strip;
         } else {
             if (rows_last_strip) {
-                strip_bytes[i] = rows_last_strip
-                                    * ((symbol->bitmap_width + pixels_per_sample - 1) / pixels_per_sample)
+                strip_bytes[i] = rows_last_strip * ((symbol->bitmap_width + pixels_per_sample - 1) / pixels_per_sample)
                                     * samples_per_pixel;
             } else {
                 strip_bytes[i] = bytes_per_strip;
@@ -333,17 +330,17 @@ INTERNAL int tif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     }
 
     /* Open output file in binary mode */
-    if (output_to_stdout) {
+    if (symbol->output_options & BARCODE_STDOUT) {
 #ifdef _MSC_VER
         if (-1 == _setmode(_fileno(stdout), _O_BINARY)) {
-            sprintf(symbol->errtxt, "671: Could not set stdout to binary (%d: %.30s)", errno, strerror(errno));
+            strcpy(symbol->errtxt, "671: Can't open output file");
             return ZINT_ERROR_FILE_ACCESS;
         }
 #endif
         tif_file = stdout;
     } else {
-        if (!(tif_file = fopen(symbol->outfile, "wb+"))) { /* '+' as use fseek/ftell() */
-            sprintf(symbol->errtxt, "672: Could not open output file (%d: %.30s)", errno, strerror(errno));
+        if (!(tif_file = fopen(symbol->outfile, "wb+"))) {
+            strcpy(symbol->errtxt, "672: Can't open output file");
             return ZINT_ERROR_FILE_ACCESS;
         }
         compression = TIF_LZW;
@@ -388,13 +385,13 @@ INTERNAL int tif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
             }
         } else if (samples_per_pixel == 2) { /* PALETTE_COLOR with alpha */
             for (column = 0; column < symbol->bitmap_width; column++) {
-                const int idx = map[*pb++];
+                int idx = map[*pb++];
                 strip_buf[bytes_put++] = idx;
                 strip_buf[bytes_put++] = palette[idx][3];
             }
         } else { /* samples_per_pixel >= 4, RGB with alpha (4) or CMYK with (5) or without (4) alpha */
             for (column = 0; column < symbol->bitmap_width; column++) {
-                const int idx = map[*pb++];
+                int idx = map[*pb++];
                 memcpy(&strip_buf[bytes_put], &palette[idx], samples_per_pixel);
                 bytes_put += samples_per_pixel;
             }
@@ -414,7 +411,7 @@ INTERNAL int tif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
                 }
                 bytes_put = ftell(tif_file) - file_pos;
                 if (bytes_put != strip_bytes[strip]) {
-                    const int diff = bytes_put - strip_bytes[strip];
+                    int diff = bytes_put - strip_bytes[strip];
                     strip_bytes[strip] = bytes_put;
                     for (i = strip + 1; i < strip_count; i++) {
                         strip_offset[i] += diff;
@@ -609,7 +606,7 @@ INTERNAL int tif_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
         total_bytes_put += 6 * color_map_size;
     }
 
-    if (output_to_stdout) {
+    if (symbol->output_options & BARCODE_STDOUT) {
         fflush(tif_file);
     } else {
         if (ftell(tif_file) != total_bytes_put) {

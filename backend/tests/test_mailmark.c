@@ -33,6 +33,9 @@
 
 static void test_input(int index, int debug) {
 
+    testStart("");
+
+    int ret;
     struct item {
         char *data;
         int ret;
@@ -95,22 +98,17 @@ static void test_input(int index, int debug) {
         /* 51*/ { "01000000000000000C12JQ3U A", ZINT_ERROR_INVALID_DATA, -1, -1 }, // F N N L L N L S S bad 2nd S
         /* 52*/ { "01000000000000000C123JQ4U ", 0, 3, 155, }, // F N N N L L N L S
         /* 53*/ { "01000000000000000C 23JQ4U ", ZINT_ERROR_INVALID_DATA, -1, -1 }, // F N N N L L N L S bad 1st N (non-alpha otherwise matches 2nd pattern)
-        /* 54*/ { "41038422416563762XY1", ZINT_ERROR_INVALID_DATA, -1, -1 },
     };
     int data_size = ARRAY_SIZE(data);
-    int i, length, ret;
-    struct zint_symbol *symbol;
 
-    testStart("test_input");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        symbol = ZBarcode_Create();
+        struct zint_symbol *symbol = ZBarcode_Create();
         assert_nonnull(symbol, "Symbol not created\n");
 
-        length = testUtilSetSymbol(symbol, BARCODE_MAILMARK, -1 /*input_mode*/, -1 /*eci*/, -1 /*option_1*/, -1, -1, -1 /*output_options*/, data[i].data, -1, debug);
+        int length = testUtilSetSymbol(symbol, BARCODE_MAILMARK, -1 /*input_mode*/, -1 /*eci*/, -1 /*option_1*/, -1, -1, -1 /*output_options*/, data[i].data, -1, debug);
 
         ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
         assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
@@ -132,6 +130,9 @@ static void test_input(int index, int debug) {
 // https://www.royalmail.com/sites/default/files/Mailmark-4-state-barcode-L-encoding-and-decoding-instructions-Sept-2015.pdf
 static void test_encode_vector(int index, int debug) {
 
+    testStart("");
+
+    int ret;
     struct item {
         char *data;
         int ret_encode;
@@ -164,21 +165,17 @@ static void test_encode_vector(int index, int debug) {
         /* 19*/ { "22799999999999999C123JQ4U ", 0, 100, 30, 0, "DDATTDDATATTTAFDTAADATDDFFTFFDFFDTFAADDFAADFDFFTFFTFFDFDFTATATFDDFTFFFTFFTDDTF" }, // F N N N L L N L S
     };
     int data_size = ARRAY_SIZE(data);
-    int i, length, ret;
-    struct zint_symbol *symbol;
 
     char actual_daft[80];
 
-    testStart("test_encode_vector");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        symbol = ZBarcode_Create();
+        struct zint_symbol *symbol = ZBarcode_Create();
         assert_nonnull(symbol, "Symbol not created\n");
 
-        length = testUtilSetSymbol(symbol, BARCODE_MAILMARK, -1 /*input_mode*/, -1 /*eci*/, -1 /*option_1*/, -1, -1, -1 /*output_options*/, data[i].data, -1, debug);
+        int length = testUtilSetSymbol(symbol, BARCODE_MAILMARK, -1 /*input_mode*/, -1 /*eci*/, -1 /*option_1*/, -1, -1, -1 /*output_options*/, data[i].data, -1, debug);
 
         ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
         assert_equal(ret, data[i].ret_encode, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret_encode, symbol->errtxt);
@@ -200,6 +197,9 @@ static void test_encode_vector(int index, int debug) {
 
 static void test_encode(int index, int generate, int debug) {
 
+    testStart("");
+
+    int ret;
     struct item {
         char *data;
         int ret;
@@ -217,21 +217,17 @@ static void test_encode(int index, int generate, int debug) {
                 },
     };
     int data_size = ARRAY_SIZE(data);
-    int i, length, ret;
-    struct zint_symbol *symbol;
 
     char escaped[1024];
 
-    testStart("test_encode");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        symbol = ZBarcode_Create();
+        struct zint_symbol *symbol = ZBarcode_Create();
         assert_nonnull(symbol, "Symbol not created\n");
 
-        length = testUtilSetSymbol(symbol, BARCODE_MAILMARK, -1 /*input_mode*/, -1 /*eci*/, -1 /*option_1*/, -1, -1, -1 /*output_options*/, data[i].data, -1, debug);
+        int length = testUtilSetSymbol(symbol, BARCODE_MAILMARK, -1 /*input_mode*/, -1 /*eci*/, -1 /*option_1*/, -1, -1, -1 /*output_options*/, data[i].data, -1, debug);
 
         ret = ZBarcode_Encode(symbol, (unsigned char *) data[i].data, length);
         assert_equal(ret, data[i].ret, "i:%d ZBarcode_Encode ret %d != %d (%s)\n", i, ret, data[i].ret, symbol->errtxt);
@@ -244,11 +240,10 @@ static void test_encode(int index, int generate, int debug) {
             printf("                },\n");
         } else {
             if (ret < ZINT_ERROR) {
-                int width, row;
-
                 assert_equal(symbol->rows, data[i].expected_rows, "i:%d symbol->rows %d != %d (%s)\n", i, symbol->rows, data[i].expected_rows, data[i].data);
                 assert_equal(symbol->width, data[i].expected_width, "i:%d symbol->width %d != %d (%s)\n", i, symbol->width, data[i].expected_width, data[i].data);
 
+                int width, row;
                 ret = testUtilModulesCmp(symbol, data[i].expected, &width, &row);
                 assert_zero(ret, "i:%d testUtilModulesCmp ret %d != 0 width %d row %d (%s)\n", i, ret, width, row, data[i].data);
             }

@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2019 - 2021 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2019 - 2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -34,19 +34,18 @@
 #include "common.h"
 #include "general_field.h"
 
-static const char alphanum_puncs[] = "*,-./";
-static const char isoiec_puncs[] = "!\"%&'()*+,-./:;<=>?_ "; /* Note contains space, not in cset82 */
-#define IS_ISOIEC_F (IS_LWR_F | IS_C82_F | IS_PLS_F | IS_MNS_F | IS_SPC_F)
+static char alphanum_puncs[] = "*,-./";
+static char isoiec_puncs[] = "!\"%&'()*+,-./:;<=>?_ ";
 
 /* Returns type of char at `i`. FNC1 counted as NUMERIC. Returns 0 if invalid char */
 static int general_field_type(const char *general_field, const int i) {
     if (general_field[i] == '[' || (general_field[i] >= '0' && general_field[i] <= '9')) {
         return NUMERIC;
     }
-    if ((general_field[i] >= 'A' && general_field[i] <= 'Z') || posn(alphanum_puncs, general_field[i]) != -1) {
+    if ((general_field[i] >= 'A' && general_field[i] <= 'Z') || strchr(alphanum_puncs, general_field[i])) {
         return ALPHANUMERIC;
     }
-    if (is_sane(IS_ISOIEC_F, (const unsigned char *) general_field + i, 1)) {
+    if ((general_field[i] >= 'a' && general_field[i] <= 'z') || strchr(isoiec_puncs, general_field[i])) {
         return ISOIEC;
     }
     return 0;

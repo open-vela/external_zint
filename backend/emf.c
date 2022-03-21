@@ -1,7 +1,7 @@
 /*  emf.c - Support for Microsoft Enhanced Metafile Format
 
     libzint - the open source barcode library
-    Copyright (C) 2016 - 2021 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2016 - 2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -33,20 +33,14 @@
 /* Developed according to [MS-EMF] - v20160714, Released July 14, 2016
  * and [MS-WMF] - v20160714, Released July 14, 2016 */
 
-#include <errno.h>
 #include <stdio.h>
 #include <assert.h>
 #include <math.h>
 #ifdef _MSC_VER
-#include <io.h>
-#include <fcntl.h>
 #include <malloc.h>
 #endif
 #include "common.h"
 #include "emf.h"
-
-/* Multiply truncating to 3 decimal places (avoids rounding differences on various platforms) */
-#define mul3dpf(m, arg) stripf(roundf(m * arg * 1000.0) / 1000.0f)
 
 static int count_rectangles(struct zint_symbol *symbol) {
     int rectangles = 0;
@@ -71,8 +65,7 @@ static int count_circles(struct zint_symbol *symbol) {
         circ = circ->next;
     }
 
-    /* Hack for MaxiCode */
-    return symbol->symbology == BARCODE_MAXICODE ? circles * 2 : circles;
+    return circles;
 }
 
 static int count_hexagons(struct zint_symbol *symbol) {
@@ -178,23 +171,20 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
     float previous_diameter;
     float radius, half_radius, half_sqrt3_radius;
     int colours_used = 0;
-    int rectangle_bycolour[9] = {0};
-
+    int rectangle_count_bycolour[9];
+    unsigned char *this_string[6];
     int width, height;
+    int utfle_len;
+    int bumped_len;
     int draw_background = 1;
     int bold;
-    const int output_to_stdout = symbol->output_options & BARCODE_STDOUT;
+
+    float ax, ay, bx, by, cx, cy, dx, dy, ex, ey, fx, fy;
 
     struct zint_vector_rect *rect;
     struct zint_vector_circle *circ;
     struct zint_vector_hexagon *hex;
     struct zint_vector_string *str;
-
-    /* Allow for up to 6 strings (current max 3 for UPC/EAN) */
-    unsigned char *this_string[6];
-    emr_exttextoutw_t text[6];
-    float text_fsizes[6];
-    int text_haligns[6];
 
     emr_header_t emr_header;
     emr_eof_t emr_eof;
@@ -202,10 +192,10 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
     emr_setworldtransform_t emr_setworldtransform;
     emr_createbrushindirect_t emr_createbrushindirect_fg;
     emr_createbrushindirect_t emr_createbrushindirect_bg;
-    emr_createbrushindirect_t emr_createbrushindirect_colour[9]; // Used for colour symbols only
+    emr_createbrushindirect_t emr_createbrushindirect_colour[8]; // Used for colour symbols only
     emr_selectobject_t emr_selectobject_fgbrush;
     emr_selectobject_t emr_selectobject_bgbrush;
-    emr_selectobject_t emr_selectobject_colour[9]; // Used for colour symbols only
+    emr_selectobject_t emr_selectobject_colour[8]; // Used for colour symbols only
     emr_createpen_t emr_createpen;
     emr_selectobject_t emr_selectobject_pen;
     emr_rectangle_t background;
@@ -231,12 +221,10 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
     emr_rectangle_t *rectangle;
     emr_ellipse_t *circle;
     emr_polygon_t *hexagon;
+    emr_exttextoutw_t *text;
+    float *text_fsizes;
+    int *text_haligns;
 #endif
-
-    if (symbol->vector == NULL) {
-        strcpy(symbol->errtxt, "643: Vector header NULL");
-        return ZINT_ERROR_INVALID_DATA;
-    }
 
     fgred = (16 * ctoi(symbol->fgcolour[0])) + ctoi(symbol->fgcolour[1]);
     fggrn = (16 * ctoi(symbol->fgcolour[2])) + ctoi(symbol->fgcolour[3]);
@@ -244,7 +232,7 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
     bgred = (16 * ctoi(symbol->bgcolour[0])) + ctoi(symbol->bgcolour[1]);
     bggrn = (16 * ctoi(symbol->bgcolour[2])) + ctoi(symbol->bgcolour[3]);
     bgblu = (16 * ctoi(symbol->bgcolour[4])) + ctoi(symbol->bgcolour[5]);
-
+    
     if (strlen(symbol->bgcolour) > 6) {
         if ((ctoi(symbol->bgcolour[6]) == 0) && (ctoi(symbol->bgcolour[7]) == 0)) {
             draw_background = 0;
@@ -261,34 +249,36 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
     emr_rectangle_t rectangle[rectangle_count ? rectangle_count : 1];
     emr_ellipse_t circle[circle_count ? circle_count : 1];
     emr_polygon_t hexagon[hexagon_count ? hexagon_count : 1];
+    emr_exttextoutw_t text[string_count ? string_count: 1];
+    float text_fsizes[string_count ? string_count: 1];
+    int text_haligns[string_count ? string_count: 1];
 #else
-    rectangle = (emr_rectangle_t *) _alloca(rectangle_count * sizeof(emr_rectangle_t));
-    circle = (emr_ellipse_t *) _alloca(circle_count * sizeof(emr_ellipse_t));
-    hexagon = (emr_polygon_t *) _alloca(hexagon_count * sizeof(emr_polygon_t));
+    rectangle = (emr_rectangle_t*) _alloca(rectangle_count * sizeof (emr_rectangle_t));
+    circle = (emr_ellipse_t*) _alloca(circle_count * sizeof (emr_ellipse_t));
+    hexagon = (emr_polygon_t*) _alloca(hexagon_count * sizeof (emr_polygon_t));
+    text = (emr_exttextoutw_t*) _alloca(string_count * sizeof (emr_exttextoutw_t));
+    text_fsizes = (float *) _alloca(string_count * sizeof (float));
+    text_haligns = (int *) _alloca(string_count * sizeof (int));
 #endif
 
-    // Calculate how many coloured rectangles
+    //Calculate how many coloured rectangles
     if (symbol->symbology == BARCODE_ULTRA) {
+        for (i = 0; i <= 8; i++) {
+            rectangle_count_bycolour[i] = 0;
+        }
 
         rect = symbol->vector->rectangles;
         while (rect) {
-            if (rect->colour == -1) { /* Foreground colour */
-                if (rectangle_bycolour[0] == 0) {
-                    colours_used++;
-                    rectangle_bycolour[0] = 1;
-                }
-            } else {
-                if (rectangle_bycolour[rect->colour] == 0) {
-                    colours_used++;
-                    rectangle_bycolour[rect->colour] = 1;
-                }
+            if (rectangle_count_bycolour[rect->colour] == 0) {
+                colours_used++;
             }
+            rectangle_count_bycolour[rect->colour]++;
             rect = rect->next;
         }
     }
 
-    width = (int) ceilf(symbol->vector->width);
-    height = (int) ceilf(symbol->vector->height);
+    width = (int) ceil(symbol->vector->width);
+    height = (int) ceil(symbol->vector->height);
 
     /* Header */
     emr_header.type = 0x00000001; // EMR_HEADER
@@ -304,7 +294,7 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
     emr_header.emf_header.record_signature = 0x464d4520; // ENHMETA_SIGNATURE
     emr_header.emf_header.version = 0x00010000;
     if (symbol->symbology == BARCODE_ULTRA) {
-        emr_header.emf_header.handles = 12; // Number of graphics objects
+        emr_header.emf_header.handles = 11; // Number of graphics objects
     } else {
         emr_header.emf_header.handles = fsize2 != 0.0f ? 5 : 4;
     }
@@ -359,20 +349,14 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
     recordcount++;
 
     if (symbol->symbology == BARCODE_ULTRA) {
-        for (i = 0; i < 9; i++) {
+        for (i = 0; i < 8; i++) {
             emr_createbrushindirect_colour[i].type = 0x00000027; // EMR_CREATEBRUSHINDIRECT
             emr_createbrushindirect_colour[i].size = 24;
             emr_createbrushindirect_colour[i].ih_brush = 2 + i;
             emr_createbrushindirect_colour[i].log_brush.brush_style = 0x0000; // BS_SOLID
-            if (i == 0) {
-                emr_createbrushindirect_colour[i].log_brush.color.red = fgred;
-                emr_createbrushindirect_colour[i].log_brush.color.green = fggrn;
-                emr_createbrushindirect_colour[i].log_brush.color.blue = fgblu;
-            } else {
-                emr_createbrushindirect_colour[i].log_brush.color.red = colour_to_red(i);
-                emr_createbrushindirect_colour[i].log_brush.color.green = colour_to_green(i);
-                emr_createbrushindirect_colour[i].log_brush.color.blue = colour_to_blue(i);
-            }
+            emr_createbrushindirect_colour[i].log_brush.color.red = colour_to_red(i + 1);
+            emr_createbrushindirect_colour[i].log_brush.color.green = colour_to_green(i + 1);
+            emr_createbrushindirect_colour[i].log_brush.color.blue = colour_to_blue(i + 1);
             emr_createbrushindirect_colour[i].log_brush.color.reserved = 0;
             emr_createbrushindirect_colour[i].log_brush.brush_hatch = 0x0006; // HS_SOLIDCLR
         }
@@ -399,7 +383,7 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
     recordcount++;
 
     if (symbol->symbology == BARCODE_ULTRA) {
-        for (i = 0; i < 9; i++) {
+        for (i = 0; i < 8; i++) {
             emr_selectobject_colour[i].type = 0x00000025; // EMR_SELECTOBJECT
             emr_selectobject_colour[i].size = 12;
             emr_selectobject_colour[i].ih_object = 2 + i;
@@ -417,7 +401,7 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
     /* Create Pens */
     emr_createpen.type = 0x00000026; // EMR_CREATEPEN
     emr_createpen.size = 28;
-    emr_createpen.ih_pen = 11;
+    emr_createpen.ih_pen = 10;
     emr_createpen.log_pen.pen_style = 0x00000005; // PS_NULL
     emr_createpen.log_pen.width.x = 1;
     emr_createpen.log_pen.width.y = 0; // ignored
@@ -430,7 +414,7 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
 
     emr_selectobject_pen.type = 0x00000025; // EMR_SELECTOBJECT
     emr_selectobject_pen.size = 12;
-    emr_selectobject_pen.ih_object = 11;
+    emr_selectobject_pen.ih_object = 10;
     bytecount += 12;
     recordcount++;
 
@@ -446,60 +430,44 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
         recordcount++;
     }
 
-    // Rectangles
+    //Rectangles
     rect = symbol->vector->rectangles;
     this_rectangle = 0;
     while (rect) {
         rectangle[this_rectangle].type = 0x0000002b; // EMR_RECTANGLE
         rectangle[this_rectangle].size = 24;
         rectangle[this_rectangle].box.top = (int32_t) rect->y;
-        rectangle[this_rectangle].box.bottom = (int32_t) stripf(rect->y + rect->height);
+        rectangle[this_rectangle].box.bottom = (int32_t) (rect->y + rect->height);
         rectangle[this_rectangle].box.left = (int32_t) rect->x;
-        rectangle[this_rectangle].box.right = (int32_t) stripf(rect->x + rect->width);
+        rectangle[this_rectangle].box.right = (int32_t) (rect->x + rect->width);
         this_rectangle++;
         bytecount += 24;
         recordcount++;
         rect = rect->next;
     }
 
-    // Circles
+    //Circles
     previous_diameter = radius = 0.0f;
     circ = symbol->vector->circles;
     this_circle = 0;
     while (circ) {
-        /* Note using circle width the proper way, with a non-null pen of specified width and a null brush for fill,
-           causes various different rendering issues for LibreOffice Draw and Inkscape, so using following hack */
-        if (previous_diameter != circ->diameter + circ->width) { /* Drawing MaxiCode bullseye using overlayed discs */
-            previous_diameter = circ->diameter + circ->width;
-            radius = mul3dpf(0.5, previous_diameter);
+        if (previous_diameter != circ->diameter) {
+            previous_diameter = circ->diameter;
+            radius = (float) (0.5 * previous_diameter);
         }
         circle[this_circle].type = 0x0000002a; // EMR_ELLIPSE
         circle[this_circle].size = 24;
-        circle[this_circle].box.top = (int32_t) stripf(circ->y - radius);
-        circle[this_circle].box.bottom = (int32_t) stripf(circ->y + radius);
-        circle[this_circle].box.left = (int32_t) stripf(circ->x - radius);
-        circle[this_circle].box.right = (int32_t) stripf(circ->x + radius);
+        circle[this_circle].box.top = (int32_t) (circ->y - radius);
+        circle[this_circle].box.bottom = (int32_t) (circ->y + radius);
+        circle[this_circle].box.left = (int32_t) (circ->x - radius);
+        circle[this_circle].box.right = (int32_t) (circ->x + radius);
         this_circle++;
         bytecount += 24;
         recordcount++;
-
-        if (symbol->symbology == BARCODE_MAXICODE) { /* Drawing MaxiCode bullseye using overlayed discs */
-            float inner_radius = radius - circ->width;
-            circle[this_circle].type = 0x0000002a; // EMR_ELLIPSE
-            circle[this_circle].size = 24;
-            circle[this_circle].box.top = (int32_t) stripf(circ->y - inner_radius);
-            circle[this_circle].box.bottom = (int32_t) stripf(circ->y + inner_radius);
-            circle[this_circle].box.left = (int32_t) stripf(circ->x - inner_radius);
-            circle[this_circle].box.right = (int32_t) stripf(circ->x + inner_radius);
-            this_circle++;
-            bytecount += 24;
-            recordcount++;
-        }
-
         circ = circ->next;
     }
 
-    // Hexagons
+    //Hexagons
     previous_diameter = radius = half_radius = half_sqrt3_radius = 0.0f;
     hex = symbol->vector->hexagons;
     this_hexagon = 0;
@@ -510,24 +478,50 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
 
         if (previous_diameter != hex->diameter) {
             previous_diameter = hex->diameter;
-            radius = mul3dpf(0.5, previous_diameter);
-            half_radius = mul3dpf(0.25, previous_diameter);
-            half_sqrt3_radius = mul3dpf(0.43301270189221932338, previous_diameter);
+            radius = (float) (0.5 * previous_diameter);
+            half_radius = (float) (0.25 * previous_diameter);
+            half_sqrt3_radius = (float) (0.43301270189221932338 * previous_diameter);
+        }
+        if ((hex->rotation == 0) || (hex->rotation == 180)) {
+            ay = hex->y + radius;
+            by = hex->y + half_radius;
+            cy = hex->y - half_radius;
+            dy = hex->y - radius;
+            ey = hex->y - half_radius;
+            fy = hex->y + half_radius;
+            ax = hex->x;
+            bx = hex->x + half_sqrt3_radius;
+            cx = hex->x + half_sqrt3_radius;
+            dx = hex->x;
+            ex = hex->x - half_sqrt3_radius;
+            fx = hex->x - half_sqrt3_radius;
+        } else {
+            ay = hex->y;
+            by = hex->y + half_sqrt3_radius;
+            cy = hex->y + half_sqrt3_radius;
+            dy = hex->y;
+            ey = hex->y - half_sqrt3_radius;
+            fy = hex->y - half_sqrt3_radius;
+            ax = hex->x - radius;
+            bx = hex->x - half_radius;
+            cx = hex->x + half_radius;
+            dx = hex->x + radius;
+            ex = hex->x + half_radius;
+            fx = hex->x - half_radius;
         }
 
-        /* Note rotation done via world transform */
-        hexagon[this_hexagon].a_points_a.x = (int32_t) hex->x;
-        hexagon[this_hexagon].a_points_a.y = (int32_t) stripf(hex->y + radius);
-        hexagon[this_hexagon].a_points_b.x = (int32_t) stripf(hex->x + half_sqrt3_radius);
-        hexagon[this_hexagon].a_points_b.y = (int32_t) stripf(hex->y + half_radius);
-        hexagon[this_hexagon].a_points_c.x = (int32_t) stripf(hex->x + half_sqrt3_radius);
-        hexagon[this_hexagon].a_points_c.y = (int32_t) stripf(hex->y - half_radius);
-        hexagon[this_hexagon].a_points_d.x = (int32_t) hex->x;
-        hexagon[this_hexagon].a_points_d.y = (int32_t) stripf(hex->y - radius);
-        hexagon[this_hexagon].a_points_e.x = (int32_t) stripf(hex->x - half_sqrt3_radius);
-        hexagon[this_hexagon].a_points_e.y = (int32_t) stripf(hex->y - half_radius);
-        hexagon[this_hexagon].a_points_f.x = (int32_t) stripf(hex->x - half_sqrt3_radius);
-        hexagon[this_hexagon].a_points_f.y = (int32_t) stripf(hex->y + half_radius);
+        hexagon[this_hexagon].a_points_a.x = (int32_t) ax;
+        hexagon[this_hexagon].a_points_a.y = (int32_t) ay;
+        hexagon[this_hexagon].a_points_b.x = (int32_t) bx;
+        hexagon[this_hexagon].a_points_b.y = (int32_t) by;
+        hexagon[this_hexagon].a_points_c.x = (int32_t) cx;
+        hexagon[this_hexagon].a_points_c.y = (int32_t) cy;
+        hexagon[this_hexagon].a_points_d.x = (int32_t) dx;
+        hexagon[this_hexagon].a_points_d.y = (int32_t) dy;
+        hexagon[this_hexagon].a_points_e.x = (int32_t) ex;
+        hexagon[this_hexagon].a_points_e.y = (int32_t) ey;
+        hexagon[this_hexagon].a_points_f.x = (int32_t) fx;
+        hexagon[this_hexagon].a_points_f.y = (int32_t) fy;
 
         hexagon[this_hexagon].bounds.top = hexagon[this_hexagon].a_points_d.y;
         hexagon[this_hexagon].bounds.bottom = hexagon[this_hexagon].a_points_a.y;
@@ -546,7 +540,7 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
         memset(&emr_extcreatefontindirectw, 0, sizeof(emr_extcreatefontindirectw));
         emr_extcreatefontindirectw.type = 0x00000052; // EMR_EXTCREATEFONTINDIRECTW
         emr_extcreatefontindirectw.size = 104;
-        emr_extcreatefontindirectw.ih_fonts = 12;
+        emr_extcreatefontindirectw.ih_fonts = 11;
         emr_extcreatefontindirectw.elw.height = (int32_t) fsize;
         emr_extcreatefontindirectw.elw.width = 0; // automatic
         emr_extcreatefontindirectw.elw.weight = bold ? 700 : 400;
@@ -554,26 +548,26 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
         emr_extcreatefontindirectw.elw.out_precision = 0x00; // OUT_DEFAULT_PRECIS
         emr_extcreatefontindirectw.elw.clip_precision = 0x00; // CLIP_DEFAULT_PRECIS
         emr_extcreatefontindirectw.elw.pitch_and_family = 0x02 | (0x02 << 6); // FF_SWISS | VARIABLE_PITCH
-        utfle_copy(emr_extcreatefontindirectw.elw.facename, (unsigned char *) "sans-serif", 10);
+        utfle_copy(emr_extcreatefontindirectw.elw.facename, (unsigned char*) "sans-serif", 10);
         bytecount += 104;
         recordcount++;
 
         emr_selectobject_font.type = 0x00000025; // EMR_SELECTOBJECT
         emr_selectobject_font.size = 12;
-        emr_selectobject_font.ih_object = 12;
+        emr_selectobject_font.ih_object = 11;
         bytecount += 12;
         recordcount++;
 
         if (fsize2) {
             memcpy(&emr_extcreatefontindirectw2, &emr_extcreatefontindirectw, sizeof(emr_extcreatefontindirectw));
-            emr_extcreatefontindirectw2.ih_fonts = 13;
+            emr_extcreatefontindirectw2.ih_fonts = 12;
             emr_extcreatefontindirectw2.elw.height = (int32_t) fsize2;
             bytecount += 104;
             recordcount++;
 
             emr_selectobject_font2.type = 0x00000025; // EMR_SELECTOBJECT
             emr_selectobject_font2.size = 12;
-            emr_selectobject_font2.ih_object = 13;
+            emr_selectobject_font2.ih_object = 12;
             bytecount += 12;
             recordcount++;
         }
@@ -604,15 +598,13 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
         recordcount++;
     }
 
-    // Text
+    //Text
     this_text = 0;
     // Loop over font sizes so that they're grouped together, so only have to select font twice at most
-    for (i = 0, current_fsize = fsize; i < 2 && current_fsize; i++, current_fsize = fsize2) {
+    for (current_fsize = fsize; current_fsize; current_fsize = fsize2) {
         str = symbol->vector->strings;
         current_halign = -1;
         while (str) {
-            int utfle_len;
-            int bumped_len;
             if (str->fsize != current_fsize) {
                 str = str->next;
                 continue;
@@ -627,13 +619,7 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
             assert(str->length > 0);
             utfle_len = utfle_length(str->text, str->length);
             bumped_len = bump_up(utfle_len) * 2;
-            if (!(this_string[this_text] = (unsigned char *) malloc(bumped_len))) {
-                for (i = 0; i < this_text; i++) {
-                    free(this_string[i]);
-                }
-                strcpy(symbol->errtxt, "641: Insufficient memory for EMF string buffer");
-                return ZINT_ERROR_MEMORY;
-            }
+            this_string[this_text] = (unsigned char *) malloc(bumped_len);
             memset(this_string[this_text], 0, bumped_len);
             text[this_text].type = 0x00000054; // EMR_EXTTEXTOUTW
             text[this_text].size = 76 + bumped_len;
@@ -661,9 +647,10 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
             this_text++;
             str = str->next;
         }
+        if (current_fsize == fsize2) {
+            break;
+        }
     }
-    /* Suppress clang-tidy clang-analyzer-core.UndefinedBinaryOperatorResult warning */
-    assert(this_text == string_count);
 
     /* Create EOF record */
     emr_eof.type = 0x0000000e; // EMR_EOF
@@ -675,7 +662,7 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
     recordcount++;
 
     if (symbol->symbology == BARCODE_MAXICODE) {
-        bytecount += 5 * sizeof(emr_selectobject_t);
+        bytecount += 5 * sizeof (emr_selectobject_t);
         recordcount += 5;
     }
 
@@ -684,66 +671,61 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
     emr_header.emf_header.records = recordcount;
 
     /* Send EMF data to file */
-    if (output_to_stdout) {
-#ifdef _MSC_VER
-        if (-1 == _setmode(_fileno(stdout), _O_BINARY)) {
-            sprintf(symbol->errtxt, "642: Could not set stdout to binary (%d: %.30s)", errno, strerror(errno));
-            return ZINT_ERROR_FILE_ACCESS;
-        }
-#endif
+    if (symbol->output_options & BARCODE_STDOUT) {
         emf_file = stdout;
     } else {
-        if (!(emf_file = fopen(symbol->outfile, "wb"))) {
-            sprintf(symbol->errtxt, "640: Could not open output file (%d: %.30s)", errno, strerror(errno));
-            return ZINT_ERROR_FILE_ACCESS;
-        }
+        emf_file = fopen(symbol->outfile, "wb");
+    }
+    if (emf_file == NULL) {
+        strcpy(symbol->errtxt, "640: Could not open output file");
+        return ZINT_ERROR_FILE_ACCESS;
     }
 
-    fwrite(&emr_header, sizeof(emr_header_t), 1, emf_file);
+    fwrite(&emr_header, sizeof (emr_header_t), 1, emf_file);
 
-    fwrite(&emr_mapmode, sizeof(emr_mapmode_t), 1, emf_file);
+    fwrite(&emr_mapmode, sizeof (emr_mapmode_t), 1, emf_file);
 
     if (rotate_angle) {
-        fwrite(&emr_setworldtransform, sizeof(emr_setworldtransform_t), 1, emf_file);
+        fwrite(&emr_setworldtransform, sizeof (emr_setworldtransform_t), 1, emf_file);
     }
 
-    fwrite(&emr_createbrushindirect_bg, sizeof(emr_createbrushindirect_t), 1, emf_file);
+    fwrite(&emr_createbrushindirect_bg, sizeof (emr_createbrushindirect_t), 1, emf_file);
 
     if (symbol->symbology == BARCODE_ULTRA) {
-        for (i = 0; i < 9; i++) {
-            if (rectangle_bycolour[i]) {
-                fwrite(&emr_createbrushindirect_colour[i], sizeof(emr_createbrushindirect_t), 1, emf_file);
+        for (i = 0; i < 8; i++) {
+            if (rectangle_count_bycolour[i + 1]) {
+                fwrite(&emr_createbrushindirect_colour[i], sizeof (emr_createbrushindirect_t), 1, emf_file);
             }
         }
     } else {
-        fwrite(&emr_createbrushindirect_fg, sizeof(emr_createbrushindirect_t), 1, emf_file);
+        fwrite(&emr_createbrushindirect_fg, sizeof (emr_createbrushindirect_t), 1, emf_file);
     }
 
-    fwrite(&emr_createpen, sizeof(emr_createpen_t), 1, emf_file);
+    fwrite(&emr_createpen, sizeof (emr_createpen_t), 1, emf_file);
 
     if (symbol->vector->strings) {
-        fwrite(&emr_extcreatefontindirectw, sizeof(emr_extcreatefontindirectw_t), 1, emf_file);
+        fwrite(&emr_extcreatefontindirectw, sizeof (emr_extcreatefontindirectw_t), 1, emf_file);
         if (fsize2) {
-            fwrite(&emr_extcreatefontindirectw2, sizeof(emr_extcreatefontindirectw_t), 1, emf_file);
+            fwrite(&emr_extcreatefontindirectw2, sizeof (emr_extcreatefontindirectw_t), 1, emf_file);
         }
     }
 
-    fwrite(&emr_selectobject_bgbrush, sizeof(emr_selectobject_t), 1, emf_file);
-    fwrite(&emr_selectobject_pen, sizeof(emr_selectobject_t), 1, emf_file);
+    fwrite(&emr_selectobject_bgbrush, sizeof (emr_selectobject_t), 1, emf_file);
+    fwrite(&emr_selectobject_pen, sizeof (emr_selectobject_t), 1, emf_file);
     if (draw_background) {
-        fwrite(&background, sizeof(emr_rectangle_t), 1, emf_file);
+        fwrite(&background, sizeof (emr_rectangle_t), 1, emf_file);
     }
 
     if (symbol->symbology == BARCODE_ULTRA) {
-        for (i = 0; i < 9; i++) {
-            if (rectangle_bycolour[i]) {
-                fwrite(&emr_selectobject_colour[i], sizeof(emr_selectobject_t), 1, emf_file);
+        for(i = 0; i < 8; i++) {
+            if (rectangle_count_bycolour[i + 1]) {
+                fwrite(&emr_selectobject_colour[i], sizeof (emr_selectobject_t), 1, emf_file);
 
                 rect = symbol->vector->rectangles;
                 this_rectangle = 0;
                 while (rect) {
-                    if ((i == 0 && rect->colour == -1) || rect->colour == i) {
-                        fwrite(&rectangle[this_rectangle], sizeof(emr_rectangle_t), 1, emf_file);
+                    if (rect->colour == i + 1) {
+                        fwrite(&rectangle[this_rectangle], sizeof (emr_rectangle_t), 1, emf_file);
                     }
                     this_rectangle++;
                     rect = rect->next;
@@ -751,42 +733,42 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
             }
         }
     } else {
-        fwrite(&emr_selectobject_fgbrush, sizeof(emr_selectobject_t), 1, emf_file);
+        fwrite(&emr_selectobject_fgbrush, sizeof (emr_selectobject_t), 1, emf_file);
 
         // Rectangles
         for (i = 0; i < rectangle_count; i++) {
-            fwrite(&rectangle[i], sizeof(emr_rectangle_t), 1, emf_file);
+            fwrite(&rectangle[i], sizeof (emr_rectangle_t), 1, emf_file);
         }
     }
 
     // Hexagons
     for (i = 0; i < hexagon_count; i++) {
-        fwrite(&hexagon[i], sizeof(emr_polygon_t), 1, emf_file);
+        fwrite(&hexagon[i], sizeof (emr_polygon_t), 1, emf_file);
     }
 
     // Circles
     if (symbol->symbology == BARCODE_MAXICODE) {
         // Bullseye needed
         for (i = 0; i < circle_count; i++) {
-            fwrite(&circle[i], sizeof(emr_ellipse_t), 1, emf_file);
+            fwrite(&circle[i], sizeof (emr_ellipse_t), 1, emf_file);
             if (i < circle_count - 1) {
                 if (i % 2) {
-                    fwrite(&emr_selectobject_fgbrush, sizeof(emr_selectobject_t), 1, emf_file);
+                    fwrite(&emr_selectobject_fgbrush, sizeof (emr_selectobject_t), 1, emf_file);
                 } else {
-                    fwrite(&emr_selectobject_bgbrush, sizeof(emr_selectobject_t), 1, emf_file);
+                    fwrite(&emr_selectobject_bgbrush, sizeof (emr_selectobject_t), 1, emf_file);
                 }
             }
         }
     } else {
         for (i = 0; i < circle_count; i++) {
-            fwrite(&circle[i], sizeof(emr_ellipse_t), 1, emf_file);
+            fwrite(&circle[i], sizeof (emr_ellipse_t), 1, emf_file);
         }
     }
 
     // Text
     if (string_count > 0) {
-        fwrite(&emr_selectobject_font, sizeof(emr_selectobject_t), 1, emf_file);
-        fwrite(&emr_settextcolor, sizeof(emr_settextcolor_t), 1, emf_file);
+        fwrite(&emr_selectobject_font, sizeof (emr_selectobject_t), 1, emf_file);
+        fwrite(&emr_settextcolor, sizeof (emr_settextcolor_t), 1, emf_file);
     }
 
     current_fsize = fsize;
@@ -794,26 +776,26 @@ INTERNAL int emf_plot(struct zint_symbol *symbol, int rotate_angle) {
     for (i = 0; i < string_count; i++) {
         if (text_fsizes[i] != current_fsize) {
             current_fsize = text_fsizes[i];
-            fwrite(&emr_selectobject_font2, sizeof(emr_selectobject_t), 1, emf_file);
+            fwrite(&emr_selectobject_font2, sizeof (emr_selectobject_t), 1, emf_file);
         }
         if (text_haligns[i] != current_halign) {
             current_halign = text_haligns[i];
             if (current_halign == 0) {
-                fwrite(&emr_settextalign, sizeof(emr_settextalign_t), 1, emf_file);
+                fwrite(&emr_settextalign, sizeof (emr_settextalign_t), 1, emf_file);
             } else if (current_halign == 1) {
-                fwrite(&emr_settextalign1, sizeof(emr_settextalign_t), 1, emf_file);
+                fwrite(&emr_settextalign1, sizeof (emr_settextalign_t), 1, emf_file);
             } else {
-                fwrite(&emr_settextalign2, sizeof(emr_settextalign_t), 1, emf_file);
+                fwrite(&emr_settextalign2, sizeof (emr_settextalign_t), 1, emf_file);
             }
         }
-        fwrite(&text[i], sizeof(emr_exttextoutw_t), 1, emf_file);
+        fwrite(&text[i], sizeof (emr_exttextoutw_t), 1, emf_file);
         fwrite(this_string[i], bump_up(text[i].w_emr_text.chars) * 2, 1, emf_file);
         free(this_string[i]);
     }
 
-    fwrite(&emr_eof, sizeof(emr_eof_t), 1, emf_file);
+    fwrite(&emr_eof, sizeof (emr_eof_t), 1, emf_file);
 
-    if (output_to_stdout) {
+    if (symbol->output_options & BARCODE_STDOUT) {
         fflush(emf_file);
     } else {
         fclose(emf_file);
