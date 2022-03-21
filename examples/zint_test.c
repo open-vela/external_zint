@@ -39,11 +39,13 @@ int main(int argc, char **argv) {
 #if GENERATE_BMP
     /* Generate bmp */
     memcpy(my_symbol->outfile, "/data/bijian.bmp", 16);
-    ret = ZBarcode_Encode_and_Print(my_symbol, "abf48wfg12gdnj3", 15, 0);
+    ret = ZBarcode_Encode_and_Print(my_symbol,
+        (const unsigned char *)"abf48wfg12gdnj3", 15, 0);
     printf("ZBarcode_Encode_and_Print ret = %d\n", ret);
 #else
     /* Generate array buff (RGB888, 3 bytes per pixel, row by row) */
-    ret = ZBarcode_Encode_and_Buffer(my_symbol, "123", 3, 0);
+    ret = ZBarcode_Encode_and_Buffer(my_symbol,
+        (const unsigned char *)"123", 3, 0);
     printf("ZBarcode_Encode_and_Buffer ret = %d\n", ret);
 #endif
 

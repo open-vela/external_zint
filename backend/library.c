@@ -1479,7 +1479,7 @@ int ZBarcode_Buffer_Vector(struct zint_symbol *symbol, int rotate_angle) {
     return error_tag(symbol->errtxt, error_number);
 }
 
-int ZBarcode_Encode_and_Print(struct zint_symbol *symbol, unsigned char *input, int length, int rotate_angle) {
+int ZBarcode_Encode_and_Print(struct zint_symbol *symbol, const unsigned char *input, int length, int rotate_angle) {
     int error_number;
     int first_err;
 
@@ -1496,7 +1496,7 @@ int ZBarcode_Encode_and_Print(struct zint_symbol *symbol, unsigned char *input, 
     return error_number;
 }
 
-int ZBarcode_Encode_and_Buffer(struct zint_symbol *symbol, unsigned char *input, int length, int rotate_angle) {
+int ZBarcode_Encode_and_Buffer(struct zint_symbol *symbol, const unsigned char *input, int length, int rotate_angle) {
     int error_number;
     int first_err;
 
@@ -1514,7 +1514,7 @@ int ZBarcode_Encode_and_Buffer(struct zint_symbol *symbol, unsigned char *input,
     return error_number;
 }
 
-int ZBarcode_Encode_and_Buffer_Vector(struct zint_symbol *symbol, unsigned char *input, int length, int rotate_angle) {
+int ZBarcode_Encode_and_Buffer_Vector(struct zint_symbol *symbol, const unsigned char *input, int length, int rotate_angle) {
     int error_number;
     int first_err;
 
@@ -1532,7 +1532,7 @@ int ZBarcode_Encode_and_Buffer_Vector(struct zint_symbol *symbol, unsigned char 
     return error_number;
 }
 
-int ZBarcode_Encode_File(struct zint_symbol *symbol, char *filename) {
+int ZBarcode_Encode_File(struct zint_symbol *symbol, const char *filename) {
     FILE *file;
     int file_opened = 0;
     unsigned char *buffer;
@@ -1610,7 +1610,7 @@ int ZBarcode_Encode_File(struct zint_symbol *symbol, char *filename) {
     return ret;
 }
 
-int ZBarcode_Encode_File_and_Print(struct zint_symbol *symbol, char *filename, int rotate_angle) {
+int ZBarcode_Encode_File_and_Print(struct zint_symbol *symbol, const char *filename, int rotate_angle) {
     int error_number;
     int first_err;
 
@@ -1628,7 +1628,7 @@ int ZBarcode_Encode_File_and_Print(struct zint_symbol *symbol, char *filename, i
     return error_number;
 }
 
-int ZBarcode_Encode_File_and_Buffer(struct zint_symbol *symbol, char *filename, int rotate_angle) {
+int ZBarcode_Encode_File_and_Buffer(struct zint_symbol *symbol, const char *filename, int rotate_angle) {
     int error_number;
     int first_err;
 
@@ -1646,7 +1646,7 @@ int ZBarcode_Encode_File_and_Buffer(struct zint_symbol *symbol, char *filename, 
     return error_number;
 }
 
-int ZBarcode_Encode_File_and_Buffer_Vector(struct zint_symbol *symbol, char *filename, int rotate_angle) {
+int ZBarcode_Encode_File_and_Buffer_Vector(struct zint_symbol *symbol, const char *filename, int rotate_angle) {
     int error_number;
     int first_err;
 
