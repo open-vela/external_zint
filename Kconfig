@@ -16,32 +16,34 @@
 
 menu "Zint Barcode Generator"
 
-config ZINT_ENABLE
+config LIB_ZINT
 	bool "Enable Zint Barcode"
 	default n
 	---help---
 		Enable the Zint Barcode
 
-if ZINT_ENABLE
-config ZINT_EXAMPLES
-	bool "Enable Zint examples"
+if LIB_ZINT
+
+config UTILS_ZINT
+	tristate "zint tool"
 	default n
 	---help---
-		Enable the Zint examples
+		Enable zint utility
 
-config ZINT_EXAMPLES_PROGNAME
-	string "Program name"
-	default "zint_test"
-	---help---
-        This is the name of the program that will be used when the NSH ELF program is installed.
+if UTILS_ZINT
+config UTILS_ZINT_PROGNAME
+	string "Programe Name"
+	default "zint"
 
-config ZINT_EXAMPLES_PRIORITY
-	int "zint example task priority"
+config UTILS_ZINT_PRIORITY
+	int "zint utility priority"
 	default 100
 
-config ZINT_EXAMPLES_STACKSIZE
-	int "zint example stack size"
+config UTILS_ZINT_STACKSIZE
+	int "zint utility statcksize"
 	default DEFAULT_TASK_STACKSIZE
+endif
+
 endif
 
 endmenu # Zint Barcode Generator
