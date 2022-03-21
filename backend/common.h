@@ -43,8 +43,6 @@
 #define TRUE    1
 #endif
 
-#define NO_PNG   1
-
 /* The most commonly used set */
 #define NEON   "0123456789"
 

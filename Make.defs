@@ -14,11 +14,6 @@
 # limitations under the License.
 #
 
-ifeq ($(CONFIG_ZINT_ENABLE),y)
+ifneq ($(CONFIG_LIB_ZINT),)
 CONFIGURED_APPS += $(APPDIR)/external/zint
-
-CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" \
-	$(APPDIR)/external/zint/backend}
-CXXFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" \
-	$(APPDIR)/external/zint/backend}
 endif
