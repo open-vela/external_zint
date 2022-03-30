@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2009-2020 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2021 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
  */
 /* vim: set ts=4 sw=4 et : */
 
+#include <errno.h>
 #include <locale.h>
 #include <stdio.h>
 #include <math.h>
@@ -39,11 +40,11 @@
 #endif
 #include "common.h"
 
-static void colour_to_pscolor(int option, int colour, char* output) {
-    strcpy(output, "");
+static void colour_to_pscolor(int option, int colour, char *output) {
+    *output = '\0';
     if ((option & CMYK_COLOUR) == 0) {
         // Use RGB colour space
-        switch(colour) {
+        switch (colour) {
             case 1: // Cyan
                 strcat(output, "0.00 1.00 1.00");
                 break;
@@ -72,7 +73,7 @@ static void colour_to_pscolor(int option, int colour, char* output) {
         strcat(output, " setrgbcolor");
     } else {
         // Use CMYK colour space
-        switch(colour) {
+        switch (colour) {
             case 1: // Cyan
                 strcat(output, "1.00 0.00 0.00 0.00");
                 break;
@@ -141,8 +142,8 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
     float ax, ay, bx, by, cx, cy, dx, dy, ex, ey, fx, fy;
     float previous_diameter;
     float radius, half_radius, half_sqrt3_radius;
-    int colour_index, colour_rect_counter;
-    char ps_color[30];
+    int colour_index, colour_rect_flag;
+    char ps_color[33]; /* max "1.00 0.00 0.00 0.00 setcmykcolor" = 32 + 1 */
     int draw_background = 1;
     struct zint_vector_rect *rect;
     struct zint_vector_hexagon *hex;
@@ -153,9 +154,16 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
     int i, len;
     int ps_len = 0;
     int iso_latin1 = 0;
+    int have_circles_with_width = 0, have_circles_without_width = 0;
+    const int output_to_stdout = symbol->output_options & BARCODE_STDOUT;
 #ifdef _MSC_VER
     unsigned char *ps_string;
 #endif
+
+    if (symbol->vector == NULL) {
+        strcpy(symbol->errtxt, "646: Vector header NULL");
+        return ZINT_ERROR_INVALID_DATA;
+    }
 
     if (strlen(symbol->bgcolour) > 6) {
         if ((ctoi(symbol->bgcolour[6]) == 0) && (ctoi(symbol->bgcolour[7]) == 0)) {
@@ -163,14 +171,13 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
         }
     }
 
-    if (symbol->output_options & BARCODE_STDOUT) {
+    if (output_to_stdout) {
         feps = stdout;
     } else {
-        feps = fopen(symbol->outfile, "w");
-    }
-    if (feps == NULL) {
-        strcpy(symbol->errtxt, "645: Could not open output file");
-        return ZINT_ERROR_FILE_ACCESS;
+        if (!(feps = fopen(symbol->outfile, "w"))) {
+            sprintf(symbol->errtxt, "645: Could not open output file (%d: %.30s)", errno, strerror(errno));
+            return ZINT_ERROR_FILE_ACCESS;
+        }
     }
 
     locale = setlocale(LC_ALL, "C");
@@ -257,38 +264,59 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
     ps_string = (unsigned char *) _alloca(ps_len + 1);
 #endif
 
+    /* Check for circle widths */
+    for (circle = symbol->vector->circles; circle; circle = circle->next) {
+        if (circle->width) {
+            have_circles_with_width = 1;
+        } else {
+            have_circles_without_width = 1;
+        }
+    }
+
     /* Start writing the header */
     fprintf(feps, "%%!PS-Adobe-3.0 EPSF-3.0\n");
     if (ZINT_VERSION_BUILD) {
-        fprintf(feps, "%%%%Creator: Zint %d.%d.%d.%d\n", ZINT_VERSION_MAJOR, ZINT_VERSION_MINOR, ZINT_VERSION_RELEASE, ZINT_VERSION_BUILD);
+        fprintf(feps, "%%%%Creator: Zint %d.%d.%d.%d\n",
+                ZINT_VERSION_MAJOR, ZINT_VERSION_MINOR, ZINT_VERSION_RELEASE, ZINT_VERSION_BUILD);
     } else {
         fprintf(feps, "%%%%Creator: Zint %d.%d.%d\n", ZINT_VERSION_MAJOR, ZINT_VERSION_MINOR, ZINT_VERSION_RELEASE);
     }
     fprintf(feps, "%%%%Title: Zint Generated Symbol\n");
     fprintf(feps, "%%%%Pages: 0\n");
-    fprintf(feps, "%%%%BoundingBox: 0 0 %d %d\n", (int) ceil(symbol->vector->width), (int) ceil(symbol->vector->height));
+    fprintf(feps, "%%%%BoundingBox: 0 0 %d %d\n",
+            (int) ceilf(symbol->vector->width), (int) ceilf(symbol->vector->height));
     fprintf(feps, "%%%%EndComments\n");
 
     /* Definitions */
-    fprintf(feps, "/TL { setlinewidth moveto lineto stroke } bind def\n");
-    fprintf(feps, "/TD { newpath 0 360 arc fill } bind def\n");
-    fprintf(feps, "/TH { 0 setlinewidth moveto lineto lineto lineto lineto lineto closepath fill } bind def\n");
+    if (have_circles_without_width) {
+        /* Disc: x y radius TD */
+        fprintf(feps, "/TD { newpath 0 360 arc fill } bind def\n");
+    }
+    if (have_circles_with_width) {
+        /* Circle (ring): x y radius width TC (adapted from BWIPP renmaxicode.ps) */
+        fprintf(feps, "/TC { newpath 4 1 roll 3 copy 0 360 arc closepath 4 -1 roll add 360 0 arcn closepath fill }"
+                        " bind def\n");
+    }
+    if (symbol->vector->hexagons) {
+        fprintf(feps, "/TH { 0 setlinewidth moveto lineto lineto lineto lineto lineto closepath fill } bind def\n");
+    }
     fprintf(feps, "/TB { 2 copy } bind def\n");
-    fprintf(feps, "/TR { newpath 4 1 roll exch moveto 1 index 0 rlineto 0 exch rlineto neg 0 rlineto closepath fill } bind def\n");
+    fprintf(feps, "/TR { newpath 4 1 roll exch moveto 1 index 0 rlineto 0 exch rlineto neg 0 rlineto closepath fill }"
+                    " bind def\n");
     fprintf(feps, "/TE { pop pop } bind def\n");
 
     fprintf(feps, "newpath\n");
 
     /* Now the actual representation */
-    
-    //Background
+
+    // Background
     if (draw_background) {
         if ((symbol->output_options & CMYK_COLOUR) == 0) {
             fprintf(feps, "%.2f %.2f %.2f setrgbcolor\n", red_paper, green_paper, blue_paper);
         } else {
             fprintf(feps, "%.2f %.2f %.2f %.2f setcmykcolor\n", cyan_paper, magenta_paper, yellow_paper, black_paper);
         }
-        
+
         fprintf(feps, "%.2f 0.00 TB 0.00 %.2f TR\n", symbol->vector->height, symbol->vector->width);
         fprintf(feps, "TE\n");
     }
@@ -303,18 +331,39 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
 
     // Rectangles
     if (symbol->symbology == BARCODE_ULTRA) {
-        for (colour_index = 0; colour_index <= 8; colour_index++) {
-            colour_rect_counter = 0;
+        colour_rect_flag = 0;
+        rect = symbol->vector->rectangles;
+        while (rect) {
+            if (rect->colour == -1) { // Foreground
+                if (colour_rect_flag == 0) {
+                    // Set foreground colour
+                    if ((symbol->output_options & CMYK_COLOUR) == 0) {
+                        fprintf(feps, "%.2f %.2f %.2f setrgbcolor\n", red_ink, green_ink, blue_ink);
+                    } else {
+                        fprintf(feps, "%.2f %.2f %.2f %.2f setcmykcolor\n",
+                                cyan_ink, magenta_ink, yellow_ink, black_ink);
+                    }
+                    colour_rect_flag = 1;
+                }
+                fprintf(feps, "%.2f %.2f TB %.2f %.2f TR\n",
+                        rect->height, (symbol->vector->height - rect->y) - rect->height, rect->x, rect->width);
+                fprintf(feps, "TE\n");
+            }
+            rect = rect->next;
+        }
+        for (colour_index = 1; colour_index <= 8; colour_index++) {
+            colour_rect_flag = 0;
             rect = symbol->vector->rectangles;
             while (rect) {
                 if (rect->colour == colour_index) {
-                    if (colour_rect_counter == 0) {
-                        //Set new colour
+                    if (colour_rect_flag == 0) {
+                        // Set new colour
                         colour_to_pscolor(symbol->output_options, colour_index, ps_color);
                         fprintf(feps, "%s\n", ps_color);
+                        colour_rect_flag = 1;
                     }
-                    colour_rect_counter++;
-                    fprintf(feps, "%.2f %.2f TB %.2f %.2f TR\n", rect->height, (symbol->vector->height - rect->y) - rect->height, rect->x, rect->width);
+                    fprintf(feps, "%.2f %.2f TB %.2f %.2f TR\n",
+                            rect->height, (symbol->vector->height - rect->y) - rect->height, rect->x, rect->width);
                     fprintf(feps, "TE\n");
                 }
                 rect = rect->next;
@@ -323,7 +372,8 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
     } else {
         rect = symbol->vector->rectangles;
         while (rect) {
-            fprintf(feps, "%.2f %.2f TB %.2f %.2f TR\n", rect->height, (symbol->vector->height - rect->y) - rect->height, rect->x, rect->width);
+            fprintf(feps, "%.2f %.2f TB %.2f %.2f TR\n",
+                    rect->height, (symbol->vector->height - rect->y) - rect->height, rect->x, rect->width);
             fprintf(feps, "TE\n");
             rect = rect->next;
         }
@@ -366,7 +416,8 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
             ex = hex->x + half_radius;
             fx = hex->x - half_radius;
         }
-        fprintf(feps, "%.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f TH\n", ax, ay, bx, by, cx, cy, dx, dy, ex, ey, fx, fy);
+        fprintf(feps, "%.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f TH\n",
+                ax, ay, bx, by, cx, cy, dx, dy, ex, ey, fx, fy);
         hex = hex->next;
     }
 
@@ -374,8 +425,8 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
     previous_diameter = radius = 0.0f;
     circle = symbol->vector->circles;
     while (circle) {
-        if (previous_diameter != circle->diameter) {
-            previous_diameter = circle->diameter;
+        if (previous_diameter != circle->diameter - circle->width) {
+            previous_diameter = circle->diameter - circle->width;
             radius = (float) (0.5 * previous_diameter);
         }
         if (circle->colour) {
@@ -383,9 +434,15 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
             if ((symbol->output_options & CMYK_COLOUR) == 0) {
                 fprintf(feps, "%.2f %.2f %.2f setrgbcolor\n", red_paper, green_paper, blue_paper);
             } else {
-                fprintf(feps, "%.2f %.2f %.2f %.2f setcmykcolor\n", cyan_paper, magenta_paper, yellow_paper, black_paper);
+                fprintf(feps, "%.2f %.2f %.2f %.2f setcmykcolor\n",
+                        cyan_paper, magenta_paper, yellow_paper, black_paper);
             }
-            fprintf(feps, "%.2f %.2f %.2f TD\n", circle->x, (symbol->vector->height - circle->y), radius);
+            if (circle->width) {
+                fprintf(feps, "%.2f %.2f %.3f %.3f TC\n",
+                        circle->x, (symbol->vector->height - circle->y), radius, circle->width);
+            } else {
+                fprintf(feps, "%.2f %.2f %.2f TD\n", circle->x, (symbol->vector->height - circle->y), radius);
+            }
             if (circle->next) {
                 if ((symbol->output_options & CMYK_COLOUR) == 0) {
                     fprintf(feps, "%.2f %.2f %.2f setrgbcolor\n", red_ink, green_ink, blue_ink);
@@ -395,7 +452,12 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
             }
         } else {
             // A 'black' circle
-            fprintf(feps, "%.2f %.2f %.2f TD\n", circle->x, (symbol->vector->height - circle->y), radius);
+            if (circle->width) {
+                fprintf(feps, "%.2f %.2f %.3f %.3f TC\n",
+                        circle->x, (symbol->vector->height - circle->y), radius, circle->width);
+            } else {
+                fprintf(feps, "%.2f %.2f %.2f TD\n", circle->x, (symbol->vector->height - circle->y), radius);
+            }
         }
         circle = circle->next;
     }
@@ -405,12 +467,14 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
     string = symbol->vector->strings;
 
     if (string) {
-        if ((symbol->output_options & BOLD_TEXT) && (!is_extendable(symbol->symbology) || (symbol->output_options & SMALL_TEXT))) {
+        if ((symbol->output_options & BOLD_TEXT)
+                && (!is_extendable(symbol->symbology) || (symbol->output_options & SMALL_TEXT))) {
             font = "Helvetica-Bold";
         } else {
             font = "Helvetica";
         }
-        if (iso_latin1) { /* Change encoding to ISO 8859-1, see Postscript Language Reference Manual 2nd Edition Example 5.6 */
+        if (iso_latin1) {
+            /* Change encoding to ISO 8859-1, see Postscript Language Reference Manual 2nd Edition Example 5.6 */
             fprintf(feps, "/%s findfont\n", font);
             fprintf(feps, "dup length dict begin\n");
             fprintf(feps, "{1 index /FID ne {def} {pop pop} ifelse} forall\n");
@@ -425,7 +489,8 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
             fprintf(feps, "matrix currentmatrix\n");
             fprintf(feps, "/%s findfont\n", font);
             fprintf(feps, "%.2f scalefont setfont\n", string->fsize);
-            fprintf(feps, " 0 0 moveto %.2f %.2f translate 0.00 rotate 0 0 moveto\n", string->x, (symbol->vector->height - string->y));
+            fprintf(feps, " 0 0 moveto %.2f %.2f translate 0.00 rotate 0 0 moveto\n",
+                    string->x, (symbol->vector->height - string->y));
             if (string->halign == 0 || string->halign == 2) { /* Need width for middle or right align */
                 fprintf(feps, " (%s) stringwidth\n", ps_string);
             }
@@ -446,9 +511,7 @@ INTERNAL int ps_plot(struct zint_symbol *symbol) {
         } while (string);
     }
 
-    //fprintf(feps, "\nshowpage\n");
-
-    if (symbol->output_options & BARCODE_STDOUT) {
+    if (output_to_stdout) {
         fflush(feps);
     } else {
         fclose(feps);

@@ -35,6 +35,8 @@
 
 // As control convert to Shift JIS using simple table generated from https://www.unicode.org/Public/MAPPINGS/OBSOLETE/EASTASIA/JIS/SHIFTJIS.TXT plus simple processing
 static int sjis_wctomb_zint2(unsigned int *r, unsigned int wc) {
+    int tab_length, start_i, end_i;
+    int i;
     if (wc < 0x20 || wc == 0x7F) {
         *r = wc;
         return 1;
@@ -67,10 +69,10 @@ static int sjis_wctomb_zint2(unsigned int *r, unsigned int wc) {
         }
         return 2;
     }
-    int tab_length = sizeof(test_sjis_tab) / sizeof(unsigned int);
-    int start_i = test_sjis_tab_ind[wc >> 10];
-    int end_i = start_i + 0x800 > tab_length ? tab_length : start_i + 0x800;
-    for (int i = start_i; i < end_i; i += 2) {
+    tab_length = sizeof(test_sjis_tab) / sizeof(unsigned int);
+    start_i = test_sjis_tab_ind[wc >> 10];
+    end_i = start_i + 0x800 > tab_length ? tab_length : start_i + 0x800;
+    for (i = start_i; i < end_i; i += 2) {
         if (test_sjis_tab[i + 1] == wc) {
             *r = test_sjis_tab[i];
             return *r > 0xFF ? 2 : 1;
@@ -81,12 +83,13 @@ static int sjis_wctomb_zint2(unsigned int *r, unsigned int wc) {
 
 static void test_sjis_wctomb_zint(void) {
 
-    testStart("");
-
     int ret, ret2;
     unsigned int val, val2;
+    unsigned int i;
 
-    for (unsigned int i = 0; i < 0xFFFE; i++) {
+    testStart("test_sjis_wctomb_zint");
+
+    for (i = 0; i < 0xFFFE; i++) {
         if (i >= 0xD800 && i <= 0xDFFF) { // UTF-16 surrogates
             continue;
         }
@@ -94,14 +97,14 @@ static void test_sjis_wctomb_zint(void) {
         ret = sjis_wctomb_zint(&val, i);
         ret2 = sjis_wctomb_zint2(&val2, i);
         if (i == 0xFF3C) { // Extra mapping full-width reverse solidus U+FF3C to 0x815F, duplicate of U+005C (backslash)
-            assert_equal(ret, 2, "i:%d 0x%04X ret %d != 2, val 0x%04X\n", i, i, ret, val);
-            assert_equal(val, 0x815F, "i:%d 0x%04X val 0x%04X != 0x815F\n", i, i, val);
-            assert_zero(ret2, "i:%d 0x%04X ret2 %d != 0, val2 0x%04X\n", i, i, ret2, val2);
+            assert_equal(ret, 2, "i:%d 0x%04X ret %d != 2, val 0x%04X\n", (int) i, i, ret, val);
+            assert_equal(val, 0x815F, "i:%d 0x%04X val 0x%04X != 0x815F\n", (int) i, i, val);
+            assert_zero(ret2, "i:%d 0x%04X ret2 %d != 0, val2 0x%04X\n", (int) i, i, ret2, val2);
         } else {
-            assert_equal(ret, ret2, "i:%d 0x%04X ret %d != ret2 %d, val 0x%04X, val2 0x%04X\n", i, i, ret, ret2, val, val2);
+            assert_equal(ret, ret2, "i:%d 0x%04X ret %d != ret2 %d, val 0x%04X, val2 0x%04X\n", (int) i, i, ret, ret2, val, val2);
         }
         if (ret2) {
-            assert_equal(val, val2, "i:%d 0x%04X val 0x%04X != val2 0x%04X\n", i, i, val, val2);
+            assert_equal(val, val2, "i:%d 0x%04X val 0x%04X != val2 0x%04X\n", (int) i, i, val, val2);
         }
     }
 
@@ -110,9 +113,6 @@ static void test_sjis_wctomb_zint(void) {
 
 static void test_sjis_utf8(int index) {
 
-    testStart("");
-
-    int ret;
     struct item {
         char *data;
         int length;
@@ -134,30 +134,35 @@ static void test_sjis_utf8(int index) {
     // テ U+30C6 katakana, in Shift JIS 0x8365 (\203\145), UTF-8 E38386
     // s/\/\*[ 0-9]*\*\//\=printf("\/*%3d*\/", line(".") - line("'<"))
     struct item data[] = {
-        /*  0*/ { "é", -1, ZINT_ERROR_INVALID_DATA, -1, {}, "" },
-        /*  1*/ { "~", -1, ZINT_ERROR_INVALID_DATA, -1, {}, "" },
+        /*  0*/ { "é", -1, ZINT_ERROR_INVALID_DATA, -1, {0}, "" },
+        /*  1*/ { "~", -1, ZINT_ERROR_INVALID_DATA, -1, {0}, "" },
         /*  2*/ { "β", -1, 0, 1, { 0x83C0 }, "" },
         /*  3*/ { "¥", -1, 0, 1, { 0x5C }, "" },
         /*  4*/ { "aβcЖ¥･ｿ‾\\＼点茗テ", -1, 0, 13, { 'a', 0x83C0, 'c', 0x8447, 0x5C, 0xA5, 0xBF, 0x7E, 0x815F, 0x815F, 0x935F, 0xE4AA, 0x8365 }, "" },
+        /*  5*/ { "\200", -1, ZINT_ERROR_INVALID_DATA, -1, {0}, "Invalid UTF-8" },
     };
+    int data_size = ARRAY_SIZE(data);
+    int i, length, ret;
 
-    int data_size = sizeof(data) / sizeof(struct item);
-
-    struct zint_symbol symbol;
+    struct zint_symbol symbol = {0};
     unsigned int jisdata[20];
 
-    for (int i = 0; i < data_size; i++) {
+    testStart("test_sjis_utf8");
+
+    for (i = 0; i < data_size; i++) {
+        int ret_length;
 
         if (index != -1 && i != index) continue;
 
-        int length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
-        int ret_length = length;
+        length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
+        ret_length = length;
 
         ret = sjis_utf8(&symbol, (unsigned char *) data[i].data, &ret_length, jisdata);
         assert_equal(ret, data[i].ret, "i:%d ret %d != %d (%s)\n", i, ret, data[i].ret, symbol.errtxt);
         if (ret == 0) {
+            int j;
             assert_equal(ret_length, data[i].ret_length, "i:%d ret_length %d != %d\n", i, ret_length, data[i].ret_length);
-            for (int j = 0; j < (int) ret_length; j++) {
+            for (j = 0; j < ret_length; j++) {
                 assert_equal(jisdata[j], data[i].expected_jisdata[j], "i:%d jisdata[%d] %04X != %04X\n", i, j, jisdata[j], data[i].expected_jisdata[j]);
             }
         }
@@ -168,9 +173,6 @@ static void test_sjis_utf8(int index) {
 
 static void test_sjis_utf8_to_eci(int index) {
 
-    testStart("");
-
-    int ret;
     struct item {
         int eci;
         int full_multibyte;
@@ -194,8 +196,8 @@ static void test_sjis_utf8_to_eci(int index) {
     struct item data[] = {
         /*  0*/ { 3, 0, "é", -1, 0, 1, { 0xE9 }, "" },
         /*  1*/ { 3, 1, "é", -1, 0, 1, { 0xE9 }, "" },
-        /*  2*/ { 3, 0, "β", -1, ZINT_ERROR_INVALID_DATA, -1, {}, "" },
-        /*  3*/ { 3, 1, "β", -1, ZINT_ERROR_INVALID_DATA, -1, {}, "" },
+        /*  2*/ { 3, 0, "β", -1, ZINT_ERROR_INVALID_DATA, -1, {0}, "" },
+        /*  3*/ { 3, 1, "β", -1, ZINT_ERROR_INVALID_DATA, -1, {0}, "" },
         /*  4*/ { 9, 0, "β", -1, 0, 1, { 0xE2 }, "" },
         /*  5*/ { 9, 1, "β", -1, 0, 1, { 0xE2 }, "" },
         /*  6*/ { 3, 0, "¥", -1, 0, 1, { 0xA5 }, "" },
@@ -210,7 +212,7 @@ static void test_sjis_utf8_to_eci(int index) {
         /* 15*/ { 20, 1, "\\\\", -1, 0, 2, { 0x815F, 0x815F }, "Shift JIS reverse solidus (backslash) mapping from ASCII to double byte" },
         /* 16*/ { 20, 0, "爍", -1, 0, 2, { 0xE0, 0xA1 }, "Shift JIS U+720D" },
         /* 17*/ { 20, 1, "爍", -1, 0, 1, { 0xE0A1 }, "Shift JIS" },
-        /* 18*/ { 20, 0, "~", -1, ZINT_ERROR_INVALID_DATA, -1, {}, "ASCII tilde not in Shift JIS" },
+        /* 18*/ { 20, 0, "~", -1, ZINT_ERROR_INVALID_DATA, -1, {0}, "ASCII tilde not in Shift JIS" },
         /* 19*/ { 25, 0, "12", -1, 0, 4, { 0x00, 0x31, 0x00, 0x32 }, "UCS-2BE ASCII" },
         /* 20*/ { 25, 0, "", -1, 0, 4, { 0x00, 0x81, 0x00, 0x81 }, "UCS-2BE U+0081" },
         /* 21*/ { 25, 1, "", -1, 0, 4, { 0x00, 0x81, 0x00, 0x81 }, "UCS-2BE outside QR Kanji mode range" },
@@ -223,30 +225,34 @@ static void test_sjis_utf8_to_eci(int index) {
         /* 28*/ { 29, 0, "¨¨", -1, 0, 4, { 0xA1, 0xA7, 0xA1, 0xA7 }, "GB 2312 U+00A8" },
         /* 29*/ { 29, 1, "¨¨", -1, 0, 4, { 0xA1, 0xA7, 0xA1, 0xA7 }, "GB 2312 outside QR Kanji mode range" },
         /* 30*/ { 29, 0, "崂", -1, 0, 2, { 0xE1, 0xC0 }, "GB 2312 U+5D02" },
-        /* 31*/ { 29, 0, "釦", -1, ZINT_ERROR_INVALID_DATA, -1, {}, "GB 18030 U+91E6 not in GB 2312" },
+        /* 31*/ { 29, 0, "釦", -1, ZINT_ERROR_INVALID_DATA, -1, {0}, "GB 18030 U+91E6 not in GB 2312" },
         /* 32*/ { 29, 1, "崂", -1, 0, 1, { 0xE1C0 }, "GB 2312 in QR Kanji mode range" },
         /* 33*/ { 30, 0, "¡¡", -1, 0, 4, { 0x22 + 0x80, 0x2E + 0x80, 0x22 + 0x80, 0x2E + 0x80 }, "EUC-KR U+00A1 (0xA2AE)" },
         /* 34*/ { 30, 1, "¡¡", -1, 0, 4, { 0x22 + 0x80, 0x2E + 0x80, 0x22 + 0x80, 0x2E + 0x80 }, "EUC-KR 0xA2AE outside QR Kanji mode range" },
         /* 35*/ { 30, 0, "詰", -1, 0, 2, { 0x7D + 0x80, 0x7E + 0x80 }, "EUC-KR U+8A70 (0xFDFE)" },
         /* 36*/ { 30, 1, "詰", -1, 0, 2, { 0x7D + 0x80, 0x7E + 0x80 }, "EUC-KR > 0xEBBF so not in QR Kanji mode range" },
     };
-
-    int data_size = sizeof(data) / sizeof(struct item);
+    int data_size = ARRAY_SIZE(data);
+    int i, length, ret;
 
     unsigned int jisdata[20];
 
-    for (int i = 0; i < data_size; i++) {
+    testStart("test_sjis_utf8_to_eci");
+
+    for (i = 0; i < data_size; i++) {
+        int ret_length;
 
         if (index != -1 && i != index) continue;
 
-        int length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
-        int ret_length = length;
+        length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
+        ret_length = length;
 
         ret = sjis_utf8_to_eci(data[i].eci, (unsigned char *) data[i].data, &ret_length, jisdata, data[i].full_multibyte);
         assert_equal(ret, data[i].ret, "i:%d ret %d != %d\n", i, ret, data[i].ret);
         if (ret == 0) {
+            int j;
             assert_equal(ret_length, data[i].ret_length, "i:%d ret_length %d != %d\n", i, ret_length, data[i].ret_length);
-            for (int j = 0; j < (int) ret_length; j++) {
+            for (j = 0; j < ret_length; j++) {
                 assert_equal(jisdata[j], data[i].expected_jisdata[j], "i:%d jisdata[%d] 0x%04X != 0x%04X\n", i, j, jisdata[j], data[i].expected_jisdata[j]);
             }
         }
@@ -256,8 +262,6 @@ static void test_sjis_utf8_to_eci(int index) {
 }
 
 static void test_sjis_cpy(int index) {
-
-    testStart("");
 
     struct item {
         int full_multibyte;
@@ -280,21 +284,25 @@ static void test_sjis_cpy(int index) {
         /*  7*/ { 0, "\201\077\201\100\237\374\237\375\340\077\340\100\353\277\353\300", -1, 0, 16, { 0x81, 0x3F, 0x81, 0x40, 0x9F, 0xFC, 0x9F, 0xFD, 0xE0, 0x3F, 0xE0, 0x40, 0xEB, 0xBF, 0xEB, 0xC0 }, "" },
         /*  8*/ { 1, "\201\077\201\100\237\374\237\375\340\077\340\100\353\277\353\300", -1, 0, 12, { 0x81, 0x3F, 0x8140, 0x9FFC, 0x9F, 0xFD, 0xE0, 0x3F, 0xE040, 0xEBBF, 0xEB, 0xC0 }, "" },
     };
-
-    int data_size = sizeof(data) / sizeof(struct item);
+    int data_size = ARRAY_SIZE(data);
+    int i, length;
 
     unsigned int jisdata[20];
 
-    for (int i = 0; i < data_size; i++) {
+    testStart("test_sjis_cpy");
+
+    for (i = 0; i < data_size; i++) {
+        int ret_length;
+        int j;
 
         if (index != -1 && i != index) continue;
 
-        int length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
-        int ret_length = length;
+        length = data[i].length == -1 ? (int) strlen(data[i].data) : data[i].length;
+        ret_length = length;
 
         sjis_cpy((unsigned char *) data[i].data, &ret_length, jisdata, data[i].full_multibyte);
         assert_equal(ret_length, data[i].ret_length, "i:%d ret_length %d != %d\n", i, ret_length, data[i].ret_length);
-        for (int j = 0; j < (int) ret_length; j++) {
+        for (j = 0; j < ret_length; j++) {
             assert_equal(jisdata[j], data[i].expected_jisdata[j], "i:%d jisdata[%d] %04X != %04X\n", i, j, jisdata[j], data[i].expected_jisdata[j]);
         }
     }
