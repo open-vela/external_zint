@@ -17,6 +17,3 @@ win32/Debug
 win32/Release
 win32/x64
 extern/*
-.built
-.depend
-Make.dep
