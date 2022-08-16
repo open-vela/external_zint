@@ -1,7 +1,7 @@
-/* qr.h Data for QR Code, Micro QR Code and rMQR
-
+/* qr.h Data for QR Code, Micro QR Code and rMQR */
+/*
     libzint - the open source barcode library
-    Copyright (C) 2008 - 2020 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2008-2022 Robin Stuart <rstuart114@gmail.com>
     Copyright (C) 2006 Kentaro Fukuchi <fukuchi@megaui.net>
 
     Redistribution and use in source and binary forms, with or without
@@ -29,14 +29,10 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
+/* SPDX-License-Identifier: BSD-3-Clause */
 
-#define LEVEL_L    1
-#define LEVEL_M    2
-#define LEVEL_Q    3
-#define LEVEL_H    4
-
-#define QR_PERCENT  38 /* Alphanumeric mode % */
+#ifndef Z_QR_H
+#define Z_QR_H
 
 /* From ISO/IEC 18004:2015 Table 5 Encoding/decoding table for Alphanumeric mode */
 static const char qr_alphanumeric[59] = {
@@ -46,41 +42,38 @@ static const char qr_alphanumeric[59] = {
     25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35                      /* P-Z */
 };
 
-#define RMQR_VERSION    100
-#define MICROQR_VERSION 200
-
 /* From ISO/IEC 18004:2015 Table 7 */
-static const unsigned short int qr_data_codewords_L[] = {
+static const unsigned short qr_data_codewords_L[] = {
     19, 34, 55, 80, 108, 136, 156, 194, 232, 274, 324, 370, 428, 461, 523, 589, 647,
     721, 795, 861, 932, 1006, 1094, 1174, 1276, 1370, 1468, 1531, 1631,
     1735, 1843, 1955, 2071, 2191, 2306, 2434, 2566, 2702, 2812, 2956
 };
 
-static const unsigned short int qr_data_codewords_M[] = {
+static const unsigned short qr_data_codewords_M[] = {
     16, 28, 44, 64, 86, 108, 124, 154, 182, 216, 254, 290, 334, 365, 415, 453, 507,
     563, 627, 669, 714, 782, 860, 914, 1000, 1062, 1128, 1193, 1267,
     1373, 1455, 1541, 1631, 1725, 1812, 1914, 1992, 2102, 2216, 2334
 };
 
-static const unsigned short int qr_data_codewords_Q[] = {
+static const unsigned short qr_data_codewords_Q[] = {
     13, 22, 34, 48, 62, 76, 88, 110, 132, 154, 180, 206, 244, 261, 295, 325, 367,
     397, 445, 485, 512, 568, 614, 664, 718, 754, 808, 871, 911,
     985, 1033, 1115, 1171, 1231, 1286, 1354, 1426, 1502, 1582, 1666
 };
 
-static const unsigned short int qr_data_codewords_H[] = {
+static const unsigned short qr_data_codewords_H[] = {
     9, 16, 26, 36, 46, 60, 66, 86, 100, 122, 140, 158, 180, 197, 223, 253, 283,
     313, 341, 385, 406, 442, 464, 514, 538, 596, 628, 661, 701,
     745, 793, 845, 901, 961, 986, 1054, 1096, 1142, 1222, 1276
 };
 
-static const unsigned short int qr_total_codewords[] = {
+static const unsigned short qr_total_codewords[] = {
     26, 44, 70, 100, 134, 172, 196, 242, 292, 346, 404, 466, 532, 581, 655, 733, 815,
     901, 991, 1085, 1156, 1258, 1364, 1474, 1588, 1706, 1828, 1921, 2051,
     2185, 2323, 2465, 2611, 2761, 2876, 3034, 3196, 3362, 3532, 3706
 };
 
-static const unsigned short int rmqr_height[] = {
+static const unsigned short rmqr_height[] = {
     7, 7, 7, 7, 7,
     9, 9, 9, 9, 9,
     11, 11, 11, 11, 11, 11,
@@ -89,7 +82,7 @@ static const unsigned short int rmqr_height[] = {
     17, 17, 17, 17, 17
 };
 
-static const unsigned short int rmqr_width[] = {
+static const unsigned short rmqr_width[] = {
     43, 59, 77, 99, 139,
     43, 59, 77, 99, 139,
     27, 43, 59, 77, 99, 139,
@@ -98,49 +91,49 @@ static const unsigned short int rmqr_width[] = {
     43, 59, 77, 99, 139
 };
 
-static const unsigned short int rmqr_data_codewords_M[] = {
-    6, 12, 20, 28, 44, // R7x
-    12, 21, 31, 42, 63, // R9x
-    7, 19, 31, 43, 57, 84, // R11x
-    12, 27, 38, 53, 73, 106, // R13x
-    33, 48, 67, 88, 127, // R15x
-    39, 56, 78, 100, 152 // R17x
+static const unsigned short rmqr_data_codewords_M[] = {
+    6, 12, 20, 28, 44, /* R7x */
+    12, 21, 31, 42, 63, /* R9x */
+    7, 19, 31, 43, 57, 84, /* R11x */
+    12, 27, 38, 53, 73, 106, /* R13x */
+    33, 48, 67, 88, 127, /* R15x */
+    39, 56, 78, 100, 152 /* R17x */
 };
 
-static const unsigned short int rmqr_data_codewords_H[] = {
-    3, 7, 10, 14, 24, // R7x
-    7, 11, 17, 22, 33, // R9x
-    5, 11, 15, 23, 29, 42, // R11x
-    7, 13, 20, 29, 35, 54, // R13x
-    15, 26, 31, 48, 69, // R15x
-    21, 28, 38, 56, 76 // R17x
+static const unsigned short rmqr_data_codewords_H[] = {
+    3, 7, 10, 14, 24, /* R7x */
+    7, 11, 17, 22, 33, /* R9x */
+    5, 11, 15, 23, 29, 42, /* R11x */
+    7, 13, 20, 29, 35, 54, /* R13x */
+    15, 26, 31, 48, 69, /* R15x */
+    21, 28, 38, 56, 76 /* R17x */
 };
 
-static const short int rmqr_fixed_height_upper_bound[] = {
+static const short rmqr_fixed_height_upper_bound[] = {
     -1, 4, 9, 15, 21, 26, 31
 };
 
-static const unsigned short int rmqr_total_codewords[] = {
-    13, 21, 32, 44, 68, // R7x
-    21, 33, 49, 66, 99, // R9x
-    15, 31, 47, 67, 89, 132, // R11x
-    21, 41, 60, 85, 113, 166, // R13x
-    51, 74, 103, 136, 199, // R15x
-    61, 88, 122, 160, 232 // R17x
+static const unsigned short rmqr_total_codewords[] = {
+    13, 21, 32, 44, 68, /* R7x */
+    21, 33, 49, 66, 99, /* R9x */
+    15, 31, 47, 67, 89, 132, /* R11x */
+    21, 41, 60, 85, 113, 166, /* R13x */
+    51, 74, 103, 136, 199, /* R15x */
+    61, 88, 122, 160, 232 /* R17x */
 };
 
 
-static const unsigned short int rmqr_numeric_cci[] = {
+static const unsigned short rmqr_numeric_cci[] = {
     4, 5, 6, 7, 7,
     5, 6, 7, 7, 8,
+    4, 6, 7, 7, 8, 8,
     5, 6, 7, 7, 8, 8,
-    5, 7, 7, 8, 8, 8,
     7, 7, 8, 8, 9,
     7, 8, 8, 8, 9
 };
 
-static const unsigned short int rmqr_alphanum_cci[] = {
-    4, 5, 5, 6, 6,
+static const unsigned short rmqr_alphanum_cci[] = {
+    3, 5, 5, 6, 6,
     5, 5, 6, 6, 7,
     4, 5, 6, 6, 7, 7,
     5, 6, 6, 7, 7, 8,
@@ -148,7 +141,7 @@ static const unsigned short int rmqr_alphanum_cci[] = {
     6, 7, 7, 8, 8
 };
 
-static const unsigned short int rmqr_byte_cci[] = {
+static const unsigned short rmqr_byte_cci[] = {
     3, 4, 5, 5, 6,
     4, 5, 5, 6, 6,
     3, 5, 5, 6, 6, 7,
@@ -157,7 +150,7 @@ static const unsigned short int rmqr_byte_cci[] = {
     6, 6, 7, 7, 8
 };
 
-static const unsigned short int rmqr_kanji_cci[] = {
+static const unsigned short rmqr_kanji_cci[] = {
     2, 3, 4, 5, 5,
     3, 4, 5, 5, 6,
     2, 4, 5, 5, 6, 6,
@@ -187,24 +180,24 @@ static const char qr_blocks_H[] = {
 };
 
 static const char rmqr_blocks_M[] = {
-    1, 1, 1, 1, 1, // R7x
-    1, 1, 1, 1, 2, // R9x
-    1, 1, 1, 1, 2, 2, // R11x
-    1, 1, 1, 2, 2, 3, // R13x
-    1, 1, 2, 2, 3, // R15x
-    1, 2, 2, 3, 4 // R17x
+    1, 1, 1, 1, 1, /* R7x */
+    1, 1, 1, 1, 2, /* R9x */
+    1, 1, 1, 1, 2, 2, /* R11x */
+    1, 1, 1, 2, 2, 3, /* R13x */
+    1, 1, 2, 2, 3, /* R15x */
+    1, 2, 2, 3, 4 /* R17x */
 };
 
 static const char rmqr_blocks_H[] = {
-    1, 1, 1, 1, 2, // R7x
-    1, 1, 2, 2, 3, // R9x
-    1, 1, 2, 2, 2, 3, // R11x
-    1, 1, 2, 2, 3, 4, // R13x
-    2, 2, 3, 4, 5, // R15x
-    2, 2, 3, 4, 6 // R17x
+    1, 1, 1, 1, 2, /* R7x */
+    1, 1, 2, 2, 3, /* R9x */
+    1, 1, 2, 2, 2, 3, /* R11x */
+    1, 1, 2, 2, 3, 4, /* R13x */
+    2, 2, 3, 4, 5, /* R15x */
+    2, 2, 3, 4, 6 /* R17x */
 };
 
-static const unsigned short int qr_sizes[] = {
+static const unsigned short qr_sizes[] = {
     21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 73, 77, 81, 85, 89, 93, 97,
     101, 105, 109, 113, 117, 121, 125, 129, 133, 137, 141, 145, 149, 153, 157, 161, 165, 169, 173, 177
 };
@@ -217,8 +210,8 @@ static const char qr_align_loopsize[] = {
     0, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7
 };
 
-// Table E1 - Row/column coordinates of center module of alignment patterns
-static const unsigned short int qr_table_e1[] = {
+/* Table E1 - Row/column coordinates of center module of alignment patterns */
+static const unsigned short qr_table_e1[] = {
     6, 18, 0, 0, 0, 0, 0,
     6, 22, 0, 0, 0, 0, 0,
     6, 26, 0, 0, 0, 0, 0,
@@ -260,8 +253,8 @@ static const unsigned short int qr_table_e1[] = {
     6, 30, 58, 86, 114, 142, 170
 };
 
-// Table D1 - Column coordinates of centre module of alignment patterns
-static const unsigned short int rmqr_table_d1[] = {
+/* Table D1 - Column coordinates of centre module of alignment patterns */
+static const unsigned short rmqr_table_d1[] = {
     21, 0, 0, 0,
     19, 39, 0, 0,
     25, 51, 0, 0,
@@ -312,3 +305,6 @@ static const unsigned int rmqr_format_info_right[] = {
     0x129B9, 0x1369C, 0x14A08, 0x1552D, 0x16B67, 0x17442, 0x18D6A, 0x1924F, 0x1AC05, 0x1B320,
     0x1CFB4, 0x1D091, 0x1EEDB, 0x1F1FE
 };
+
+/* vim: set ts=4 sw=4 et : */
+#endif /* Z_QR_H */
