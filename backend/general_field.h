@@ -1,6 +1,6 @@
 /*
     libzint - the open source barcode library
-    Copyright (C) 2019-2022 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2019 - 2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -27,9 +27,10 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
+/* vim: set ts=4 sw=4 et : */
 
-#ifndef Z_GENERAL_FIELD_H
-#define Z_GENERAL_FIELD_H
+#ifndef __GENERAL_FIELD_H
+#define __GENERAL_FIELD_H
 
 #define NUMERIC         110
 #define ALPHANUMERIC    97
@@ -46,5 +47,4 @@ INTERNAL int general_field_encode(const char *general_field, const int general_f
 }
 #endif /* __cplusplus */
 
-/* vim: set ts=4 sw=4 et : */
-#endif /* Z_GENERAL_FIELD_H */
+#endif /* __GENERAL_FIELD_H */
