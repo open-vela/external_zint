@@ -1,7 +1,7 @@
-/*  hanxin.c - Han Xin Code */
-/*
+/*  hanxin.c - Han Xin Code
+
     libzint - the open source barcode library
-    Copyright (C) 2009-2022 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2021 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -28,30 +28,35 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* SPDX-License-Identifier: BSD-3-Clause */
+/* vim: set ts=4 sw=4 et : */
 
-/* This code attempts to implement Han Xin Code according to ISO/IEC 20830:2021
- * (previously ISO/IEC 20830 (draft 2019-10-10) and AIMD-015:2010 (Rev 0.8)) */
+/* This code attempts to implement Han Xin Code according to ISO/IEC 20830 (draft 2019-10-10)
+ * (previously AIMD-015:2010 (Rev 0.8)) */
 
 #include <stdio.h>
+#ifdef _MSC_VER
+#include <malloc.h>
+#endif
 #include "common.h"
 #include "reedsol.h"
 #include "hanxin.h"
+#include "gb2312.h"
+#include "gb18030.h"
 #include "eci.h"
 #include <assert.h>
 
 /* Find which submode to use for a text character */
-static int hx_getsubmode(const unsigned int input) {
+static int getsubmode(const unsigned int input) {
 
-    if (z_isdigit(input)) {
+    if ((input >= '0') && (input <= '9')) {
         return 1;
     }
 
-    if (z_isupper(input)) {
+    if ((input >= 'A') && (input <= 'Z')) {
         return 1;
     }
 
-    if (z_islower(input)) {
+    if ((input >= 'a') && (input <= 'z')) {
         return 1;
     }
 
@@ -59,7 +64,7 @@ static int hx_getsubmode(const unsigned int input) {
 }
 
 /* Return length of terminator for encoding mode */
-static int hx_terminator_length(const char mode) {
+static int terminator_length(const char mode) {
     int result = 0;
 
     switch (mode) {
@@ -82,7 +87,7 @@ static int hx_terminator_length(const char mode) {
 }
 
 /* Calculate the length of the binary string */
-static int hx_calc_binlen(const char mode[], const unsigned int ddata[], const int length, const int eci) {
+static int calculate_binlength(const char mode[], const unsigned int source[], const int length, const int eci) {
     int i;
     char lastmode = '\0';
     int est_binlen = 0;
@@ -104,7 +109,7 @@ static int hx_calc_binlen(const char mode[], const unsigned int ddata[], const i
     do {
         if (mode[i] != lastmode) {
             if (i > 0) {
-                est_binlen += hx_terminator_length(lastmode);
+                est_binlen += terminator_length(lastmode);
             }
             /* GB 4-byte has indicator for each character (and no terminator) so not included here */
             /* Region1/Region2 have special terminator to go directly into each other's mode so not included here */
@@ -126,14 +131,14 @@ static int hx_calc_binlen(const char mode[], const unsigned int ddata[], const i
                 numeric_run++;
                 break;
             case 't':
-                if (hx_getsubmode(ddata[i]) != submode) {
+                if (getsubmode(source[i]) != submode) {
                     est_binlen += 6;
-                    submode = hx_getsubmode(ddata[i]);
+                    submode = getsubmode(source[i]);
                 }
                 est_binlen += 6;
                 break;
             case 'b':
-                est_binlen += ddata[i] > 0xFF ? 16 : 8;
+                est_binlen += source[i] > 0xFF ? 16 : 8;
                 break;
             case '1':
             case '2':
@@ -150,29 +155,12 @@ static int hx_calc_binlen(const char mode[], const unsigned int ddata[], const i
         i++;
     } while (i < length);
 
-    est_binlen += hx_terminator_length(lastmode);
+    est_binlen += terminator_length(lastmode);
 
     return est_binlen;
 }
 
-/* Call `hx_calc_binlen()` for each segment */
-static int hx_calc_binlen_segs(const char mode[], const unsigned int ddata[], const struct zint_seg segs[],
-            const int seg_count) {
-    int i;
-    int count = 0;
-    const unsigned int *dd = ddata;
-    const char *m = mode;
-
-    for (i = 0; i < seg_count; i++) {
-        count += hx_calc_binlen(m, dd, segs[i].length, segs[i].eci);
-        m += segs[i].length;
-        dd += segs[i].length;
-    }
-
-    return count;
-}
-
-static int hx_isRegion1(const unsigned int glyph) {
+static int isRegion1(const unsigned int glyph) {
     unsigned int byte;
 
     byte = glyph >> 8;
@@ -194,7 +182,7 @@ static int hx_isRegion1(const unsigned int glyph) {
     return 0;
 }
 
-static int hx_isRegion2(const unsigned int glyph) {
+static int isRegion2(const unsigned int glyph) {
     unsigned int byte;
 
     byte = glyph >> 8;
@@ -209,7 +197,7 @@ static int hx_isRegion2(const unsigned int glyph) {
     return 0;
 }
 
-static int hx_isDoubleByte(const unsigned int glyph) {
+static int isDoubleByte(const unsigned int glyph) {
     unsigned int byte;
 
     byte = glyph >> 8;
@@ -227,7 +215,7 @@ static int hx_isDoubleByte(const unsigned int glyph) {
     return 0;
 }
 
-static int hx_isFourByte(const unsigned int glyph, const unsigned int glyph2) {
+static int isFourByte(const unsigned int glyph, const unsigned int glyph2) {
     unsigned int byte;
 
     byte = glyph >> 8;
@@ -249,17 +237,17 @@ static int hx_isFourByte(const unsigned int glyph, const unsigned int glyph2) {
 }
 
 /* Convert Text 1 sub-mode character to encoding value, as given in table 3 */
-static int hx_lookup_text1(const unsigned int input) {
+static int lookup_text1(const unsigned int input) {
 
-    if (z_isdigit(input)) {
+    if ((input >= '0') && (input <= '9')) {
         return input - '0';
     }
 
-    if (z_isupper(input)) {
+    if ((input >= 'A') && (input <= 'Z')) {
         return input - 'A' + 10;
     }
 
-    if (z_islower(input)) {
+    if ((input >= 'a') && (input <= 'z')) {
         return input - 'a' + 36;
     }
 
@@ -267,7 +255,7 @@ static int hx_lookup_text1(const unsigned int input) {
 }
 
 /* Convert Text 2 sub-mode character to encoding value, as given in table 4 */
-static int hx_lookup_text2(const unsigned int input) {
+static int lookup_text2(const unsigned int input) {
 
     if (input <= 27) {
         return input;
@@ -299,7 +287,7 @@ static int hx_lookup_text2(const unsigned int input) {
 
 /* Whether in numeric or not. If in numeric, *p_end is set to position after numeric,
  * and *p_cost is set to per-numeric cost */
-static int hx_in_numeric(const unsigned int ddata[], const int length, const int in_posn,
+static int in_numeric(const unsigned int gbdata[], const int length, const int in_posn,
             unsigned int *p_end, unsigned int *p_cost) {
     int i, digit_cnt;
 
@@ -308,7 +296,7 @@ static int hx_in_numeric(const unsigned int ddata[], const int length, const int
     }
 
     /* Attempt to calculate the average 'cost' of using numeric mode in number of bits (times HX_MULT) */
-    for (i = in_posn; i < length && i < in_posn + 4 && z_isdigit(ddata[i]); i++);
+    for (i = in_posn; i < length && i < in_posn + 4 && gbdata[i] >= '0' && gbdata[i] <= '9'; i++);
 
     digit_cnt = i - in_posn;
 
@@ -317,20 +305,19 @@ static int hx_in_numeric(const unsigned int ddata[], const int length, const int
         return 0;
     }
     *p_end = i;
-    *p_cost = digit_cnt == 1
-                ? 60 /* 10 * HX_MULT */ : digit_cnt == 2 ? 30 /* (10 / 2) * HX_MULT */ : 20 /* (10 / 3) * HX_MULT */;
+    *p_cost = digit_cnt == 1 ? 60 /* 10 * HX_MULT */ : digit_cnt == 2 ? 30 /* (10 / 2) * HX_MULT */ : 20 /* (10 / 3) * HX_MULT */;
     return 1;
 }
 
 /* Whether in four-byte or not. If in four-byte, *p_fourbyte is set to position after four-byte,
  * and *p_fourbyte_cost is set to per-position cost */
-static int hx_in_fourbyte(const unsigned int ddata[], const int length, const int in_posn,
+static int in_fourbyte(const unsigned int gbdata[], const int length, const int in_posn,
             unsigned int *p_end, unsigned int *p_cost) {
     if (in_posn < (int) *p_end) {
         return 1;
     }
 
-    if (in_posn == length - 1 || !hx_isFourByte(ddata[in_posn], ddata[in_posn + 1])) {
+    if (in_posn == length - 1 || !isFourByte(gbdata[in_posn], gbdata[in_posn + 1])) {
         *p_end = 0;
         return 0;
     }
@@ -353,12 +340,12 @@ static int hx_in_fourbyte(const unsigned int ddata[], const int length, const in
 
 /* Calculate optimized encoding modes. Adapted from Project Nayuki */
 /* Copyright (c) Project Nayuki. (MIT License) See qr.c for detailed notice */
-static void hx_define_mode(char *mode, const unsigned int ddata[], const int length, const int debug_print) {
+static void hx_define_mode(char *mode, const unsigned int gbdata[], const int length, const int debug) {
     /* Must be in same order as HX_N etc */
     static const char mode_types[] = { 'n', 't', 'b', '1', '2', 'd', 'f', '\0' };
 
     /* Initial mode costs */
-    static const unsigned int head_costs[HX_NUM_MODES] = {
+    static unsigned int head_costs[HX_NUM_MODES] = {
     /*  N            T            B                   1            2            D            F */
         4 * HX_MULT, 4 * HX_MULT, (4 + 13) * HX_MULT, 4 * HX_MULT, 4 * HX_MULT, 4 * HX_MULT, 0
     };
@@ -389,7 +376,11 @@ static void hx_define_mode(char *mode, const unsigned int ddata[], const int len
     char cur_mode;
     unsigned int prev_costs[HX_NUM_MODES];
     unsigned int cur_costs[HX_NUM_MODES];
-    char *char_modes = (char *) z_alloca(length * HX_NUM_MODES);
+#ifndef _MSC_VER
+    char char_modes[length * HX_NUM_MODES];
+#else
+    char *char_modes = (char *) _alloca(length * HX_NUM_MODES);
+#endif
 
     /* char_modes[i * HX_NUM_MODES + j] represents the mode to encode the code point at index i such that the final
      * segment ends in mode_types[j] and the total number of bits is minimized over all possible choices */
@@ -403,14 +394,14 @@ static void hx_define_mode(char *mode, const unsigned int ddata[], const int len
     for (i = 0, cm_i = 0; i < length; i++, cm_i += HX_NUM_MODES) {
         memset(cur_costs, 0, HX_NUM_MODES * sizeof(unsigned int));
 
-        if (hx_in_numeric(ddata, length, i, &numeric_end, &numeric_cost)) {
+        if (in_numeric(gbdata, length, i, &numeric_end, &numeric_cost)) {
             cur_costs[HX_N] = prev_costs[HX_N] + numeric_cost;
             char_modes[cm_i + HX_N] = 'n';
             text1 = 1;
             text2 = 0;
         } else {
-            text1 = hx_lookup_text1(ddata[i]) != -1;
-            text2 = hx_lookup_text2(ddata[i]) != -1;
+            text1 = lookup_text1(gbdata[i]) != -1;
+            text2 = lookup_text2(gbdata[i]) != -1;
         }
 
         if (text1 || text2) {
@@ -426,20 +417,20 @@ static void hx_define_mode(char *mode, const unsigned int ddata[], const int len
         }
 
         /* Binary mode can encode anything */
-        cur_costs[HX_B] = prev_costs[HX_B] + (ddata[i] > 0xFF ? 96 : 48); /* (16 : 8) * HX_MULT */
+        cur_costs[HX_B] = prev_costs[HX_B] + (gbdata[i] > 0xFF ? 96 : 48); /* (16 : 8) * HX_MULT */
         char_modes[cm_i + HX_B] = 'b';
 
-        if (hx_in_fourbyte(ddata, length, i, &fourbyte_end, &fourbyte_cost)) {
+        if (in_fourbyte(gbdata, length, i, &fourbyte_end, &fourbyte_cost)) {
             cur_costs[HX_F] = prev_costs[HX_F] + fourbyte_cost;
             char_modes[cm_i + HX_F] = 'f';
         } else {
-            if (hx_isDoubleByte(ddata[i])) {
+            if (isDoubleByte(gbdata[i])) {
                 cur_costs[HX_D] = prev_costs[HX_D] + 90; /* 15 * HX_MULT */
                 char_modes[cm_i + HX_D] = 'd';
-                if (hx_isRegion1(ddata[i])) { /* Subset */
+                if (isRegion1(gbdata[i])) { /* Subset */
                     cur_costs[HX_1] = prev_costs[HX_1] + 72; /* 12 * HX_MULT */
                     char_modes[cm_i + HX_1] = '1';
-                } else if (hx_isRegion2(ddata[i])) { /* Subset */
+                } else if (isRegion2(gbdata[i])) { /* Subset */
                     cur_costs[HX_2] = prev_costs[HX_2] + 72; /* 12 * HX_MULT */
                     char_modes[cm_i + HX_2] = '2';
                 }
@@ -458,7 +449,7 @@ static void hx_define_mode(char *mode, const unsigned int ddata[], const int len
         for (j = 0; j < HX_NUM_MODES; j++) { /* To mode */
             for (k = 0; k < HX_NUM_MODES; k++) { /* From mode */
                 if (j != k && char_modes[cm_i + k]) {
-                    const unsigned int new_cost = cur_costs[k] + switch_costs[k][j];
+                    unsigned int new_cost = cur_costs[k] + switch_costs[k][j];
                     if (!char_modes[cm_i + j] || new_cost < cur_costs[j]) {
                         cur_costs[j] = new_cost;
                         char_modes[cm_i + j] = mode_types[k];
@@ -482,44 +473,30 @@ static void hx_define_mode(char *mode, const unsigned int ddata[], const int len
 
     /* Get optimal mode for each code point by tracing backwards */
     for (i = length - 1, cm_i = i * HX_NUM_MODES; i >= 0; i--, cm_i -= HX_NUM_MODES) {
-        j = posn(mode_types, cur_mode);
+        j = strchr(mode_types, cur_mode) - mode_types;
         cur_mode = char_modes[cm_i + j];
         mode[i] = cur_mode;
     }
 
-    if (debug_print) {
+    if (debug & ZINT_DEBUG_PRINT) {
         printf("  Mode: %.*s\n", length, mode);
     }
 }
 
-/* Call `hx_define_mode()` for each segment */
-static void hx_define_mode_segs(char mode[], const unsigned int ddata[], const struct zint_seg segs[],
-            const int seg_count, const int debug_print) {
-    int i;
-    const unsigned int *dd = ddata;
-    char *m = mode;
-
-    for (i = 0; i < seg_count; i++) {
-        hx_define_mode(m, dd, segs[i].length, debug_print);
-        m += segs[i].length;
-        dd += segs[i].length;
-    }
-}
-
 /* Convert input data to binary stream */
-static void hx_calculate_binary(char binary[], const char mode[], const unsigned int ddata[], const int length,
-            const int eci, int *p_bp, const int debug_print) {
+static void calculate_binary(char binary[], const char mode[], unsigned int source[], const int length, const int eci,
+            int *bin_len, const int debug) {
     int position = 0;
     int i, count, encoding_value;
     int first_byte, second_byte;
     int third_byte, fourth_byte;
     int glyph;
     int submode;
-    int bp = *p_bp;
+    int bp = 0;
 
     if (eci != 0) {
         /* Encoding ECI assignment number, according to Table 5 */
-        bp = bin_append_posn(8, 4, binary, bp); /* ECI */
+        bp = bin_append_posn(8, 4, binary, bp); // ECI
         if (eci <= 127) {
             bp = bin_append_posn(eci, 8, binary, bp);
         } else if (eci <= 16383) {
@@ -535,7 +512,7 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
         int block_length = 0;
         int double_byte = 0;
         do {
-            if (mode[position] == 'b' && ddata[position + block_length] > 0xFF) {
+            if (mode[position] == 'b' && source[position + block_length] > 0xFF) {
                 double_byte++;
             }
             block_length++;
@@ -547,7 +524,7 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                 /* Mode indicator */
                 bp = bin_append_posn(1, 4, binary, bp);
 
-                if (debug_print) {
+                if (debug & ZINT_DEBUG_PRINT) {
                     printf("Numeric\n");
                 }
 
@@ -555,17 +532,19 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                 i = 0;
 
                 while (i < block_length) {
-                    const int first = ctoi((const char) ddata[position + i]);
+                    int first = 0;
+
+                    first = posn(NEON, (char) source[position + i]);
                     count = 1;
                     encoding_value = first;
 
                     if (i + 1 < block_length && mode[position + i + 1] == 'n') {
-                        const int second = ctoi((const char) ddata[position + i + 1]);
+                        int second = posn(NEON, (char) source[position + i + 1]);
                         count = 2;
                         encoding_value = (encoding_value * 10) + second;
 
                         if (i + 2 < block_length && mode[position + i + 2] == 'n') {
-                            const int third = ctoi((const char) ddata[position + i + 2]);
+                            int third = posn(NEON, (char) source[position + i + 2]);
                             count = 3;
                             encoding_value = (encoding_value * 10) + third;
                         }
@@ -573,7 +552,7 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
 
                     bp = bin_append_posn(encoding_value, 10, binary, bp);
 
-                    if (debug_print) {
+                    if (debug & ZINT_DEBUG_PRINT) {
                         printf("0x%3x (%d)", encoding_value, encoding_value);
                     }
 
@@ -593,7 +572,7 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                         break;
                 }
 
-                if (debug_print) {
+                if (debug & ZINT_DEBUG_PRINT) {
                     printf(" (TERM %d)\n", count);
                 }
 
@@ -603,7 +582,7 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                 /* Mode indicator */
                 bp = bin_append_posn(2, 4, binary, bp);
 
-                if (debug_print) {
+                if (debug & ZINT_DEBUG_PRINT) {
                     printf("Text\n");
                 }
 
@@ -613,25 +592,25 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
 
                 while (i < block_length) {
 
-                    if (hx_getsubmode(ddata[i + position]) != submode) {
+                    if (getsubmode(source[i + position]) != submode) {
                         /* Change submode */
                         bp = bin_append_posn(62, 6, binary, bp);
-                        submode = hx_getsubmode(ddata[i + position]);
-                        if (debug_print) {
+                        submode = getsubmode(source[i + position]);
+                        if (debug & ZINT_DEBUG_PRINT) {
                             printf("SWITCH ");
                         }
                     }
 
                     if (submode == 1) {
-                        encoding_value = hx_lookup_text1(ddata[i + position]);
+                        encoding_value = lookup_text1(source[i + position]);
                     } else {
-                        encoding_value = hx_lookup_text2(ddata[i + position]);
+                        encoding_value = lookup_text2(source[i + position]);
                     }
 
                     bp = bin_append_posn(encoding_value, 6, binary, bp);
 
-                    if (debug_print) {
-                        printf("%.2x [ASC %.2x] ", encoding_value, ddata[i + position]);
+                    if (debug & ZINT_DEBUG_PRINT) {
+                        printf("%.2x [ASC %.2x] ", encoding_value, source[i + position]);
                     }
                     i++;
                 }
@@ -639,7 +618,7 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                 /* Terminator */
                 bp = bin_append_posn(63, 6, binary, bp);
 
-                if (debug_print) {
+                if (debug & ZINT_DEBUG_PRINT) {
                     printf("\n");
                 }
                 break;
@@ -651,8 +630,8 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                 /* Count indicator */
                 bp = bin_append_posn(block_length + double_byte, 13, binary, bp);
 
-                if (debug_print) {
-                    printf("Binary Mode (%d):", block_length + double_byte);
+                if (debug & ZINT_DEBUG_PRINT) {
+                    printf("Binary (length %d)\n", block_length + double_byte);
                 }
 
                 i = 0;
@@ -660,35 +639,35 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                 while (i < block_length) {
 
                     /* 8-bit bytes with no conversion */
-                    bp = bin_append_posn(ddata[i + position], ddata[i + position] > 0xFF ? 16 : 8, binary, bp);
+                    bp = bin_append_posn(source[i + position], source[i + position] > 0xFF ? 16 : 8, binary, bp);
 
-                    if (debug_print) {
-                        printf(" %02x", (int) ddata[i + position]);
+                    if (debug & ZINT_DEBUG_PRINT) {
+                        printf("%d ", source[i + position]);
                     }
 
                     i++;
                 }
 
-                if (debug_print) {
+                if (debug & ZINT_DEBUG_PRINT) {
                     printf("\n");
                 }
                 break;
             case '1':
-                /* Region One encoding */
+                /* Region 1 encoding */
                 /* Mode indicator */
-                if (position == 0 || mode[position - 1] != '2') { /* Unless previous mode Region Two */
+                if (position == 0 || mode[position - 1] != '2') { /* Unless previous mode Region 2 */
                     bp = bin_append_posn(4, 4, binary, bp);
                 }
 
-                if (debug_print) {
-                    printf("Region One%s\n", position == 0 || mode[position - 1] != '2' ? "" : " (NO indicator)" );
+                if (debug & ZINT_DEBUG_PRINT) {
+                    printf("Region 1%s\n", position == 0 || mode[position - 1] != '2' ? "" : " (NO indicator)" );
                 }
 
                 i = 0;
 
                 while (i < block_length) {
-                    first_byte = (ddata[i + position] & 0xff00) >> 8;
-                    second_byte = ddata[i + position] & 0xff;
+                    first_byte = (source[i + position] & 0xff00) >> 8;
+                    second_byte = source[i + position] & 0xff;
 
                     /* Subset 1 */
                     glyph = (0x5e * (first_byte - 0xb0)) + (second_byte - 0xa1);
@@ -701,12 +680,12 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                     }
 
                     /* Subset 3 */
-                    if ((ddata[i + position] >= 0xa8a1) && (ddata[i + position] <= 0xa8c0)) {
+                    if ((source[i + position] >= 0xa8a1) && (source[i + position] <= 0xa8c0)) {
                         glyph = (second_byte - 0xa1) + 0xfca;
                     }
 
-                    if (debug_print) {
-                        printf("%.3x [GB %.4x] ", glyph, ddata[i + position]);
+                    if (debug & ZINT_DEBUG_PRINT) {
+                        printf("%.3x [GB %.4x] ", glyph, source[i + position]);
                     }
 
                     bp = bin_append_posn(glyph, 12, binary, bp);
@@ -714,36 +693,34 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                 }
 
                 /* Terminator */
-                bp = bin_append_posn(position + block_length == length || mode[position + block_length] != '2'
-                                    ? 4095 : 4094, 12, binary, bp);
+                bp = bin_append_posn(position + block_length == length || mode[position + block_length] != '2' ? 4095 : 4094, 12, binary, bp);
 
-                if (debug_print) {
-                    printf("(TERM %x)\n", position + block_length == length || mode[position + block_length] != '2'
-                            ? 4095 : 4094);
+                if (debug & ZINT_DEBUG_PRINT) {
+                    printf("(TERM %x)\n", position + block_length == length || mode[position + block_length] != '2' ? 4095 : 4094);
                 }
 
                 break;
             case '2':
-                /* Region Two encoding */
+                /* Region 2 encoding */
                 /* Mode indicator */
-                if (position == 0 || mode[position - 1] != '1') { /* Unless previous mode Region One */
+                if (position == 0 || mode[position - 1] != '1') { /* Unless previous mode Region 1 */
                     bp = bin_append_posn(5, 4, binary, bp);
                 }
 
-                if (debug_print) {
-                    printf("Region Two%s\n", position == 0 || mode[position - 1] != '1' ? "" : " (NO indicator)" );
+                if (debug & ZINT_DEBUG_PRINT) {
+                    printf("Region 2%s\n", position == 0 || mode[position - 1] != '1' ? "" : " (NO indicator)" );
                 }
 
                 i = 0;
 
                 while (i < block_length) {
-                    first_byte = (ddata[i + position] & 0xff00) >> 8;
-                    second_byte = ddata[i + position] & 0xff;
+                    first_byte = (source[i + position] & 0xff00) >> 8;
+                    second_byte = source[i + position] & 0xff;
 
                     glyph = (0x5e * (first_byte - 0xd8)) + (second_byte - 0xa1);
 
-                    if (debug_print) {
-                        printf("%.3x [GB %.4x] ", glyph, ddata[i + position]);
+                    if (debug & ZINT_DEBUG_PRINT) {
+                        printf("%.3x [GB %.4x] ", glyph, source[i + position]);
                     }
 
                     bp = bin_append_posn(glyph, 12, binary, bp);
@@ -751,12 +728,10 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                 }
 
                 /* Terminator */
-                bp = bin_append_posn(position + block_length == length || mode[position + block_length] != '1'
-                                    ? 4095 : 4094, 12, binary, bp);
+                bp = bin_append_posn(position + block_length == length || mode[position + block_length] != '1' ? 4095 : 4094, 12, binary, bp);
 
-                if (debug_print) {
-                    printf("(TERM %x)\n", position + block_length == length || mode[position + block_length] != '1'
-                            ? 4095 : 4094);
+                if (debug & ZINT_DEBUG_PRINT) {
+                    printf("(TERM %x)\n", position + block_length == length || mode[position + block_length] != '1' ? 4095 : 4094);
                 }
 
                 break;
@@ -765,15 +740,15 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                 /* Mode indicator */
                 bp = bin_append_posn(6, 4, binary, bp);
 
-                if (debug_print) {
+                if (debug & ZINT_DEBUG_PRINT) {
                     printf("Double byte\n");
                 }
 
                 i = 0;
 
                 while (i < block_length) {
-                    first_byte = (ddata[i + position] & 0xff00) >> 8;
-                    second_byte = ddata[i + position] & 0xff;
+                    first_byte = (source[i + position] & 0xff00) >> 8;
+                    second_byte = source[i + position] & 0xff;
 
                     if (second_byte <= 0x7e) {
                         glyph = (0xbe * (first_byte - 0x81)) + (second_byte - 0x40);
@@ -781,7 +756,7 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                         glyph = (0xbe * (first_byte - 0x81)) + (second_byte - 0x41);
                     }
 
-                    if (debug_print) {
+                    if (debug & ZINT_DEBUG_PRINT) {
                         printf("%.4x ", glyph);
                     }
 
@@ -794,13 +769,13 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                 /* Terminator sequence of length 12 is a mistake
                    - confirmed by Wang Yi */
 
-                if (debug_print) {
+                if (debug & ZINT_DEBUG_PRINT) {
                     printf("\n");
                 }
                 break;
             case 'f':
                 /* Four-byte encoding */
-                if (debug_print) {
+                if (debug & ZINT_DEBUG_PRINT) {
                     printf("Four byte\n");
                 }
 
@@ -811,15 +786,15 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
                     /* Mode indicator */
                     bp = bin_append_posn(7, 4, binary, bp);
 
-                    first_byte = (ddata[i + position] & 0xff00) >> 8;
-                    second_byte = ddata[i + position] & 0xff;
-                    third_byte = (ddata[i + position + 1] & 0xff00) >> 8;
-                    fourth_byte = ddata[i + position + 1] & 0xff;
+                    first_byte = (source[i + position] & 0xff00) >> 8;
+                    second_byte = source[i + position] & 0xff;
+                    third_byte = (source[i + position + 1] & 0xff00) >> 8;
+                    fourth_byte = source[i + position + 1] & 0xff;
 
                     glyph = (0x3138 * (first_byte - 0x81)) + (0x04ec * (second_byte - 0x30)) +
                             (0x0a * (third_byte - 0x81)) + (fourth_byte - 0x30);
 
-                    if (debug_print) {
+                    if (debug & ZINT_DEBUG_PRINT) {
                         printf("%d ", glyph);
                     }
 
@@ -829,7 +804,7 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
 
                 /* No terminator */
 
-                if (debug_print) {
+                if (debug & ZINT_DEBUG_PRINT) {
                     printf("\n");
                 }
                 break;
@@ -839,26 +814,11 @@ static void hx_calculate_binary(char binary[], const char mode[], const unsigned
 
     } while (position < length);
 
-    if (debug_print) printf("Binary (%d): %.*s\n", bp, bp, binary);
+    binary[bp] = '\0';
 
-    *p_bp = bp;
-}
+    if (debug & ZINT_DEBUG_PRINT) printf("Binary (%d): %s\n", bp, binary);
 
-/* Call `hx_calculate_binary()` for each segment */
-static void hx_calculate_binary_segs(char binary[], const char mode[], const unsigned int ddata[],
-            const struct zint_seg segs[], const int seg_count, int *p_bin_len, const int debug_print) {
-    int i;
-    const unsigned int *dd = ddata;
-    const char *m = mode;
-    int bp = 0;
-
-    for (i = 0; i < seg_count; i++) {
-        hx_calculate_binary(binary, m, dd, segs[i].length, segs[i].eci, &bp, debug_print);
-        m += segs[i].length;
-        dd += segs[i].length;
-    }
-
-    *p_bin_len = bp;
+    *bin_len = bp;
 }
 
 /* Finder pattern for top left of symbol */
@@ -881,7 +841,7 @@ static void hx_place_finder_top_left(unsigned char *grid, const int size) {
 /* Finder pattern for top right and bottom left of symbol */
 static void hx_place_finder(unsigned char *grid, const int size, const int x, const int y) {
     int xp, yp;
-    static const char finder[] = {0x7F, 0x01, 0x7D, 0x05, 0x75, 0x75, 0x75};
+    char finder[] = {0x7F, 0x01, 0x7D, 0x05, 0x75, 0x75, 0x75};
 
     for (xp = 0; xp < 7; xp++) {
         for (yp = 0; yp < 7; yp++) {
@@ -897,9 +857,8 @@ static void hx_place_finder(unsigned char *grid, const int size, const int x, co
 /* Finder pattern for bottom right of symbol */
 static void hx_place_finder_bottom_right(unsigned char *grid, const int size) {
     int xp, yp;
-    const int x = size - 7;
-    const int y = x;
-    static const char finder[] = {0x75, 0x75, 0x75, 0x05, 0x7D, 0x01, 0x7F};
+    int x = size - 7, y = size - 7;
+    char finder[] = {0x75, 0x75, 0x75, 0x05, 0x7D, 0x01, 0x7F};
 
     for (xp = 0; xp < 7; xp++) {
         for (yp = 0; yp < 7; yp++) {
@@ -924,8 +883,7 @@ static void hx_safe_plot(unsigned char *grid, const int size, const int x, const
 }
 
 /* Plot an alignment pattern around top and right of a module */
-static void hx_plot_alignment(unsigned char *grid, const int size, const int x, const int y, const int w,
-            const int h) {
+static void hx_plot_alignment(unsigned char *grid, const int size, const int x, const int y, const int w, const int h) {
     int i;
     hx_safe_plot(grid, size, x, y, 0x11);
     hx_safe_plot(grid, size, x - 1, y + 1, 0x10);
@@ -1007,9 +965,9 @@ static void hx_setup_grid(unsigned char *grid, const int size, const int version
     }
 
     if (version > 3) {
-        const int k = hx_module_k[version - 1];
-        const int r = hx_module_r[version - 1];
-        const int m = hx_module_m[version - 1];
+        int k = hx_module_k[version - 1];
+        int r = hx_module_r[version - 1];
+        int m = hx_module_m[version - 1];
         int x, y, row_switch, column_switch;
         int module_height, module_width;
         int mod_x, mod_y;
@@ -1118,15 +1076,15 @@ static void hx_add_ecc(unsigned char fullstream[], const unsigned char datastrea
     int i, j, block;
     int input_position = -1;
     int output_position = -1;
-    const int table_d1_pos = ((version - 1) * 36) + ((ecc_level - 1) * 9);
+    int table_d1_pos = ((version - 1) * 36) + ((ecc_level - 1) * 9);
     rs_t rs;
 
-    rs_init_gf(&rs, 0x163); /* x^8 + x^6 + x^5 + x + 1 = 0 */
+    rs_init_gf(&rs, 0x163); // x^8 + x^6 + x^5 + x + 1 = 0
 
     for (i = 0; i < 3; i++) {
-        const int batch_size = hx_table_d1[table_d1_pos + (3 * i)];
-        const int data_length = hx_table_d1[table_d1_pos + (3 * i) + 1];
-        const int ecc_length = hx_table_d1[table_d1_pos + (3 * i) + 2];
+        int batch_size = hx_table_d1[table_d1_pos + (3 * i)];
+        int data_length = hx_table_d1[table_d1_pos + (3 * i) + 1];
+        int ecc_length = hx_table_d1[table_d1_pos + (3 * i) + 2];
 
         rs_init_code(&rs, ecc_length, 1);
 
@@ -1149,7 +1107,7 @@ static void hx_add_ecc(unsigned char fullstream[], const unsigned char datastrea
 }
 
 static void hx_set_function_info(unsigned char *grid, const int size, const int version, const int ecc_level,
-            const int bitmask, const int debug_print) {
+            const int bitmask, const int debug) {
     int i, j;
     char function_information[34];
     unsigned char fi_cw[3] = {0};
@@ -1179,16 +1137,18 @@ static void hx_set_function_info(unsigned char *grid, const int size, const int 
         bp = bin_append_posn(fi_ecc[i], 4, function_information, bp);
     }
 
-    /* Previously added alternating filler pattern here (as does BWIPP) but not mentioned in ISO/IEC 20830:2021 and
-       does not appear in Figure 1 nor in the figures in Annex K (although does appear in Figure 2 and Figures 4-9)
-       nor in the AIM ITS/04-023:2022 examples: so just clear */
+    /* This alternating filler pattern at end not mentioned in ISO/IEC 20830 (draft 2019-10-10) and does not appear
+     * in Figure 1 or the figures in Annex K but does appear in Figure 2 and Figures 4-9 */
     for (i = 28; i < 34; i++) {
-        function_information[i] = '0';
+        if (i & 1) {
+            function_information[i] = '1';
+        } else {
+            function_information[i] = '0';
+        }
     }
 
-    if (debug_print) {
-        printf("Version: %d, ECC: %d, Mask: %d, Structural Info: %.34s\n", version, ecc_level, bitmask,
-                function_information);
+    if (debug & ZINT_DEBUG_PRINT) {
+        printf("Version: %d, ECC: %d, Mask: %d, Structural Info: %.34s\n", version, ecc_level, bitmask, function_information);
     }
 
     /* Add function information to symbol */
@@ -1213,15 +1173,16 @@ static void hx_set_function_info(unsigned char *grid, const int size, const int 
 }
 
 /* Rearrange data in batches of 13 codewords (section 5.8.2) */
-static void hx_make_picket_fence(const unsigned char fullstream[], unsigned char picket_fence[],
-            const int streamsize) {
+static void make_picket_fence(const unsigned char fullstream[], unsigned char picket_fence[], const int streamsize) {
     int i, start;
     int output_position = 0;
 
     for (start = 0; start < 13; start++) {
         for (i = start; i < streamsize; i += 13) {
-            picket_fence[output_position] = fullstream[i];
-            output_position++;
+            if (i < streamsize) {
+                picket_fence[output_position] = fullstream[i];
+                output_position++;
+            }
         }
     }
 }
@@ -1328,8 +1289,7 @@ static int hx_evaluate(const unsigned char *local, const int size) {
      * position of the module.” - however i being the length of the run of the
      * same colour (i.e. "block" below) in the same fashion as ISO/IEC 18004
      * makes more sense. -- Confirmed by Wang Yi */
-    /* Fixed in ISO/IEC 20830 section 5.8.4.3 "In Table, i refers to the modules with
-       same color." */
+    /* Fixed in ISO/IEC 20830 (draft 2019-10-10) section 5.8.3.2 "In Table 12 below, i refers to the modules with same color." */
 
     /* Vertical */
     for (x = 0; x < size; x++) {
@@ -1376,18 +1336,24 @@ static int hx_evaluate(const unsigned char *local, const int size) {
 }
 
 /* Apply the four possible bitmasks for evaluation */
-/* TODO: Haven't been able to replicate (or even get close to) the penalty scores in ISO/IEC 20830:2021
- * Annex K examples */
+/* TODO: Haven't been able to replicate (or even get close to) the penalty scores in ISO/IEC 20830
+ * (draft 2019-10-10) Annex K examples; however they don't use alternating filler pattern on structural info */
 static void hx_apply_bitmask(unsigned char *grid, const int size, const int version, const int ecc_level,
-            const int user_mask, const int debug_print) {
+            const int user_mask, const int debug) {
     int x, y;
     int i, j, r, k;
     int pattern, penalty[4] = {0};
     int best_pattern;
     int bit;
-    const int size_squared = size * size;
-    unsigned char *mask = (unsigned char *) z_alloca(size_squared);
-    unsigned char *local = (unsigned char *) z_alloca(size_squared);
+    int size_squared = size * size;
+
+#ifndef _MSC_VER
+    unsigned char mask[size_squared];
+    unsigned char local[size_squared];
+#else
+    unsigned char *mask = (unsigned char *) _alloca(size_squared * sizeof(unsigned char));
+    unsigned char *local = (unsigned char *) _alloca(size_squared * sizeof(unsigned char));
+#endif
 
     /* Perform data masking */
     memset(mask, 0, size_squared);
@@ -1415,7 +1381,7 @@ static void hx_apply_bitmask(unsigned char *grid, const int size, const int vers
     if (user_mask) {
         best_pattern = user_mask - 1;
     } else {
-        /* apply data masks to grid, result in local */
+        // apply data masks to grid, result in local
 
         /* Do null pattern 00 separately first */
         pattern = 0;
@@ -1423,7 +1389,7 @@ static void hx_apply_bitmask(unsigned char *grid, const int size, const int vers
             local[k] = grid[k] & 0x0f;
         }
         /* Set the Structural Info */
-        hx_set_function_info(local, size, version, ecc_level, pattern, 0 /*debug_print*/);
+        hx_set_function_info(local, size, version, ecc_level, pattern, 0 /*debug*/);
 
         /* Evaluate result */
         penalty[pattern] = hx_evaluate(local, size);
@@ -1439,7 +1405,7 @@ static void hx_apply_bitmask(unsigned char *grid, const int size, const int vers
                 }
             }
             /* Set the Structural Info */
-            hx_set_function_info(local, size, version, ecc_level, pattern, 0 /*debug_print*/);
+            hx_set_function_info(local, size, version, ecc_level, pattern, 0 /*debug*/);
 
             /* Evaluate result */
             penalty[pattern] = hx_evaluate(local, size);
@@ -1449,7 +1415,7 @@ static void hx_apply_bitmask(unsigned char *grid, const int size, const int vers
         }
     }
 
-    if (debug_print) {
+    if (debug & ZINT_DEBUG_PRINT) {
         printf("Mask: %d (%s)", best_pattern, user_mask ? "specified" : "automatic");
         if (!user_mask) {
             for (pattern = 0; pattern < 4; pattern++) printf(" %d:%d", pattern, penalty[pattern]);
@@ -1471,12 +1437,11 @@ static void hx_apply_bitmask(unsigned char *grid, const int size, const int vers
         }
     }
     /* Set the Structural Info */
-    hx_set_function_info(grid, size, version, ecc_level, best_pattern, debug_print);
+    hx_set_function_info(grid, size, version, ecc_level, best_pattern, debug);
 }
 
 /* Han Xin Code - main */
-INTERNAL int hanxin(struct zint_symbol *symbol, struct zint_seg segs[], const int seg_count) {
-    int warn_number = 0;
+INTERNAL int han_xin(struct zint_symbol *symbol, unsigned char source[], int length) {
     int est_binlen;
     int ecc_level = symbol->option_1;
     int i, j, j_max, version;
@@ -1486,18 +1451,20 @@ INTERNAL int hanxin(struct zint_symbol *symbol, struct zint_seg segs[], const in
     int size_squared;
     int codewords;
     int bin_len;
-    const int debug_print = symbol->debug & ZINT_DEBUG_PRINT;
-    const int eci_length_segs = get_eci_length_segs(segs, seg_count);
-    struct zint_seg *local_segs = (struct zint_seg *) z_alloca(sizeof(struct zint_seg) * seg_count);
-    unsigned int *ddata = (unsigned int *) z_alloca(sizeof(unsigned int) * eci_length_segs);
-    char *mode = (char *) z_alloca(eci_length_segs);
+    int eci_length = get_eci_length(symbol->eci, source, length);
+
+#ifndef _MSC_VER
+    unsigned int gbdata[eci_length + 1];
+    char mode[eci_length];
+#else
+    unsigned int *gbdata = (unsigned int *) _alloca((eci_length + 1) * sizeof(unsigned int));
+    char *mode = (char *) _alloca(eci_length);
     char *binary;
     unsigned char *datastream;
     unsigned char *fullstream;
     unsigned char *picket_fence;
     unsigned char *grid;
-
-    segs_cpy(symbol, segs, seg_count, local_segs); /* Shallow copy (needed to set default ECI & protect lengths) */
+#endif
 
     /* If ZINT_FULL_MULTIBYTE set use Hanzi mode in DATA_MODE or for non-GB 18030 in UNICODE_MODE */
     full_multibyte = (symbol->option_3 & 0xFF) == ZINT_FULL_MULTIBYTE;
@@ -1507,84 +1474,76 @@ INTERNAL int hanxin(struct zint_symbol *symbol, struct zint_seg segs[], const in
     }
 
     if ((symbol->input_mode & 0x07) == DATA_MODE) {
-        gb18030_cpy_segs(local_segs, seg_count, ddata, full_multibyte);
+        gb18030_cpy(source, &length, gbdata, full_multibyte);
     } else {
-        unsigned int *dd = ddata;
-        for (i = 0; i < seg_count; i++) {
-            int done = 0;
-            if (local_segs[i].eci != 32 || seg_count > 1) { /* Unless ECI 32 (GB 18030) or have multiple segments */
-                /* Try other conversions (ECI 0 defaults to ISO/IEC 8859-1) */
-                int error_number = gb18030_utf8_to_eci(local_segs[i].eci, local_segs[i].source, &local_segs[i].length,
-                                                        dd, full_multibyte);
-                if (error_number == 0) {
-                    done = 1;
-                } else if (local_segs[i].eci || seg_count > 1) {
-                    sprintf(symbol->errtxt, "545: Invalid character in input data for ECI %d", local_segs[i].eci);
-                    return error_number;
-                }
+        int done = 0;
+        if (symbol->eci != 29) { /* Unless ECI 29 (GB) */
+            /* Try other conversions (ECI 0 defaults to ISO/IEC 8859-1) */
+            int error_number = gb18030_utf8_to_eci(symbol->eci, source, &length, gbdata, full_multibyte);
+            if (error_number == 0) {
+                done = 1;
+            } else if (symbol->eci) {
+                strcpy(symbol->errtxt, "575: Invalid characters in input data");
+                return error_number;
             }
-            if (!done) {
-                /* Try GB 18030 */
-                int error_number = gb18030_utf8(symbol, local_segs[i].source, &local_segs[i].length, dd);
-                if (error_number != 0) {
-                    return error_number;
-                }
-                if (local_segs[i].eci != 32) {
-                    strcpy(symbol->errtxt, "543: Converted to GB 18030 but no ECI specified");
-                    warn_number = ZINT_WARN_NONCOMPLIANT;
-                }
+        }
+        if (!done) {
+            /* Try GB 18030 */
+            int error_number = gb18030_utf8(symbol, source, &length, gbdata);
+            if (error_number != 0) {
+                return error_number;
             }
-            dd += local_segs[i].length;
         }
     }
 
-    hx_define_mode_segs(mode, ddata, local_segs, seg_count, debug_print);
+    hx_define_mode(mode, gbdata, length, symbol->debug);
 
-    est_binlen = hx_calc_binlen_segs(mode, ddata, local_segs, seg_count);
+    est_binlen = calculate_binlength(mode, gbdata, length, symbol->eci);
 
-    binary = (char *) z_alloca((est_binlen + 1));
+#ifndef _MSC_VER
+    char binary[est_binlen + 1];
+#else
+    binary = (char *) _alloca((est_binlen + 1));
+#endif
 
     if ((ecc_level <= 0) || (ecc_level >= 5)) {
         ecc_level = 1;
     }
 
-    hx_calculate_binary_segs(binary, mode, ddata, local_segs, seg_count, &bin_len, debug_print);
+    calculate_binary(binary, mode, gbdata, length, symbol->eci, &bin_len, symbol->debug);
     codewords = bin_len >> 3;
     if (bin_len & 0x07) {
         codewords++;
-    }
-    if (debug_print) {
-        printf("Num. of codewords: %d\n", codewords);
     }
 
     version = 85;
     for (i = 84; i > 0; i--) {
         switch (ecc_level) {
             case 1:
-                if (hx_data_codewords_L1[i - 1] >= codewords) {
+                if (hx_data_codewords_L1[i - 1] > codewords) {
                     version = i;
                     data_codewords = hx_data_codewords_L1[i - 1];
                 }
                 break;
             case 2:
-                if (hx_data_codewords_L2[i - 1] >= codewords) {
+                if (hx_data_codewords_L2[i - 1] > codewords) {
                     version = i;
                     data_codewords = hx_data_codewords_L2[i - 1];
                 }
                 break;
             case 3:
-                if (hx_data_codewords_L3[i - 1] >= codewords) {
+                if (hx_data_codewords_L3[i - 1] > codewords) {
                     version = i;
                     data_codewords = hx_data_codewords_L3[i - 1];
                 }
                 break;
             case 4:
-                if (hx_data_codewords_L4[i - 1] >= codewords) {
+                if (hx_data_codewords_L4[i - 1] > codewords) {
                     version = i;
                     data_codewords = hx_data_codewords_L4[i - 1];
                 }
                 break;
-            default: /* Not reached */
+            default:
                 assert(0);
                 break;
         }
@@ -1610,19 +1569,18 @@ INTERNAL int hanxin(struct zint_symbol *symbol, struct zint_seg segs[], const in
 
     /* If there is spare capacity, increase the level of ECC */
 
-    /* Unless explicitly specified (within min/max bounds) by user */
-    if (symbol->option_1 == -1 || symbol->option_1 != ecc_level) {
-        if ((ecc_level == 1) && (codewords <= hx_data_codewords_L2[version - 1])) {
+    if (symbol->option_1 == -1 || symbol->option_1 != ecc_level) { /* Unless explicitly specified (within min/max bounds) by user */
+        if ((ecc_level == 1) && (codewords < hx_data_codewords_L2[version - 1])) {
             ecc_level = 2;
             data_codewords = hx_data_codewords_L2[version - 1];
         }
 
-        if ((ecc_level == 2) && (codewords <= hx_data_codewords_L3[version - 1])) {
+        if ((ecc_level == 2) && (codewords < hx_data_codewords_L3[version - 1])) {
             ecc_level = 3;
             data_codewords = hx_data_codewords_L3[version - 1];
         }
 
-        if ((ecc_level == 3) && (codewords <= hx_data_codewords_L4[version - 1])) {
+        if ((ecc_level == 3) && (codewords < hx_data_codewords_L4[version - 1])) {
             ecc_level = 4;
             data_codewords = hx_data_codewords_L4[version - 1];
         }
@@ -1631,10 +1589,17 @@ INTERNAL int hanxin(struct zint_symbol *symbol, struct zint_seg segs[], const in
     size = (version * 2) + 21;
     size_squared = size * size;
 
-    datastream = (unsigned char *) z_alloca(data_codewords);
-    fullstream = (unsigned char *) z_alloca(hx_total_codewords[version - 1]);
-    picket_fence = (unsigned char *) z_alloca(hx_total_codewords[version - 1]);
-    grid = (unsigned char *) z_alloca(size_squared);
+#ifndef _MSC_VER
+    unsigned char datastream[data_codewords];
+    unsigned char fullstream[hx_total_codewords[version - 1]];
+    unsigned char picket_fence[hx_total_codewords[version - 1]];
+    unsigned char grid[size_squared];
+#else
+    datastream = (unsigned char *) _alloca((data_codewords) * sizeof (unsigned char));
+    fullstream = (unsigned char *) _alloca((hx_total_codewords[version - 1]) * sizeof (unsigned char));
+    picket_fence = (unsigned char *) _alloca((hx_total_codewords[version - 1]) * sizeof (unsigned char));
+    grid = (unsigned char *) _alloca(size_squared * sizeof(unsigned char));
+#endif
 
     memset(datastream, 0, data_codewords);
 
@@ -1644,8 +1609,9 @@ INTERNAL int hanxin(struct zint_symbol *symbol, struct zint_seg segs[], const in
         }
     }
 
-    if (debug_print) {
-        printf("Datastream (%d): ", data_codewords);
+    if (symbol->debug & ZINT_DEBUG_PRINT) {
+        printf("Datastream length: %d\n", data_codewords);
+        printf("Datastream:\n");
         for (i = 0; i < data_codewords; i++) {
             printf("%.2x ", datastream[i]);
         }
@@ -1659,15 +1625,7 @@ INTERNAL int hanxin(struct zint_symbol *symbol, struct zint_seg segs[], const in
 
     hx_add_ecc(fullstream, datastream, data_codewords, version, ecc_level);
 
-    if (debug_print) {
-        printf("Fullstream (%d): ", hx_total_codewords[version - 1]);
-        for (i = 0; i < hx_total_codewords[version - 1]; i++) {
-            printf("%.2x ", fullstream[i]);
-        }
-        printf("\n");
-    }
-
-    hx_make_picket_fence(fullstream, picket_fence, hx_total_codewords[version - 1]);
+    make_picket_fence(fullstream, picket_fence, hx_total_codewords[version - 1]);
 
     /* Populate grid */
     j = 0;
@@ -1685,13 +1643,13 @@ INTERNAL int hanxin(struct zint_symbol *symbol, struct zint_seg segs[], const in
         }
     }
 
-    hx_apply_bitmask(grid, size, version, ecc_level, user_mask, debug_print);
+    hx_apply_bitmask(grid, size, version, ecc_level, user_mask, symbol->debug);
 
     symbol->width = size;
     symbol->rows = size;
 
     for (i = 0; i < size; i++) {
-        const int r = i * size;
+        int r = i * size;
         for (j = 0; j < size; j++) {
             if (grid[r + j] & 0x01) {
                 set_module(symbol, i, j);
@@ -1699,9 +1657,6 @@ INTERNAL int hanxin(struct zint_symbol *symbol, struct zint_seg segs[], const in
         }
         symbol->row_height[i] = 1;
     }
-    symbol->height = size;
 
-    return warn_number;
+    return 0;
 }
-
-/* vim: set ts=4 sw=4 et : */
