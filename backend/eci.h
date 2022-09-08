@@ -1,7 +1,7 @@
 /*  eci.c - Extended Channel Interpretations to Unicode tables
 
     libzint - the open source barcode library
-    Copyright (C) 2009-2022 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009-2021 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -28,53 +28,22 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
+/* vim: set ts=4 sw=4 et : */
 
-#ifndef Z_ECI_H
-#define Z_ECI_H
+#ifndef ECI_H
+#define ECI_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 INTERNAL int is_eci_convertible(const int eci);
-INTERNAL int is_eci_convertible_segs(const struct zint_seg segs[], const int seg_count, int convertible[]);
-
 INTERNAL int get_eci_length(const int eci, const unsigned char source[], int length);
-INTERNAL int get_eci_length_segs(const struct zint_seg segs[], const int seg_count);
-
 INTERNAL int utf8_to_eci(const int eci, const unsigned char source[], unsigned char dest[], int *p_length);
-
 INTERNAL int get_best_eci(const unsigned char source[], int length);
-INTERNAL int get_best_eci_segs(struct zint_symbol *symbol, struct zint_seg segs[], const int seg_count);
-
-/* QRCODE Shift JIS helpers */
-INTERNAL int sjis_utf8(struct zint_symbol *symbol, const unsigned char source[], int *p_length,
-                unsigned int *ddata);
-INTERNAL void sjis_cpy(const unsigned char source[], int *p_length, unsigned int *ddata, const int full_multibyte);
-INTERNAL void sjis_cpy_segs(struct zint_seg segs[], const int seg_count, unsigned int *ddata,
-                const int full_multibyte);
-INTERNAL int sjis_utf8_to_eci(const int eci, const unsigned char source[], int *p_length, unsigned int *ddata,
-                const int full_multibyte);
-
-/* GRIDMATRIX GB 2312 helpers */
-INTERNAL int gb2312_utf8(struct zint_symbol *symbol, const unsigned char source[], int *p_length,
-                unsigned int *ddata);
-INTERNAL void gb2312_cpy_segs(struct zint_seg segs[], const int seg_count, unsigned int *ddata,
-                const int full_multibyte);
-INTERNAL int gb2312_utf8_to_eci(const int eci, const unsigned char source[], int *p_length, unsigned int *ddata,
-                const int full_multibyte);
-
-/* HANXIN GB 18030 helpers */
-INTERNAL int gb18030_utf8(struct zint_symbol *symbol, const unsigned char source[], int *p_length,
-                unsigned int *ddata);
-INTERNAL void gb18030_cpy_segs(struct zint_seg segs[], const int seg_count, unsigned int *ddata,
-                const int full_multibyte);
-INTERNAL int gb18030_utf8_to_eci(const int eci, const unsigned char source[], int *p_length, unsigned int *ddata,
-                const int full_multibyte);
 
 #ifdef __cplusplus
 }
 #endif
 
-/* vim: set ts=4 sw=4 et : */
-#endif /* Z_ECI_H */
+#endif /* ECI_H */

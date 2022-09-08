@@ -1,7 +1,8 @@
 /* bmp.c - Handles output to Windows Bitmap file */
+
 /*
     libzint - the open source barcode library
-    Copyright (C) 2009-2022 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009 - 2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -28,9 +29,8 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* SPDX-License-Identifier: BSD-3-Clause */
+/* vim: set ts=4 sw=4 et : */
 
-#include <errno.h>
 #include <stdio.h>
 #include "common.h"
 #include "bmp.h"        /* Bitmap header structure */
@@ -53,8 +53,28 @@ INTERNAL int bmp_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     color_ref_t bg_color_ref;
     color_ref_t fg_color_ref;
     color_ref_t ultra_color_ref[8];
-    int ultra_fg_index = 9;
-    const int output_to_stdout = symbol->output_options & BARCODE_STDOUT; /* Suppress gcc -fanalyzer warning */
+
+    if (symbol->symbology == BARCODE_ULTRA) {
+        bits_per_pixel = 4;
+        colour_count = 9;
+    } else {
+        bits_per_pixel = 1;
+        colour_count = 2;
+    }
+    row_size = 4 * ((bits_per_pixel * symbol->bitmap_width + 31) / 32);
+    data_size = symbol->bitmap_height * row_size;
+    data_offset = sizeof (bitmap_file_header_t) + sizeof (bitmap_info_header_t);
+    data_offset += (colour_count * (sizeof(color_ref_t)));
+    file_size = data_offset + data_size;
+
+    bitmap_file_start = (unsigned char *) malloc(file_size);
+    if (bitmap_file_start == NULL) {
+        strcpy(symbol->errtxt, "602: Out of memory");
+        return ZINT_ERROR_MEMORY;
+    }
+    memset(bitmap_file_start, 0, file_size); /* Not required but keeps padding bytes consistent */
+
+    bitmap = bitmap_file_start + data_offset;
 
     fg_color_ref.red = (16 * ctoi(symbol->fgcolour[0])) + ctoi(symbol->fgcolour[1]);
     fg_color_ref.green = (16 * ctoi(symbol->fgcolour[2])) + ctoi(symbol->fgcolour[3]);
@@ -64,37 +84,13 @@ INTERNAL int bmp_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     bg_color_ref.green = (16 * ctoi(symbol->bgcolour[2])) + ctoi(symbol->bgcolour[3]);
     bg_color_ref.blue = (16 * ctoi(symbol->bgcolour[4])) + ctoi(symbol->bgcolour[5]);
     bg_color_ref.reserved = 0x00;
-
-    if (symbol->symbology == BARCODE_ULTRA) {
-        for (i = 0; i < 8; i++) {
-            ultra_color_ref[i].red = colour_to_red(i + 1);
-            ultra_color_ref[i].green = colour_to_green(i + 1);
-            ultra_color_ref[i].blue = colour_to_blue(i + 1);
-            ultra_color_ref[i].reserved = 0x00;
-            if (memcmp(&ultra_color_ref[i], &fg_color_ref, sizeof(fg_color_ref)) == 0) {
-                ultra_fg_index = i + 1;
-            }
-        }
-        bits_per_pixel = 4;
-        colour_count = ultra_fg_index == 9 ? 10 : 9;
-    } else {
-        bits_per_pixel = 1;
-        colour_count = 2;
+    
+    for (i = 0; i < 8; i++) {
+        ultra_color_ref[i].red = colour_to_red(i + 1);
+        ultra_color_ref[i].green = colour_to_green(i + 1);
+        ultra_color_ref[i].blue = colour_to_blue(i + 1);
+        ultra_color_ref[i].reserved = 0x00;
     }
-    row_size = 4 * ((bits_per_pixel * symbol->bitmap_width + 31) / 32);
-    data_size = symbol->bitmap_height * row_size;
-    data_offset = sizeof(bitmap_file_header_t) + sizeof(bitmap_info_header_t);
-    data_offset += colour_count * sizeof(color_ref_t);
-    file_size = data_offset + data_size;
-
-    bitmap_file_start = (unsigned char *) malloc(file_size);
-    if (bitmap_file_start == NULL) {
-        strcpy(symbol->errtxt, "602: Insufficient memory for BMP file buffer");
-        return ZINT_ERROR_MEMORY;
-    }
-    memset(bitmap_file_start, 0, file_size); /* Not required but keeps padding bytes consistent */
-
-    bitmap = bitmap_file_start + data_offset;
 
     /* Pixel Plotting */
     if (symbol->symbology == BARCODE_ULTRA) {
@@ -102,32 +98,29 @@ INTERNAL int bmp_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
             for (column = 0; column < symbol->bitmap_width; column++) {
                 i = (column / 2) + (row * row_size);
                 switch (*(pixelbuf + (symbol->bitmap_width * (symbol->bitmap_height - row - 1)) + column)) {
-                    case 'C': /* Cyan */
+                    case 'C': // Cyan
                         bitmap[i] += 1 << (4 * (1 - (column % 2)));
                         break;
-                    case 'B': /* Blue */
+                    case 'B': // Blue
                         bitmap[i] += 2 << (4 * (1 - (column % 2)));
                         break;
-                    case 'M': /* Magenta */
+                    case 'M': // Magenta
                         bitmap[i] += 3 << (4 * (1 - (column % 2)));
                         break;
-                    case 'R': /* Red */
+                    case 'R': // Red
                         bitmap[i] += 4 << (4 * (1 - (column % 2)));
                         break;
-                    case 'Y': /* Yellow */
+                    case 'Y': // Yellow
                         bitmap[i] += 5 << (4 * (1 - (column % 2)));
                         break;
-                    case 'G': /* Green */
+                    case 'G': // Green
                         bitmap[i] += 6 << (4 * (1 - (column % 2)));
                         break;
-                    case 'K': /* Black */
+                    case 'K': // Black
                         bitmap[i] += 7 << (4 * (1 - (column % 2)));
                         break;
-                    case 'W': /* White */
+                    case 'W': // White
                         bitmap[i] += 8 << (4 * (1 - (column % 2)));
-                        break;
-                    case '1': /* Foreground */
-                        bitmap[i] += ultra_fg_index << (4 * (1 - (column % 2)));
                         break;
                 }
             }
@@ -145,28 +138,28 @@ INTERNAL int bmp_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
 
     symbol->bitmap_byte_length = data_size;
 
-    file_header.header_field = 0x4d42; /* "BM" */
+    file_header.header_field = 0x4d42; // "BM"
     file_header.file_size = file_size;
     file_header.reserved = 0;
     file_header.data_offset = data_offset;
 
-    info_header.header_size = sizeof(bitmap_info_header_t);
+    info_header.header_size = sizeof (bitmap_info_header_t);
     info_header.width = symbol->bitmap_width;
     info_header.height = symbol->bitmap_height;
     info_header.colour_planes = 1;
     info_header.bits_per_pixel = bits_per_pixel;
-    info_header.compression_method = 0; /* BI_RGB */
+    info_header.compression_method = 0; // BI_RGB
     info_header.image_size = 0;
     info_header.horiz_res = 0;
     info_header.vert_res = 0;
     info_header.colours = colour_count;
     info_header.important_colours = colour_count;
-
+    
     bmp_posn = bitmap_file_start;
-    memcpy(bitmap_file_start, &file_header, sizeof(bitmap_file_header_t));
-    bmp_posn += sizeof(bitmap_file_header_t);
-    memcpy(bmp_posn, &info_header, sizeof(bitmap_info_header_t));
-
+    memcpy(bitmap_file_start, &file_header, sizeof (bitmap_file_header_t));
+    bmp_posn += sizeof (bitmap_file_header_t);
+    memcpy(bmp_posn, &info_header, sizeof (bitmap_info_header_t));
+    
     bmp_posn += sizeof(bitmap_info_header_t);
     memcpy(bmp_posn, &bg_color_ref, sizeof(color_ref_t));
     if (symbol->symbology == BARCODE_ULTRA) {
@@ -174,20 +167,16 @@ INTERNAL int bmp_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
             bmp_posn += sizeof(color_ref_t);
             memcpy(bmp_posn, &ultra_color_ref[i], sizeof(color_ref_t));
         }
-        if (ultra_fg_index == 9) {
-            bmp_posn += sizeof(color_ref_t);
-            memcpy(bmp_posn, &fg_color_ref, sizeof(color_ref_t));
-        }
-    } else {
+    } else {       
         bmp_posn += sizeof(color_ref_t);
         memcpy(bmp_posn, &fg_color_ref, sizeof(color_ref_t));
     }
 
     /* Open output file in binary mode */
-    if (output_to_stdout) {
+    if ((symbol->output_options & BARCODE_STDOUT) != 0) {
 #ifdef _MSC_VER
         if (-1 == _setmode(_fileno(stdout), _O_BINARY)) {
-            sprintf(symbol->errtxt, "600: Could not set stdout to binary (%d: %.30s)", errno, strerror(errno));
+            strcpy(symbol->errtxt, "600: Can't open output file");
             free(bitmap_file_start);
             return ZINT_ERROR_FILE_ACCESS;
         }
@@ -196,21 +185,14 @@ INTERNAL int bmp_pixel_plot(struct zint_symbol *symbol, unsigned char *pixelbuf)
     } else {
         if (!(bmp_file = fopen(symbol->outfile, "wb"))) {
             free(bitmap_file_start);
-            sprintf(symbol->errtxt, "601: Could not open output file (%d: %.30s)", errno, strerror(errno));
+            strcpy(symbol->errtxt, "601: Can't open output file");
             return ZINT_ERROR_FILE_ACCESS;
         }
     }
 
     fwrite(bitmap_file_start, file_header.file_size, 1, bmp_file);
-
-    if (output_to_stdout) {
-        fflush(bmp_file);
-    } else {
-        fclose(bmp_file);
-    }
+    fclose(bmp_file);
 
     free(bitmap_file_start);
     return 0;
 }
-
-/* vim: set ts=4 sw=4 et : */

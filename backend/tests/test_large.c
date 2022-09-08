@@ -1,6 +1,6 @@
 /*
     libzint - the open source barcode library
-    Copyright (C) 2020-2022 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -27,34 +27,20 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* SPDX-License-Identifier: BSD-3-Clause */
+/* vim: set ts=4 sw=4 et : */
 
 #include "testcommon.h"
 #include "../large.h"
 
-#if defined(__MINGW32__)
-#  if __WORDSIZE == 32
-#    define LX_FMT "I32"
-#  else
-#    define LX_FMT "I64"
-#  endif
-#  if defined(__clang__)
-#    pragma GCC diagnostic ignored "-Wformat-non-iso"
-#  elif defined(__GNUC__)
-#    pragma GCC diagnostic ignored "-Wformat" /* Unfortunately doesn't seem to be way to only avoid non-ISO warnings */
-#  endif
-#elif defined(_MSC_VER) || defined(__APPLE__) || __WORDSIZE == 32
-#  define LX_FMT "ll"
-#else
-#  define LX_FMT "l"
-#endif
-
 #define LI(l, h) { l, h }
 
-INTERNAL int clz_u64_test(uint64_t x);
+int clz_u64(uint64_t x);
 
 static void test_clz_u64(int index) {
 
+    testStart("");
+
+    int ret;
     struct item {
         uint64_t s;
         int ret;
@@ -189,22 +175,21 @@ static void test_clz_u64(int index) {
         /*125*/ { 0xFFFFFFFFFFFFFFFF, 0 },
     };
     int data_size = ARRAY_SIZE(data);
-    int i, ret;
 
-    testStart("test_clz_u64");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
-        ret = clz_u64_test(data[i].s);
-        assert_equal(ret, data[i].ret, "i:%d 0x%" LX_FMT "X ret %d != %d\n", i, data[i].s, ret, data[i].ret);
+        ret = clz_u64(data[i].s);
+        assert_equal(ret, data[i].ret, "i:%d 0x%lX ret %d != %d\n", i, data[i].s, ret, data[i].ret);
     }
 
     testFinish();
 }
 
 static void test_load(int index) {
+
+    testStart("");
 
     struct item {
         large_int t;
@@ -219,22 +204,19 @@ static void test_load(int index) {
         /*  3*/ { LI(1, 1), LI(2, 3), LI(2, 3) },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_load");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
         large_load(&data[i].t, &data[i].s);
 
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%lX (%s) != expected lo 0x%lX (%s)\n",
                         i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%lX (%s) != expected hi 0x%lX (%s)\n",
                         i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
     }
 
@@ -242,6 +224,8 @@ static void test_load(int index) {
 }
 
 static void test_load_str_u64(int index) {
+
+    testStart("");
 
     struct item {
         large_int t;
@@ -260,22 +244,19 @@ static void test_load_str_u64(int index) {
         /*  6*/ { LI(2, 2), "123A1X", -1, LI(123, 0) }, // Only reads decimal
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_load_str_u64");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
         large_load_str_u64(&data[i].t, (unsigned char *) data[i].s, data[i].length == -1 ? (int) strlen(data[i].s) : data[i].length);
 
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%lX (%s) != expected lo 0x%lX (%s)\n",
                         i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%lX (%s) != expected hi 0x%lX (%s)\n",
                         i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
     }
 
@@ -283,6 +264,8 @@ static void test_load_str_u64(int index) {
 }
 
 static void test_add_u64(int index) {
+
+    testStart("");
 
     struct item {
         large_int t;
@@ -304,22 +287,19 @@ static void test_add_u64(int index) {
         /* 10*/ { LI(0x0000000000000001, 0xFFFFFFFFFFFFFFFF), 0xFFFFFFFFFFFFFFFF, LI(0, 0) }, // Overflow
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_add_u64");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
         large_add_u64(&data[i].t, data[i].s);
 
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%lX (%s) != expected lo 0x%lX (%s)\n",
                         i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%lX (%s) != expected hi 0x%lX (%s)\n",
                         i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
     }
 
@@ -327,6 +307,8 @@ static void test_add_u64(int index) {
 }
 
 static void test_sub_u64(int index) {
+
+    testStart("");
 
     struct item {
         large_int t;
@@ -348,22 +330,19 @@ static void test_sub_u64(int index) {
         /* 10*/ { LI(0, 0), 1, LI(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF) },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_sub_u64");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
         large_sub_u64(&data[i].t, data[i].s);
 
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%lX (%s) != expected lo 0x%lX (%s)\n",
                         i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%lX (%s) != expected hi 0x%lX (%s)\n",
                         i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
     }
 
@@ -371,6 +350,8 @@ static void test_sub_u64(int index) {
 }
 
 static void test_mul_u64(int index) {
+
+    testStart("");
 
     struct item {
         large_int t;
@@ -405,22 +386,19 @@ static void test_mul_u64(int index) {
         /* 23*/ { LI(0xFFFFFFFFFFFFFFFF, 0), 0xFFFFFFFFFFFFFFFF, LI(1, 0xFFFFFFFFFFFFFFFE) },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_mul_u64");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
         large_mul_u64(&data[i].t, data[i].s);
 
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%lX (%s) != expected lo 0x%lX (%s)\n",
                         i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%lX (%s) != expected hi 0x%lX (%s)\n",
                         i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
     }
 
@@ -428,6 +406,8 @@ static void test_mul_u64(int index) {
 }
 
 static void test_div_u64(int index) {
+
+    testStart("");
 
     uint64_t r;
     struct item {
@@ -530,24 +510,20 @@ static void test_div_u64(int index) {
         /* 89*/ { LI(0x4ABC16A2E5C00736, 0x16907B2A2), 1365, 1, LI(0xD93B96FDAE65FA61, 0x43B5AC) },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_div_u64");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
         r = large_div_u64(&data[i].t, data[i].s);
 
-        assert_equalu64(r, data[i].expected_r, "i:%d r %" LX_FMT "u (0x%" LX_FMT "X) != expected_r %" LX_FMT "u (0x%" LX_FMT "X)\n",
-                        i, r, r, data[i].expected_r, data[i].expected_r);
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+        assert_equal(r, data[i].expected_r, "i:%d r %lu (0x%lX) != expected_r %lu (0x%lX)\n", i, r, r, data[i].expected_r, data[i].expected_r);
+        assert_equal(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%lX (%s) != expected lo 0x%lX (%s)\n",
                         i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%lX (%s) != expected hi 0x%lX (%s)\n",
                         i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
     }
 
@@ -555,6 +531,8 @@ static void test_div_u64(int index) {
 }
 
 static void test_unset_bit(int index) {
+
+    testStart("");
 
     struct item {
         large_int t;
@@ -696,22 +674,19 @@ static void test_unset_bit(int index) {
         /*130*/ { LI(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF), 128, LI(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF) },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char t_dump[35];
     char expected_dump[35];
 
-    testStart("test_unset_bit");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
         large_unset_bit(&data[i].t, data[i].s);
 
-        assert_equalu64(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%" LX_FMT "X (%s) != expected lo 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.lo, data[i].expected.lo, "i:%d lo 0x%lX (%s) != expected lo 0x%lX (%s)\n",
                         i, data[i].t.lo, large_dump(&data[i].t, t_dump), data[i].expected.lo, large_dump(&data[i].expected, expected_dump));
-        assert_equalu64(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%" LX_FMT "X (%s) != expected hi 0x%" LX_FMT "X (%s)\n",
+        assert_equal(data[i].t.hi, data[i].expected.hi, "i:%d hi 0x%lX (%s) != expected hi 0x%lX (%s)\n",
                         i, data[i].t.hi, large_dump(&data[i].t, t_dump), data[i].expected.hi, large_dump(&data[i].expected, expected_dump));
     }
 
@@ -719,6 +694,8 @@ static void test_unset_bit(int index) {
 }
 
 static void test_uint_array(int index) {
+
+    testStart("");
 
     struct item {
         large_int t;
@@ -763,7 +740,6 @@ static void test_uint_array(int index) {
         /* 32*/ { LI(0xFFFFFFFFFFFFFFFF, 0xEFFFFFFFFFFFFFFF), 127, 1, { 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 } }, // Truncated
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char t_dump[35];
     char uint_dump[130 * 17 + 1];
@@ -775,9 +751,7 @@ static void test_uint_array(int index) {
     unsigned char uchar_array[130];
     unsigned char uchar_expected_array[130];
 
-    testStart("test_uint_array");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
@@ -790,9 +764,8 @@ static void test_uint_array(int index) {
                         testUtilUIntArrayDump(data[i].expected, data[i].size, uint_expected_dump, sizeof(uint_expected_dump)));
 
         if (data[i].bits <= 8) {
-            int j;
             memset(uchar_array, 0, sizeof(uchar_array));
-            for (j = 0; j < data[i].size; j++) {
+            for (int j = 0; j < data[i].size; j++) {
                 uchar_expected_array[j] = data[i].expected[j];
             }
 
@@ -808,6 +781,8 @@ static void test_uint_array(int index) {
 }
 
 static void test_dump(int index) {
+
+    testStart("");
 
     struct item {
         large_int t;
@@ -862,13 +837,10 @@ static void test_dump(int index) {
         /* 44*/ { LI(0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF), "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF" },
     };
     int data_size = ARRAY_SIZE(data);
-    int i;
 
     char dump[35];
 
-    testStart("test_dump");
-
-    for (i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++) {
 
         if (index != -1 && i != index) continue;
 
@@ -876,8 +848,8 @@ static void test_dump(int index) {
 
         large_dump(&data[i].t, dump);
 
-        assert_zero(strcmp(dump, data[i].expected), "i:%d { %" LX_FMT "X, %" LX_FMT "X } strcmp(%s, %s) != 0\n",
-                        i, data[i].t.lo, data[i].t.hi, dump, data[i].expected);
+        assert_zero(strcmp(dump, data[i].expected), "i:%d { %lX, %lX } strcmp(%s, %s) != 0\n",
+                        i, (unsigned long) data[i].t.lo, (unsigned long) data[i].t.hi, dump, data[i].expected);
     }
 
     testFinish();
@@ -904,5 +876,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
-/* vim: set ts=4 sw=4 et : */
