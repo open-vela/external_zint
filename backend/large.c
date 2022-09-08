@@ -1,8 +1,7 @@
 /* large.c - Handles binary manipulation of large numbers */
-
 /*
     libzint - the open source barcode library
-    Copyright (C) 2008 - 2021 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2008-2022 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -29,7 +28,7 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
+/* SPDX-License-Identifier: BSD-3-Clause */
 
 /* `large_mul_u64()` and `large_div_u64()` are adapted from articles by F. W. Jacob
  *   https://www.codeproject.com/Tips/618570/UInt-Multiplication-Squaring
@@ -45,10 +44,8 @@
  *   https://github.com/fahickman/r128/blob/master/r128.h
  *   "R128 is released into the public domain. See LICENSE for details." LICENSE is The Unlicense.
  */
+#include <assert.h>
 #include <stdio.h>
-#ifdef _MSC_VER
-#include <malloc.h>
-#endif
 #include "common.h"
 #include "large.h"
 
@@ -57,8 +54,8 @@
 /* Convert decimal string `s` of (at most) length `length` to 64-bit and place in 128-bit `t` */
 INTERNAL void large_load_str_u64(large_int *t, const unsigned char *s, const int length) {
     uint64_t val = 0;
-    const unsigned char *se = s + length;
-    for (; s < se && *s >= '0' && *s <= '9'; s++) {
+    const unsigned char *const se = s + length;
+    for (; s < se && z_isdigit(*s); s++) {
         val *= 10;
         val += *s - '0';
     }
@@ -132,7 +129,7 @@ INTERNAL void large_mul_u64(large_int *t, const uint64_t s) {
 }
 
 /* Count leading zeroes. See Hickman `r128__clz64()` */
-STATIC_UNLESS_ZINT_TEST int clz_u64(uint64_t x) {
+static int clz_u64(uint64_t x) {
    uint64_t n = 64, y;
    y = x >> 32; if (y) { n -= 32; x = y; }
    y = x >> 16; if (y) { n -= 16; x = y; }
@@ -143,7 +140,13 @@ STATIC_UNLESS_ZINT_TEST int clz_u64(uint64_t x) {
    return (int) (n - x);
 }
 
-/* Divide 128-bit dividend `t` by 64-bit divisor `v`
+#ifdef ZINT_TEST /* Wrapper for direct testing */
+INTERNAL int clz_u64_test(uint64_t x) {
+    return clz_u64(x);
+}
+#endif
+
+/* Divide 128-bit dividend `t` by 64-bit divisor `v`, returning 64-bit remainder
  * See Jacob `divmod128by128/64()` and Warren Section 9–2 (divmu64.c.txt)
  * Note digits are 32-bit parts */
 INTERNAL uint64_t large_div_u64(large_int *t, uint64_t v) {
@@ -197,6 +200,7 @@ INTERNAL uint64_t large_div_u64(large_int *t, uint64_t v) {
 
     /* Compute qhat1 estimate */
 
+    assert(vn1 != 0); /* Suppress clang-tidy-14 clang-analyzer-core.DivideZero */
     qhat1 = tnhi / vn1; /* Divide first digit of v into first 2 digits of t */
     rhat = tnhi % vn1;
 
@@ -279,24 +283,13 @@ INTERNAL void large_uint_array(const large_int *t, unsigned int *uint_array, con
 /* As `large_uint_array()` above, except output to unsigned char array */
 INTERNAL void large_uchar_array(const large_int *t, unsigned char *uchar_array, const int size, int bits) {
     int i;
-#ifndef _MSC_VER
-    unsigned int uint_array[size ? size : 1]; /* Avoid run-time warning if size is 0 */
-#else
-    unsigned int *uint_array = (unsigned int *) _alloca(sizeof(unsigned int) * (size ? size : 1));
-#endif
+    unsigned int *uint_array = (unsigned int *) z_alloca(sizeof(unsigned int) * (size ? size : 1));
 
     large_uint_array(t, uint_array, size, bits);
 
     for (i = 0; i < size; i++) {
         uchar_array[i] = (unsigned char) uint_array[i];
     }
-}
-
-/* Output formatted large_int to stdout */
-INTERNAL void large_print(const large_int *t) {
-    char buf[35]; /* 2 (0x) + 32 (hex) + 1 */
-
-    puts(large_dump(t, buf));
 }
 
 /* Format large_int into buffer, which should be at least 35 chars in size */
@@ -317,3 +310,12 @@ INTERNAL char *large_dump(const large_int *t, char *buf) {
     }
     return buf;
 }
+
+/* Output formatted large_int to stdout */
+INTERNAL void large_print(const large_int *t) {
+    char buf[35]; /* 2 (0x) + 32 (hex) + 1 */
+
+    puts(large_dump(t, buf));
+}
+
+/* vim: set ts=4 sw=4 et : */

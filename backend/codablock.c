@@ -1,8 +1,7 @@
 /* codablock.c - Handles Codablock-F and Codablock-E */
-
 /*
     libzint - the open source barcode library
-    Copyright (C) 2016 - 2020 Harald Oehlmann
+    Copyright (C) 2016-2022 Harald Oehlmann
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -29,17 +28,13 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* vim: set ts=4 sw=4 et : */
+/* SPDX-License-Identifier: BSD-3-Clause */
 
 #include <stdio.h>
 #include <math.h>
-#ifdef _MSC_VER
-#include <malloc.h>
-#endif
 #include <assert.h>
 #include "common.h"
-
-INTERNAL int code_128(struct zint_symbol *symbol, unsigned char source[], int length);
+#include "code128.h"
 
 #define uchar unsigned char
 
@@ -65,23 +60,6 @@ INTERNAL int code_128(struct zint_symbol *symbol, unsigned char source[], int le
 #define aCodeC (uchar)(134)
 #define aShift (uchar)(135)
 
-static const char *C128Table[107] = {
-    /* Code 128 character encodation - Table 1 */
-    "212222", "222122", "222221", "121223", "121322", "131222", "122213",
-    "122312", "132212", "221213", "221312", "231212", "112232", "122132", "122231", "113222",
-    "123122", "123221", "223211", "221132", "221231", "213212", "223112", "312131", "311222",
-    "321122", "321221", "312212", "322112", "322211", "212123", "212321", "232121", "111323",
-    "131123", "131321", "112313", "132113", "132311", "211313", "231113", "231311", "112133",
-    "112331", "132131", "113123", "113321", "133121", "313121", "211331", "231131", "213113",
-    "213311", "213131", "311123", "311321", "331121", "312113", "312311", "332111", "314111",
-    "221411", "431111", "111224", "111422", "121124", "121421", "141122", "141221", "112214",
-    "112412", "122114", "122411", "142112", "142211", "241211", "221114", "413111", "241112",
-    "134111", "111242", "121142", "121241", "114212", "124112", "124211", "411212", "421112",
-    "421211", "212141", "214121", "412121", "111143", "111341", "131141", "114113", "114311",
-    "411113", "411311", "113141", "114131", "311141", "411131", "211412", "211214", "211232",
-    "2331112"
-};
-
 /* Code F Analysing-Chart */
 typedef struct sCharacterSetTable
 {
@@ -99,10 +77,10 @@ static int GetPossibleCharacterSet(unsigned char C)
 {
     if (C<='\x1f')      /* Control chars */
         return CodeA;
-    if (C>='0' && C<='9')
+    if (z_isdigit(C))
         return ZTNum;   /* ZTNum=CodeA+CodeB+CodeC */
-    if (C==aFNC1)
-        return ZTFNC1;  /* ZTFNC1=CodeA+CodeB+CodeC+CodeFNC1 */
+    if (C==aFNC1) /* FNC1s (GS1) not used */
+        return ZTFNC1;  /* ZTFNC1=CodeA+CodeB+CodeC+CodeFNC1 */ /* Not reached */
     if (C==aFNC4)
         return (CodeA | CodeB | CodeFNC4);
     if (C>='\x60' && C<='\x7f')      /* 60 to 127 */
@@ -152,9 +130,9 @@ static void CreateCharacterSetTable(CharacterSetTable T[], unsigned char *data, 
             do{
                 /* Whether this is FNC1, whether next is */
                 /* numeric */
-                if (T[runChar].CharacterSet==ZTFNC1)
+                if (T[runChar].CharacterSet==ZTFNC1) /* FNC1s (GS1) not used */
                     /* FNC1 */
-                    ++(T[charCur].CFollowing);
+                    ++(T[charCur].CFollowing); /* Not reached */
                 else
                 {
                     ++runChar;
@@ -211,7 +189,7 @@ static int Columns2Rows(struct zint_symbol *symbol, CharacterSetTable *T, const 
         int * pRows, int * pUseColumns, int * pSet, int * pFillings)
 {
     int useColumns;     /* Usable Characters per line */
-    int fillings;       /* Number of filling characters */
+    int fillings = 0;   /* Number of filling characters */
     int rowsCur;
     int runChar;
     int emptyColumns;   /* Number of codes still empty in line. */
@@ -251,9 +229,9 @@ static int Columns2Rows(struct zint_symbol *symbol, CharacterSetTable *T, const 
                 /* Test if numeric after one isn't better.*/
                 runChar=charCur;
                 emptyColumns2=emptyColumns;
-                while (T[runChar].CharacterSet==ZTFNC1)
+                while (T[runChar].CharacterSet==ZTFNC1) /* FNC1s (GS1) not used */
                 {
-                    ++runChar;
+                    ++runChar; /* Not reached */
                     --emptyColumns2;
                 }
                 if (CPaires>=RemainingDigits(T,runChar+1,emptyColumns2-1))
@@ -304,7 +282,8 @@ static int Columns2Rows(struct zint_symbol *symbol, CharacterSetTable *T, const 
                                 /* <Shift> or <switchB>? */
                                 if (T[charCur].BFollowing == 1 || (isFNC4 && T[charCur].BFollowing == 2))
                                 {
-                                    /* Note using order "FNC4 shift char" (same as CODE128) not "shift FNC4 char" as given in Table B.1 and Table B.2 */
+                                    /* Note using order "FNC4 shift char" (same as CODE128) not "shift FNC4 char" as
+                                       given in Table B.1 and Table B.2 */
                                     if (isFNC4) { /* So skip FNC4 and shift value instead */
                                         --emptyColumns;
                                         ++charCur;
@@ -338,7 +317,8 @@ static int Columns2Rows(struct zint_symbol *symbol, CharacterSetTable *T, const 
                                 /* <Shift> or <switchA>? */
                                 if (T[charCur].AFollowing == 1 || (isFNC4 && T[charCur].AFollowing == 2))
                                 {
-                                    /* Note using order "FNC4 shift char" (same as CODE128) not "shift FNC4 char" as given in Table B.1 and Table B.2 */
+                                    /* Note using order "FNC4 shift char" (same as CODE128) not "shift FNC4 char" as
+                                       given in Table B.1 and Table B.2 */
                                     if (isFNC4) { /* So skip FNC4 and shift value instead */
                                         --emptyColumns;
                                         ++charCur;
@@ -435,20 +415,12 @@ static int Rows2Columns(struct zint_symbol *symbol, CharacterSetTable *T, const 
     int rowsCur;
     int rowsRequested;  /* Number of requested rows */
     int columnsRequested; /* Number of requested columns (if any) */
-    int backupRows = 0;
     int fillings;
-    int backupFillings = 0;
     int useColumns;
     int testColumns;    /* To enter into Width2Rows */
-    int backupColumns = 0;
-    int fBackupOk = 0;      /* The memorised set is o.k. */
     int testListSize = 0;
-    int pTestList[62];
-#ifndef _MSC_VER
-    int *pBackupSet[dataLength];
-#else
-    int *pBackupSet = (int *)_alloca(dataLength*sizeof(int));
-#endif
+    int pTestList[62 + 1];
+    int *pBackupSet = (int *) z_alloca(sizeof(int) * dataLength);
 
     rowsRequested=*pRows;
     columnsRequested = *pUseColumns >= 4 ? *pUseColumns : 0;
@@ -499,38 +471,15 @@ static int Rows2Columns(struct zint_symbol *symbol, CharacterSetTable *T, const 
                 return 0;
             }
             /* > Test more rows (shorter CDB) */
-            fBackupOk=(rowsCur==rowsRequested);
             memcpy(pBackupSet,pSet,dataLength*sizeof(int));
-            backupFillings=fillings;
-            backupColumns=useColumns;
-            backupRows=rowsCur;
             --testColumns;
         } else {
             /* > Too many rows */
-            int fInTestList = fBackupOk;
-            int posCur;
-            for (posCur = 0; posCur < testListSize && ! fInTestList; posCur++) {
-                if ( pTestList[posCur] == testColumns+1 )
-                    fInTestList = 1;
-            }
-            if (fInTestList) {
-                /* The next less-rows (larger) code was
-                 * already tested. So give the larger
-                 * back.
-                 */
-                memcpy(pSet,pBackupSet,dataLength*sizeof(int));
-                *pFillings=backupFillings;
-                *pRows=backupRows;
-                *pUseColumns=backupColumns;
-                return 0;
-            }
             /* > Test less rows (longer code) */
-            backupRows=rowsCur;
             memcpy(pBackupSet,pSet,dataLength*sizeof(int));
-            backupFillings=fillings;
-            backupColumns=useColumns;
-            fBackupOk=0;
-            ++testColumns;
+            if (++testColumns > 62) {
+                return ZINT_ERROR_TOO_LONG;
+            }
         }
     }
 }
@@ -543,8 +492,8 @@ static void A2C128_A(uchar **ppOutPos,uchar c)
     switch(c){
     case aCodeB: *pOutPos=100; break;
     case aFNC4: *pOutPos=101; break;
-    case aFNC1: *pOutPos=102; break;
-    case aFNC2: *pOutPos=97; break;
+    case aFNC1: *pOutPos=102; break; /* FNC1s (GS1) not used */ /* Not reached */
+    case aFNC2: *pOutPos=97; break; /* FNC2s (Message Append) not used */ /* Not reached */
     case aFNC3: *pOutPos=96; break;
     case aCodeC: *pOutPos=99; break;
     case aShift: *pOutPos=98; break;
@@ -565,8 +514,8 @@ static void A2C128_B(uchar **ppOutPos,uchar c)
 {
     uchar * pOutPos = *ppOutPos;
     switch(c){
-    case aFNC1: *pOutPos=102; break;
-    case aFNC2: *pOutPos=97; break;
+    case aFNC1: *pOutPos=102; break; /* FNC1s (GS1) not used */ /* Not reached */
+    case aFNC2: *pOutPos=97; break; /* FNC2s (Message Append) not used */ /* Not reached */
     case aFNC3: *pOutPos=96; break;
     case aFNC4: *pOutPos=100; break;
     case aCodeA: *pOutPos=101; break;
@@ -583,7 +532,7 @@ static void A2C128_C(uchar **ppOutPos,uchar c1,uchar c2)
 {
     uchar * pOutPos = *ppOutPos;
     switch(c1){
-    case aFNC1: *pOutPos=102; break;
+    case aFNC1: *pOutPos=102; break; /* FNC1s (GS1) not used */ /* Not reached */
     case aCodeB: *pOutPos=100; break;
     case aCodeA: *pOutPos=101; break;
     default: *pOutPos=(char)(10 * (c1- '0') + (c2 - '0'));break;
@@ -626,7 +575,7 @@ static void SumASCII(uchar **ppOutPos, int Sum, int CharacterSet)
 
 /* Main function called by zint framework
  */
-INTERNAL int codablock(struct zint_symbol *symbol, unsigned char source[], int length) {
+INTERNAL int codablockf(struct zint_symbol *symbol, unsigned char source[], int length) {
     int charCur, dataLength;
     int error_number;
     int rows, columns, useColumns;
@@ -638,12 +587,10 @@ INTERNAL int codablock(struct zint_symbol *symbol, unsigned char source[], int l
     int emptyColumns;
     char dest[1000];
     int r, c;
-#ifdef _MSC_VER
     CharacterSetTable *T;
     unsigned char *data;
     int *pSet;
-    uchar * pOutput;
-#endif
+    uchar *pOutput;
     /* Suppresses clang-analyzer-core.VLASize warning */
     assert(length > 0);
 
@@ -651,13 +598,20 @@ INTERNAL int codablock(struct zint_symbol *symbol, unsigned char source[], int l
     /* option1: rows <= 0: automatic, 1..44 */
     rows = symbol->option_1;
     if (rows == 1) {
-        error_number = code_128(symbol, source, length); /* Only returns errors, not warnings */
+        error_number = code128(symbol, source, length); /* Only returns errors, not warnings */
         if (error_number < ZINT_ERROR) {
             symbol->output_options |= BARCODE_BIND;
             if (symbol->border_width == 0) { /* Allow override if non-zero */
                 symbol->border_width = 1; /* AIM ISS-X-24 Section 4.6.1 b) (note change from previous default 2) */
             }
             symbol->text[0] = '\0'; /* Disable HRT for compatibility with CODABLOCKF */
+            if (symbol->output_options & COMPLIANT_HEIGHT) {
+                /* AIM ISS-X-24 Section 4.5.1 minimum row height 8 (for compatibility with CODABLOCKF, not specced for
+                   CODE128) */
+                error_number = set_height(symbol, 8.0f, 10.0f, 0.0f, 0 /*no_errtxt*/);
+            } else {
+                (void) set_height(symbol, 0.0f, 5.0f, 0.0f, 1 /*no_errtxt*/);
+            }
         }
         return error_number;
     }
@@ -672,11 +626,7 @@ INTERNAL int codablock(struct zint_symbol *symbol, unsigned char source[], int l
         return ZINT_ERROR_INVALID_OPTION;
     }
 
-#ifndef _MSC_VER
-    unsigned char data[length*2+1];
-#else
-    data = (unsigned char *) _alloca(length * 2+1);
-#endif
+    data = (unsigned char *) z_alloca(length * 2 + 1);
 
     dataLength = 0;
     if (symbol->output_options & READER_INIT) {
@@ -696,13 +646,8 @@ INTERNAL int codablock(struct zint_symbol *symbol, unsigned char source[], int l
     }
 
     /* Build character set table */
-#ifndef _MSC_VER
-    CharacterSetTable T[dataLength];
-    int pSet[dataLength];
-#else
-    T=(CharacterSetTable *)_alloca(dataLength*sizeof(CharacterSetTable));
-    pSet = (int *)_alloca(dataLength*sizeof(int));
-#endif
+    T = (CharacterSetTable *) z_alloca(sizeof(CharacterSetTable) * dataLength);
+    pSet = (int *) z_alloca(sizeof(int) * dataLength);
     CreateCharacterSetTable(T,data,dataLength);
 
     /* Find final row and column count */
@@ -776,11 +721,7 @@ INTERNAL int codablock(struct zint_symbol *symbol, unsigned char source[], int l
 
     /* >>> Build C128 code numbers */
     /* The C128 column count contains Start (2CW), Row ID, Checksum, Stop */
-#ifndef _MSC_VER
-    uchar pOutput[columns * rows];
-#else
-    pOutput = (unsigned char *)_alloca(columns * rows * sizeof(char));
-#endif
+    pOutput = (unsigned char *) z_alloca(columns * rows);
     pOutPos = pOutput;
     charCur=0;
     /* >> Loop over rows */
@@ -880,8 +821,8 @@ INTERNAL int codablock(struct zint_symbol *symbol, unsigned char source[], int l
                     /* Normal Character */
                     if (characterSetCur==CodeC)
                     {
-                        if (data[charCur]==aFNC1)
-                            A2C128_C(&pOutPos,aFNC1,'\0');
+                        if (data[charCur]==aFNC1) /* FNC1s (GS1) not used */
+                            A2C128_C(&pOutPos,aFNC1,'\0'); /* Not reached */
                         else
                         {
                             A2C128_C(&pOutPos, data[charCur],
@@ -971,12 +912,26 @@ INTERNAL int codablock(struct zint_symbol *symbol, unsigned char source[], int l
 
     /* Paint the C128 patterns */
     for (r = 0; r < rows; r++) {
-        strcpy(dest, "");
-        for(c = 0; c < columns; c++) {
-            strcat(dest, C128Table[pOutput[r * columns + c]]);
+        const int rc = r * columns;
+        char *d = dest;
+        for (c = 0; c < columns - 1; c++, d += 6) {
+            memcpy(d, C128Table[pOutput[rc + c]], 6);
         }
-        expand(symbol, dest);
-        symbol->row_height[r] = 10;
+        memcpy(d, "2331112", 7); /* Stop character (106, not in C128Table) */
+        d += 7;
+        expand(symbol, dest, d - dest);
+    }
+
+    if (symbol->output_options & COMPLIANT_HEIGHT) {
+        /* AIM ISS-X-24 Section 4.6.1 minimum row height; use 10 * rows as default */
+        float min_row_height = stripf(0.55f * useColumns + 3.0f);
+        if (min_row_height < 8.0f) {
+            min_row_height = 8.0f;
+        }
+        error_number = set_height(symbol, min_row_height, (min_row_height > 10.0f ? min_row_height : 10.0f) * rows,
+                                    0.0f, 0 /*no_errtxt*/);
+    } else {
+        (void) set_height(symbol, 0.0f, 10.0f * rows, 0.0f, 1 /*no_errtxt*/);
     }
 
     symbol->output_options |= BARCODE_BIND;
@@ -987,3 +942,5 @@ INTERNAL int codablock(struct zint_symbol *symbol, unsigned char source[], int l
 
     return error_number;
 }
+
+/* vim: set ts=4 sw=4 et : */
