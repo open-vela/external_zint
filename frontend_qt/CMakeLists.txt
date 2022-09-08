@@ -1,36 +1,56 @@
-# (c) 2008 by BogDan Vatra < bogdan@licentia.eu >
+# Copyright (C) 2008 by BogDan Vatra < bogdan@licentia.eu >
+# Copyright (C) 2009-2022 Robin Stuart <rstuart114@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
 # vim: set ts=4 sw=4 et :
 
 project(zint-qt)
 
-include_directories(BEFORE "${CMAKE_SOURCE_DIR}/backend")
+set(CMAKE_AUTORCC ON)
 
-set(zint-qt_SRCS barcodeitem.cpp  main.cpp  mainwindow.cpp datawindow.cpp sequencewindow.cpp exportwindow.cpp qzint.cpp)
-
-if(USE_QT6)
-    qt6_wrap_cpp(zint-qt_SRCS mainwindow.h datawindow.h sequencewindow.h exportwindow.h qzint.h)
-    qt6_wrap_ui(zint-qt_SRCS mainWindow.ui extData.ui extSequence.ui extExport.ui)
-    qt6_add_resources(zint-qt_SRCS resources.qrc)
-else()
-    qt5_wrap_cpp(zint-qt_SRCS mainwindow.h datawindow.h sequencewindow.h exportwindow.h qzint.h)
-    qt5_wrap_ui(zint-qt_SRCS mainWindow.ui extData.ui extSequence.ui extExport.ui)
-    qt5_add_resources(zint-qt_SRCS resources.qrc)
-endif()
-#               grpAztec.ui  grpC49.ui         grpDBExtend.ui  grpLOGMARS.ui   grpPDF417.ui  grpUPCEAN.ui
-#               grpC11.ui    grpChannel.ui     grpDM.ui        grpMaxicode.ui  grpQR.ui      grpVIN.ui
-#               grpC128.ui   grpCodabar.ui     grpDotCode.ui   grpMicroPDF.ui  grpRMQR.ui
-#               grpC16k.ui   grpCodablockF.ui  grpGrid.ui      grpMQR.ui       grpUltra.ui
-#               grpC39.ui    grpCodeOne.ui     grpHX.ui        grpMSICheck.ui  grpUPCA.ui
-
-add_executable(zint-qt ${zint-qt_SRCS})
-add_dependencies(zint-qt zint)
-
-link_directories( "${CMAKE_BINARY_DIR}/backend" )
+set(${PROJECT_NAME}_SRCS barcodeitem.cpp main.cpp mainwindow.cpp
+                            cliwindow.cpp datawindow.cpp sequencewindow.cpp exportwindow.cpp)
 
 if(USE_QT6)
-    target_link_libraries(zint-qt zint Qt6::UiTools Qt6::Xml Qt6::Gui Qt6::Core)
+    qt6_wrap_cpp(zint-qt_SRCS mainwindow.h cliwindow.h datawindow.h sequencewindow.h exportwindow.h)
+    qt6_wrap_ui(zint-qt_SRCS mainWindow.ui extCLI.ui extData.ui extSequence.ui extExport.ui)
 else()
-    target_link_libraries(zint-qt zint Qt5::UiTools Qt5::Xml Qt5::Gui Qt5::Core)
+    qt5_wrap_cpp(zint-qt_SRCS mainwindow.h cliwindow.h datawindow.h sequencewindow.h exportwindow.h)
+    qt5_wrap_ui(zint-qt_SRCS mainWindow.ui extCLI.ui extData.ui extSequence.ui extExport.ui)
 endif()
 
-install(TARGETS zint-qt DESTINATION "${BIN_INSTALL_DIR}" RUNTIME)
+#               grpAztec.ui  grpC39.ui      grpCodablockF.ui  grpDotCode.ui   grpMicroPDF.ui  grpRMQR.ui    grpVIN.ui
+#               grpC11.ui    grpC49.ui      grpCodeOne.ui     grpGrid.ui      grpMQR.ui       grpUltra.ui
+#               grpC128.ui   grpC93.ui      grpDAFT.ui        grpHX.ui        grpMSICheck.ui  grpUPCA.ui
+#               grpC16k.ui   grpChannel.ui  grpDBExtend.ui    grpITF14.ui     grpPDF417.ui    grpUPCEAN.ui
+#               grpC25.ui    grpCodabar.ui  grpDM.ui          grpMaxicode.ui  grpQR.ui        grpUPNQR.ui
+
+if(APPLE)
+    # https://doc.qt.io/qt-5/appicon.html
+    set(MACOSX_BUNDLE_ICON_FILE zint-qt.icns)
+    set(APP_ICON_MACOSX "${CMAKE_CURRENT_SOURCE_DIR}/zint-qt.icns")
+    set_source_files_properties(${APP_ICON_MACOSX} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+    add_executable(${PROJECT_NAME} MACOSX_BUNDLE ${zint-qt_SRCS} resources.qrc ${APP_ICON_MACOSX})
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME "Zint Barcode Studio"
+        MACOSX_BUNDLE_BUNDLE_VERSION ${ZINT_VERSION}
+        MACOSX_BUNDLE_COPYRIGHT "Copyright © 2006-2022 Robin Stuart and others"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "uk.org.zint.zint-qt"
+        MACOSX_BUNDLE_INFO_STRING "A free barcode generator"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING ${ZINT_VERSION})
+else()
+    add_executable(${PROJECT_NAME} ${zint-qt_SRCS} resources.qrc)
+endif()
+
+if(WIN32)
+    target_sources(${PROJECT_NAME} PRIVATE res/qtZint.rc)
+endif()
+
+target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/backend" "${CMAKE_SOURCE_DIR}/backend_qt")
+
+target_link_libraries(${PROJECT_NAME} zint QZint
+                        Qt${QT_VERSION_MAJOR}::UiTools Qt${QT_VERSION_MAJOR}::Gui Qt${QT_VERSION_MAJOR}::Svg
+                        Qt${QT_VERSION_MAJOR}::Core)
+
+
+install(TARGETS ${PROJECT_NAME} DESTINATION "${BIN_INSTALL_DIR}" RUNTIME)
