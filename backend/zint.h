@@ -345,7 +345,7 @@ extern "C" {
 
     ZINT_EXTERN int ZBarcode_ValidID(int symbol_id);
     ZINT_EXTERN unsigned int ZBarcode_Cap(int symbol_id, unsigned int cap_flag);
-    ZINT_EXTERN int ZBarcode_Version(void);
+    ZINT_EXTERN int ZBarcode_Version();
 
 #ifdef __cplusplus
 }
