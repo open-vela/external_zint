@@ -1,7 +1,8 @@
 /* mailmark.c - Royal Mail 4-state Mailmark barcodes */
+
 /*
     libzint - the open source barcode library
-    Copyright (C) 2008-2022 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2008 - 2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -28,38 +29,37 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* SPDX-License-Identifier: BSD-3-Clause */
+/* vim: set ts=4 sw=4 et : */
 
-/*
+/* 
  * Developed in accordance with "Royal Mail Mailmark barcode C encoding and deconding instructions"
- * (https://www.royalmail.com/sites/default/files/
- *  Mailmark-4-state-barcode-C-encoding-and-decoding-instructions-Sept-2015.pdf)
+ * (https://www.royalmail.com/sites/default/files/Mailmark-4-state-barcode-C-encoding-and-decoding-instructions-Sept-2015.pdf)
  * and "Royal Mail Mailmark barcode L encoding and decoding"
- * (https://www.royalmail.com/sites/default/files/
- *  Mailmark-4-state-barcode-L-encoding-and-decoding-instructions-Sept-2015.pdf)
- *
+ * (https://www.royalmail.com/sites/default/files/Mailmark-4-state-barcode-L-encoding-and-decoding-instructions-Sept-2015.pdf)
+ * 
  */
 
 #include <stdio.h>
+#ifdef _MSC_VER
+#include <malloc.h>
+#endif
 #include "common.h"
 #include "large.h"
 #include "reedsol.h"
 
-#define RUBIDIUM_F (IS_NUM_F | IS_UPR_F | IS_SPC_F) /* RUBIDIUM "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ " */
+#define RUBIDIUM "01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ "
 
-/* Allowed character values from Table 3 */
+// Allowed character values from Table 3
 #define SET_F "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 #define SET_L "ABDEFGHJLNPQRSTUWXYZ"
 #define SET_N "0123456789"
 #define SET_S " "
 
-static const char postcode_format[6][9] = {
-    {'F','N','F','N','L','L','N','L','S'}, {'F','F','N','N','L','L','N','L','S'},
-    {'F','F','N','N','N','L','L','N','L'}, {'F','F','N','F','N','L','L','N','L'},
-    {'F','N','N','L','L','N','L','S','S'}, {'F','N','N','N','L','L','N','L','S'}
+static const char *postcode_format[6] = {
+    "FNFNLLNLS", "FFNNLLNLS", "FFNNNLLNL", "FFNFNLLNL", "FNNLLNLSS", "FNNNLLNLS"
 };
 
-/* Data/Check Symbols from Table 5 */
+// Data/Check Symbols from Table 5
 static const unsigned char data_symbol_odd[32] = {
     0x01, 0x02, 0x04, 0x07, 0x08, 0x0B, 0x0D, 0x0E, 0x10, 0x13, 0x15, 0x16,
     0x19, 0x1A, 0x1C, 0x1F, 0x20, 0x23, 0x25, 0x26, 0x29, 0x2A, 0x2C, 0x2F,
@@ -82,7 +82,7 @@ static const unsigned short extender_group_l[26] = {
 
 static int verify_character(char input, char type) {
     int val = 0;
-
+    
     switch (type) {
         case 'F':
             val = posn(SET_F, input);
@@ -97,7 +97,7 @@ static int verify_character(char input, char type) {
             val = posn(SET_S, input);
             break;
     }
-
+    
     if (val == -1) {
         return 0;
     } else {
@@ -105,9 +105,11 @@ static int verify_character(char input, char type) {
     }
 }
 
-static int verify_postcode(char *postcode, int type) {
+static int verify_postcode(char* postcode, int type) {
     int i;
-    const char *const pattern = postcode_format[type - 1];
+    char pattern[11];
+    
+    strcpy(pattern, postcode_format[type - 1]);
 
     for (i = 0; i < 9; i++) {
         if (!(verify_character(postcode[i], pattern[i]))) {
@@ -118,120 +120,116 @@ static int verify_postcode(char *postcode, int type) {
     return 0;
 }
 
-INTERNAL int daft_set_height(struct zint_symbol *symbol, const float min_height, const float max_height);
-
 /* Royal Mail Mailmark */
 INTERNAL int mailmark(struct zint_symbol *symbol, unsigned char source[], int length) {
-
+    
     char local_source[28];
     int format;
     int version_id;
     int mail_class;
     int supply_chain_id;
-    unsigned int item_id;
+    long item_id;
     char postcode[10];
     int postcode_type;
-    const char *pattern;
+    char pattern[10];
     large_int destination_postcode;
     large_int b;
     large_int cdv;
     unsigned char data[26];
     int data_top, data_step;
     unsigned char check[7];
-    unsigned int extender[27];
+    short int extender[27];
     char bar[80];
-    char *d = bar;
     int check_count;
     int i, j, len;
     rs_t rs;
-    int error_number = 0;
-
+    
     if (length > 26) {
-        strcpy(symbol->errtxt, "580: Input too long (26 character maximum)");
+        strcpy(symbol->errtxt, "580: Input too long");
         return ZINT_ERROR_TOO_LONG;
     }
-
-    ustrcpy(local_source, source);
-
+    
+    strcpy(local_source, (char*) source);
+    
     if (length < 22) {
         for (i = length; i <= 22; i++) {
             strcat(local_source, " ");
         }
         length = 22;
     }
-
+    
     if ((length > 22) && (length < 26)) {
         for (i = length; i <= 26; i++) {
             strcat(local_source, " ");
         }
         length = 26;
-    }
-
-    to_upper((unsigned char *) local_source, length);
-
+    } 
+    
+    to_upper((unsigned char*) local_source);
+    
     if (symbol->debug & ZINT_DEBUG_PRINT) {
         printf("Producing Mailmark %s\n", local_source);
     }
-
-    if (!is_sane(RUBIDIUM_F, (unsigned char *) local_source, length)) {
-        strcpy(symbol->errtxt, "581: Invalid character in data (alphanumerics and space only)");
+    
+    if (is_sane(RUBIDIUM, (unsigned char *) local_source, length) != 0) {
+        strcpy(symbol->errtxt, "581: Invalid characters in input data");
         return ZINT_ERROR_INVALID_DATA;
     }
 
-    /* Format is in the range 0-4 */
+    // Format is in the range 0-4
     format = ctoi(local_source[0]);
     if ((format < 0) || (format > 4)) {
-        strcpy(symbol->errtxt, "582: Format (1st character) out of range (0 to 4)");
+        strcpy(symbol->errtxt, "582: Invalid format");
         return ZINT_ERROR_INVALID_DATA;
     }
-
-    /* Version ID is in the range 1-4 */
+    
+    // Version ID is in the range 1-4
     version_id = ctoi(local_source[1]) - 1;
     if ((version_id < 0) || (version_id > 3)) {
-        strcpy(symbol->errtxt, "583: Version ID (2nd character) out of range (1 to 4)");
+        strcpy(symbol->errtxt, "583: Invalid Version ID");
         return ZINT_ERROR_INVALID_DATA;
     }
-
-    /* Class is in the range 0-9,A-E */
+    
+    // Class is in the range 0-9,A-E
     mail_class = ctoi(local_source[2]);
     if ((mail_class < 0) || (mail_class > 14)) {
-        strcpy(symbol->errtxt, "584: Class (3rd character) out of range (0 to 9 and A to E)");
+        strcpy(symbol->errtxt, "584: Invalid Class");
         return ZINT_ERROR_INVALID_DATA;
     }
-
-    /* Supply Chain ID is 2 digits for barcode C and 6 digits for barcode L */
+    
+    // Supply Chain ID is 2 digits for barcode C and 6 digits for barcode L
     supply_chain_id = 0;
     for (i = 3; i < (length - 17); i++) {
-        if (z_isdigit(local_source[i])) {
+        if ((local_source[i] >= '0') && (local_source[i] <= '9')) {
             supply_chain_id *= 10;
             supply_chain_id += ctoi(local_source[i]);
         } else {
-            sprintf(symbol->errtxt, "585: Invalid Supply Chain ID at character %d (digits only)", i);
+            strcpy(symbol->errtxt, "585: Invalid Supply Chain ID");
             return ZINT_ERROR_INVALID_DATA;
         }
     }
-
-    /* Item ID is 8 digits */
+    
+    // Item ID is 8 digits
     item_id = 0;
     for (i = length - 17; i < (length - 9); i++) {
-        if (z_isdigit(local_source[i])) {
+        if ((local_source[i] >= '0') && (local_source[i] <= '9')) {
             item_id *= 10;
-            item_id += ctoi(local_source[i]);
+            item_id += (long) ctoi(local_source[i]);
         } else {
-            sprintf(symbol->errtxt, "586: Invalid Item ID at character %d (digits only)", i);
+            strcpy(symbol->errtxt, "586: Invalid Item ID");
             return ZINT_ERROR_INVALID_DATA;
         }
     }
-
-    /* Separate Destination Post Code plus DPS field */
+    
+    // Separate Destination Post Code plus DPS field
     for (i = 0; i < 9; i++) {
         postcode[i] = local_source[(length - 9) + i];
     }
     postcode[9] = '\0';
-
-    /* Detect postcode type */
-    /* postcode_type is used to select which format of postcode
-     *
+    
+    // Detect postcode type
+    /* postcode_type is used to select which format of postcode 
+     * 
      * 1 = FNFNLLNLS
      * 2 = FFNNLLNLS
      * 3 = FFNNNLLNL
@@ -240,7 +238,7 @@ INTERNAL int mailmark(struct zint_symbol *symbol, unsigned char source[], int le
      * 6 = FNNNLLNLS
      * 7 = International designation
      */
-
+    
     if (strcmp(postcode, "XY11     ") == 0) {
         postcode_type = 7;
     } else {
@@ -248,9 +246,9 @@ INTERNAL int mailmark(struct zint_symbol *symbol, unsigned char source[], int le
             postcode_type = 5;
         } else {
             if (postcode[8] == ' ') {
-                /* Types 1, 2 and 6 */
-                if (z_isdigit(postcode[1])) {
-                    if (z_isdigit(postcode[2])) {
+                // Types 1, 2 and 6
+                if ((postcode[1] >= '0') && (postcode[1] <= '9')) {
+                    if ((postcode[2] >= '0') && (postcode[2] <= '9')) {
                         postcode_type = 6;
                     } else {
                         postcode_type = 1;
@@ -259,8 +257,8 @@ INTERNAL int mailmark(struct zint_symbol *symbol, unsigned char source[], int le
                     postcode_type = 2;
                 }
             } else {
-                /* Types 3 and 4 */
-                if (z_isdigit(postcode[3])) {
+                // Types 3 and 4
+                if ((postcode[3] >= '0') && (postcode[3] <= '9')) {
                     postcode_type = 3;
                 } else {
                     postcode_type = 4;
@@ -268,21 +266,21 @@ INTERNAL int mailmark(struct zint_symbol *symbol, unsigned char source[], int le
             }
         }
     }
-
-    /* Verify postcode type */
+    
+    // Verify postcode type
     if (postcode_type != 7) {
         if (verify_postcode(postcode, postcode_type) != 0) {
-            sprintf(symbol->errtxt, "587: Invalid postcode \"%s\"", postcode);
+            strcpy(symbol->errtxt, "587: Invalid postcode");
             return ZINT_ERROR_INVALID_DATA;
         }
     }
-
-    /* Convert postcode to internal user field */
+    
+    // Convert postcode to internal user field
 
     large_load_u64(&destination_postcode, 0);
 
     if (postcode_type != 7) {
-        pattern = postcode_format[postcode_type - 1];
+        strcpy(pattern, postcode_format[postcode_type - 1]);
 
         large_load_u64(&b, 0);
 
@@ -300,13 +298,13 @@ INTERNAL int mailmark(struct zint_symbol *symbol, unsigned char source[], int le
                     large_mul_u64(&b, 10);
                     large_add_u64(&b, posn(SET_N, postcode[i]));
                     break;
-                /* case 'S' ignored as value is 0 */
+                // case 'S' ignored as value is 0
             }
         }
 
         large_load(&destination_postcode, &b);
 
-        /* destination_postcode = a + b */
+        // destination_postcode = a + b
         large_load_u64(&b, 1);
         if (postcode_type == 1) {
             large_add(&destination_postcode, &b);
@@ -332,47 +330,47 @@ INTERNAL int mailmark(struct zint_symbol *symbol, unsigned char source[], int le
             large_add(&destination_postcode, &b);
         }
     }
-
-    /* Conversion from Internal User Fields to Consolidated Data Value */
-    /* Set CDV to 0 */
+    
+    // Conversion from Internal User Fields to Consolidated Data Value
+    // Set CDV to 0
     large_load_u64(&cdv, 0);
 
-    /* Add Destination Post Code plus DPS */
+    // Add Destination Post Code plus DPS
     large_add(&cdv, &destination_postcode);
 
-    /* Multiply by 100,000,000 */
+    // Multiply by 100,000,000
     large_mul_u64(&cdv, 100000000);
 
-    /* Add Item ID */
+    // Add Item ID
     large_add_u64(&cdv, item_id);
 
-    if (length == 22) {
-        /* Barcode C - Multiply by 100 */
+    if (length == 22) {  
+        // Barcode C - Multiply by 100
         large_mul_u64(&cdv, 100);
     } else {
-        /* Barcode L - Multiply by 1,000,000 */
+        // Barcode L - Multiply by 1,000,000
         large_mul_u64(&cdv, 1000000);
     }
 
-    /* Add Supply Chain ID */
+    // Add Supply Chain ID
     large_add_u64(&cdv, supply_chain_id);
 
-    /* Multiply by 15 */
+    // Multiply by 15
     large_mul_u64(&cdv, 15);
 
-    /* Add Class */
+    // Add Class
     large_add_u64(&cdv, mail_class);
 
-    /* Multiply by 5 */
+    // Multiply by 5
     large_mul_u64(&cdv, 5);
 
-    /* Add Format */
+    // Add Format
     large_add_u64(&cdv, format);
 
-    /* Multiply by 4 */
+    // Multiply by 4
     large_mul_u64(&cdv, 4);
 
-    /* Add Version ID */
+    // Add Version ID
     large_add_u64(&cdv, version_id);
 
     if (symbol->debug & ZINT_DEBUG_PRINT) {
@@ -380,7 +378,8 @@ INTERNAL int mailmark(struct zint_symbol *symbol, unsigned char source[], int le
         printf("CDV: ");
         large_print(&cdv);
     }
-
+    
+    
     if (length == 22) {
         data_top = 15;
         data_step = 8;
@@ -390,27 +389,27 @@ INTERNAL int mailmark(struct zint_symbol *symbol, unsigned char source[], int le
         data_step = 10;
         check_count = 7;
     }
-
-    /* Conversion from Consolidated Data Value to Data Numbers */
+    
+    // Conversion from Consolidated Data Value to Data Numbers
 
     for (j = data_top; j >= (data_step + 1); j--) {
         data[j] = (unsigned char) large_div_u64(&cdv, 32);
     }
-
+    
     for (j = data_step; j >= 0; j--) {
         data[j] = (unsigned char) large_div_u64(&cdv, 30);
     }
-
-    /* Generation of Reed-Solomon Check Numbers */
+    
+    // Generation of Reed-Solomon Check Numbers
     rs_init_gf(&rs, 0x25);
     rs_init_code(&rs, check_count, 1);
     rs_encode(&rs, (data_top + 1), data, check);
-
-    /* Append check digits to data */
+    
+    // Append check digits to data
     for (i = 1; i <= check_count; i++) {
         data[data_top + i] = check[check_count - i];
     }
-
+    
     if (symbol->debug & ZINT_DEBUG_PRINT) {
         printf("Codewords:  ");
         for (i = 0; i <= data_top + check_count; i++) {
@@ -418,16 +417,16 @@ INTERNAL int mailmark(struct zint_symbol *symbol, unsigned char source[], int le
         }
         printf("\n");
     }
-
-    /* Conversion from Data Numbers and Check Numbers to Data Symbols and Check Symbols */
+    
+    // Conversion from Data Numbers and Check Numbers to Data Symbols and Check Symbols
     for (i = 0; i <= data_step; i++) {
         data[i] = data_symbol_even[data[i]];
     }
     for (i = data_step + 1; i <= (data_top + check_count); i++) {
         data[i] = data_symbol_odd[data[i]];
     }
-
-    /* Conversion from Data Symbols and Check Symbols to Extender Groups */
+    
+    // Conversion from Data Symbols and Check Symbols to Extender Groups
     for (i = 0; i < length; i++) {
         if (length == 22) {
             extender[extender_group_c[i]] = data[i];
@@ -435,44 +434,47 @@ INTERNAL int mailmark(struct zint_symbol *symbol, unsigned char source[], int le
             extender[extender_group_l[i]] = data[i];
         }
     }
-
-    /* Conversion from Extender Groups to Bar Identifiers */
-
+    
+    // Conversion from Extender Groups to Bar Identifiers
+    strcpy(bar, "");
+    
     for (i = 0; i < length; i++) {
         for (j = 0; j < 3; j++) {
-            switch (extender[i] & 0x24) {
+            switch(extender[i] & 0x24) {
                 case 0x24:
-                    *d++ = 'F';
+                    strcat(bar, "F");
                     break;
                 case 0x20:
                     if (i % 2) {
-                        *d++ = 'D';
+                        strcat(bar, "D");
                     } else {
-                        *d++ = 'A';
+                        strcat(bar, "A");
                     }
                     break;
                 case 0x04:
                     if (i % 2) {
-                        *d++ = 'A';
+                        strcat(bar, "A");
                     } else {
-                        *d++ = 'D';
+                        strcat(bar, "D");
                     }
                     break;
                 default:
-                    *d++ = 'T';
+                    strcat(bar, "T");
                     break;
             }
             extender[i] = extender[i] << 1;
         }
     }
-
+    
+    bar[(length * 3)] = '\0';
+    
     if (symbol->debug & ZINT_DEBUG_PRINT) {
-        printf("Bar pattern: %.*s\n", (int) (d - bar), bar);
+        printf("Bar pattern: %s\n", bar);
     }
-
+    
     /* Translate 4-state data pattern to symbol */
     j = 0;
-    for (i = 0, len = d - bar; i < len; i++) {
+    for (i = 0, len = (int) strlen(bar); i < len; i++) {
         if ((bar[i] == 'F') || (bar[i] == 'A')) {
             set_module(symbol, 0, j);
         }
@@ -483,28 +485,12 @@ INTERNAL int mailmark(struct zint_symbol *symbol, unsigned char source[], int le
         j += 2;
     }
 
-    if (symbol->output_options & COMPLIANT_HEIGHT) {
-        /* Royal Mail Mailmark Barcode Definition Document (15 Sept 2015) Section 3.5.1
-           (https://www.royalmail.com/sites/default/files/
-            Royal-Mail-Mailmark-barcode-definition-document-September-2015.pdf)
-           Using bar pitch as X (25.4mm / 42.3) ~ 0.6mm based on 21.2 bars + 21.1 spaces per 25.4mm (bar width
-           0.38mm - 0.63mm)
-           Using recommended 1.9mm and 1.3mm heights for Ascender/Descenders and Trackers resp. as defaults
-           Min height 4.22mm * 39 (max pitch) / 25.4mm ~ 6.47, max height 5.84mm * 47 (min pitch) / 25.4mm ~ 10.8
-         */
-        symbol->row_height[0] = stripf((1.9f * 42.3f) / 25.4f); /* ~3.16 */
-        symbol->row_height[1] = stripf((1.3f * 42.3f) / 25.4f); /* ~2.16 */
-        /* Note using max X for minimum and min X for maximum */
-        error_number = daft_set_height(symbol, stripf((4.22f * 39) / 25.4f), stripf((5.84f * 47) / 25.4f));
-    } else {
-        symbol->row_height[0] = 4.0f;
-        symbol->row_height[1] = 2.0f;
-        (void) daft_set_height(symbol, 0.0f, 0.0f);
-    }
+    symbol->row_height[0] = 4;
+    symbol->row_height[1] = 2;
+    symbol->row_height[2] = 4;
+
     symbol->rows = 3;
     symbol->width = j - 1;
-
-    return error_number;
+    
+    return 0;
 }
-
-/* vim: set ts=4 sw=4 et : */

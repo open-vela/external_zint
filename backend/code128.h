@@ -1,6 +1,6 @@
 /*
     libzint - the open source barcode library
-    Copyright (C) 2020 - 2021 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -38,26 +38,19 @@ extern "C" {
 
 #define C128_MAX 160
 
-#define C128_SHIFTA 90
-#define C128_LATCHA 91
-#define C128_SHIFTB 92
-#define C128_LATCHB 93
-#define C128_SHIFTC 94
-#define C128_LATCHC 95
-#define C128_AORB   96
-#define C128_ABORC  97
+#define SHIFTA 90
+#define LATCHA 91
+#define SHIFTB 92
+#define LATCHB 93
+#define SHIFTC 94
+#define LATCHC 95
+#define AORB 96
+#define ABORC 97
+    
+#define KRSET "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-INTERNAL int code128(struct zint_symbol *symbol, unsigned char source[], int length);
-
-INTERNAL int c128_parunmodd(const unsigned char llyth);
-INTERNAL void c128_dxsmooth(int list[2][C128_MAX], int *indexliste);
-INTERNAL void c128_set_a(const unsigned char source, int values[], int *bar_chars);
-INTERNAL int c128_set_b(const unsigned char source, int values[], int *bar_chars);
-INTERNAL void c128_set_c(const unsigned char source_a, const unsigned char source_b, int values[], int *bar_chars);
-INTERNAL void c128_put_in_set(int list[2][C128_MAX], const int indexliste, char set[C128_MAX],
-                unsigned char *source);
-
-INTERNAL_DATA_EXTERN const char C128Table[107][6];
+INTERNAL int parunmodd(const unsigned char llyth);
+INTERNAL void dxsmooth(int list[2][C128_MAX], int *indexliste);
 
 #ifdef __cplusplus
 }

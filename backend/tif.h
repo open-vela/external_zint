@@ -1,7 +1,8 @@
 /* tif.h - Aldus Tagged Image File Format */
+
 /*
     libzint - the open source barcode library
-    Copyright (C) 2016-2022 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2016-2021 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -28,13 +29,20 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* SPDX-License-Identifier: BSD-3-Clause */
+/* vim: set ts=4 sw=4 et : */
 
-#ifndef Z_TIF_H
-#define Z_TIF_H
+#ifndef TIF_H
+#define TIF_H
 
 #ifdef  __cplusplus
 extern "C" {
+#endif
+
+#ifdef _MSC_VER
+#include <windows.h>
+#include "stdint_msvc.h"
+#else
+#include <stdint.h>
 #endif
 
 #pragma pack(1)
@@ -64,5 +72,4 @@ extern "C" {
 }
 #endif
 
-/* vim: set ts=4 sw=4 et : */
-#endif /* Z_TIF_H */
+#endif  /* TIF_H */

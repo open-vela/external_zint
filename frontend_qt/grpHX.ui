@@ -27,9 +27,6 @@
        <property name="text">
         <string>Si&amp;ze:</string>
        </property>
-       <property name="toolTip">
-        <string>Set size (version) of symbol</string>
-       </property>
        <property name="buddy">
         <cstring>cmbHXSize</cstring>
        </property>
@@ -39,9 +36,6 @@
       <widget class="QComboBox" name="cmbHXSize">
        <property name="maxVisibleItems">
         <number>21</number>
-       </property>
-       <property name="toolTip">
-        <string>Set size (version) of symbol</string>
        </property>
        <item>
         <property name="text">
@@ -475,10 +469,6 @@
        <property name="text">
         <string>E&amp;rror Correction:</string>
        </property>
-       <property name="toolTip">
-        <string>Set percentage of capacity to use for
-error correction codewords</string>
-       </property>
        <property name="buddy">
         <cstring>cmbHXECC</cstring>
        </property>
@@ -486,10 +476,6 @@ error correction codewords</string>
      </item>
      <item row="1" column="1">
       <widget class="QComboBox" name="cmbHXECC">
-       <property name="toolTip">
-        <string>Set percentage of capacity to use for
-error correction codewords</string>
-       </property>
        <item>
         <property name="text">
          <string>Automatic</string>
@@ -522,9 +508,6 @@ error correction codewords</string>
        <property name="text">
         <string>&amp;Mask:</string>
        </property>
-       <property name="toolTip">
-        <string>Manually specify which mask to use</string>
-       </property>
        <property name="buddy">
         <cstring>cmbHXMask</cstring>
        </property>
@@ -532,8 +515,8 @@ error correction codewords</string>
      </item>
      <item row="2" column="1">
       <widget class="QComboBox" name="cmbHXMask">
-       <property name="toolTip">
-        <string>Manually specify which mask to use</string>
+       <property name="maxVisibleItems">
+        <number>4</number>
        </property>
        <item>
         <property name="text">
@@ -573,8 +556,7 @@ error correction codewords</string>
       <bool>false</bool>
      </property>
      <property name="toolTip">
-      <string>Use Hanzi multibyte encoding for binary
-and Latin data</string>
+      <string>Use Hanzi multibyte encoding for binary and Latin data</string>
      </property>
     </widget>
    </item>

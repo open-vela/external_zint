@@ -2,7 +2,7 @@
 
 /*
     libzint - the open source barcode library
-    Copyright (C) 2009-2022 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2009 - 2020 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -29,8 +29,9 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-#ifndef Z_GS1_H
-#define Z_GS1_H
+/* vim: set ts=4 sw=4 et : */
+#ifndef __GS1_H
+#define __GS1_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,11 +39,9 @@ extern "C" {
 
 INTERNAL int gs1_verify(struct zint_symbol *symbol, const unsigned char source[], const int src_len,
                 unsigned char reduced[]);
-INTERNAL char gs1_check_digit(const unsigned char source[], const int src_len);
 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
 
-/* vim: set ts=4 sw=4 et : */
-#endif /* Z_GS1_H */
+#endif /* __GS1_H */

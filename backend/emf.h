@@ -1,7 +1,7 @@
-/*  emf.h - header structure for Microsoft EMF */
-/*
+/*  emf.h - header structure for Microsoft EMF
+
     libzint - the open source barcode library
-    Copyright (C) 2016-2022 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2016-2017 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -28,13 +28,19 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* SPDX-License-Identifier: BSD-3-Clause */
 
-#ifndef Z_EMF_H
-#define Z_EMF_H
+#ifndef EMF_H
+#define	EMF_H
 
-#ifdef  __cplusplus
+#ifdef	__cplusplus
 extern "C" {
+#endif
+
+#ifdef _MSC_VER
+#include <windows.h>
+#include "stdint_msvc.h"
+#else
+#include <stdint.h>
 #endif
 
 #pragma pack(1)
@@ -115,11 +121,11 @@ extern "C" {
         uint32_t n_pal_entries;
         size_l_t device;
         size_l_t millimeters;
-        /* HeaderExtension1 Object */
+        // HeaderExtension1 Object
         uint32_t cb_pixel_format;
         uint32_t off_pixel_format;
         uint32_t b_open_gl;
-        /* HeaderExtension2 Object */
+        // HeaderExtension2 Object
         size_l_t micrometers;
     } emf_header_t;
 
@@ -209,7 +215,7 @@ extern "C" {
         uint32_t size;
         color_ref_t color;
     } emr_settextcolor_t;
-
+    
     typedef struct emr_exttextoutw {
         uint32_t type;
         uint32_t size;
@@ -237,9 +243,10 @@ extern "C" {
 
 #pragma pack()
 
-#ifdef  __cplusplus
+#ifdef	__cplusplus
 }
 #endif
 
-/* vim: set ts=4 sw=4 et : */
-#endif /* Z_EMF_H */
+#endif	/* EMF_H */
+
+

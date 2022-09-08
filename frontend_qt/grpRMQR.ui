@@ -27,9 +27,6 @@
        <property name="text">
         <string>Si&amp;ze:</string>
        </property>
-       <property name="toolTip">
-        <string>Set height and width (H x W) of symbol</string>
-       </property>
        <property name="buddy">
         <cstring>cmbRMQRSize</cstring>
        </property>
@@ -37,9 +34,6 @@
      </item>
      <item row="0" column="1">
       <widget class="QComboBox" name="cmbRMQRSize">
-       <property name="toolTip">
-        <string>Set height and width (H x W) of symbol</string>
-       </property>
        <property name="maxVisibleItems">
         <number>21</number>
        </property>
@@ -50,192 +44,192 @@
        </item>
        <item>
         <property name="text">
-         <string>R7x43 (Zint 1)</string>
+         <string>R7x43</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R7x59 (Zint 2)</string>
+         <string>R7x59</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R7x77 (Zint 3)</string>
+         <string>R7x77</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R7x99 (Zint 4)</string>
+         <string>R7x99</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R7x139 (Zint 5)</string>
+         <string>R7x139</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R9x43 (Zint 6)</string>
+         <string>R9x43</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R9x59 (Zint 7)</string>
+         <string>R9x59</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R9x77 (Zint 8)</string>
+         <string>R9x77</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R9x99 (Zint 9)</string>
+         <string>R9x99</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R9x139 (Zint 10)</string>
+         <string>R9x139</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R11x27 (Zint 11)</string>
+         <string>R11x27</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R11x43 (Zint 12)</string>
+         <string>R11x43</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R11x59 (Zint 13)</string>
+         <string>R11x59</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R11x77 (Zint 14)</string>
+         <string>R11x77</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R11x99 (Zint 15)</string>
+         <string>R11x99</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R11x139 (Zint 16)</string>
+         <string>R11x139</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R13x27 (Zint 17)</string>
+         <string>R13x27</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R13x43 (Zint 18)</string>
+         <string>R13x43</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R13x59 (Zint 19)</string>
+         <string>R13x59</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R13x77 (Zint 20)</string>
+         <string>R13x77</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R13x99 (Zint 21)</string>
+         <string>R13x99</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R13x139 (Zint 22)</string>
+         <string>R13x139</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R15x43 (Zint 23)</string>
+         <string>R15x43</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R15x59 (Zint 24)</string>
+         <string>R15x59</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R15x77 (Zint 25)</string>
+         <string>R15x77</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R15x99 (Zint 26)</string>
+         <string>R15x99</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R15x139 (Zint 27)</string>
+         <string>R15x139</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R17x43 (Zint 28)</string>
+         <string>R17x43</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R17x59 (Zint 29)</string>
+         <string>R17x59</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R17x77 (Zint 30)</string>
+         <string>R17x77</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R17x99 (Zint 31)</string>
+         <string>R17x99</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R17x139 (Zint 32)</string>
+         <string>R17x139</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R7 x Automatic Width (Zint 33)</string>
+         <string>R7x Automatic Width</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R9 x Automatic Width (Zint 34)</string>
+         <string>R9x Automatic Width</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R11 x Automatic Width (Zint 35)</string>
+         <string>R11x Automatic Width</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R13 x Automatic Width (Zint 36)</string>
+         <string>R13x Automatic Width</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R15 x Automatic Width (Zint 37)</string>
+         <string>R15 x Automatic Width</string>
         </property>
        </item>
        <item>
         <property name="text">
-         <string>R17 x Automatic Width (Zint 38)</string>
+         <string>R17 x Automatic Width</string>
         </property>
        </item>
       </widget>
@@ -245,10 +239,6 @@
        <property name="text">
         <string>E&amp;rror Correction:</string>
        </property>
-       <property name="toolTip">
-        <string>Set percentage of capacity to use for
-error correction codewords</string>
-       </property>
        <property name="buddy">
         <cstring>cmbRMQRECC</cstring>
        </property>
@@ -256,10 +246,6 @@ error correction codewords</string>
      </item>
      <item row="1" column="1">
       <widget class="QComboBox" name="cmbRMQRECC">
-       <property name="toolTip">
-        <string>Set percentage of capacity to use for
-error correction codewords</string>
-       </property>
        <item>
         <property name="text">
          <string>Automatic</string>
@@ -284,9 +270,6 @@ error correction codewords</string>
      <property name="title">
       <string>Encoding Mode</string>
      </property>
-     <property name="toolTip">
-      <string>How to process data</string>
-     </property>
      <layout class="QGridLayout" name="gridLayoutRMQREncodingMode">
       <property name="sizeConstraint">
        <enum>QLayout::SetMinimumSize</enum>
@@ -295,9 +278,6 @@ error correction codewords</string>
        <widget class="QRadioButton" name="radRMQRStand">
         <property name="text">
          <string>S&amp;tandard Mode</string>
-        </property>
-        <property name="toolTip">
-         <string>Process data as normal</string>
         </property>
         <property name="checked">
          <bool>true</bool>
@@ -308,10 +288,6 @@ error correction codewords</string>
        <widget class="QRadioButton" name="radRMQRGS1">
         <property name="text">
          <string>GS&amp;1 Data Mode</string>
-        </property>
-        <property name="toolTip">
-         <string>Process data as GS1 General Specifications data,
-formatted with Application Identifiers (AIs)</string>
         </property>
        </widget>
       </item>
@@ -327,8 +303,7 @@ formatted with Application Identifiers (AIs)</string>
       <bool>false</bool>
      </property>
      <property name="toolTip">
-      <string>Use Kanji multibyte encoding for binary
-and Latin data</string>
+      <string>Use Kanji multibyte encoding for binary and Latin data</string>
      </property>
     </widget>
    </item>

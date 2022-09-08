@@ -1,7 +1,8 @@
 /* common.c - Contains functions needed for a number of barcodes */
+
 /*
     libzint - the open source barcode library
-    Copyright (C) 2008-2022 Robin Stuart <rstuart114@gmail.com>
+    Copyright (C) 2008 - 2021 Robin Stuart <rstuart114@gmail.com>
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions
@@ -28,17 +29,18 @@
     OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
     SUCH DAMAGE.
  */
-/* SPDX-License-Identifier: BSD-3-Clause */
-
-#include <assert.h>
+/* vim: set ts=4 sw=4 et : */
 #ifdef ZINT_TEST
 #include <stdio.h>
+#endif
+#ifdef _MSC_VER
+#include <malloc.h>
 #endif
 #include "common.h"
 
 /* Converts a character 0-9, A-F to its equivalent integer value */
 INTERNAL int ctoi(const char source) {
-    if (z_isdigit(source))
+    if ((source >= '0') && (source <= '9'))
         return (source - '0');
     if ((source >= 'A') && (source <= 'F'))
         return (source - 'A' + 10);
@@ -62,7 +64,7 @@ INTERNAL int to_int(const unsigned char source[], const int length) {
     int i;
 
     for (i = 0; i < length; i++) {
-        if (!z_isdigit(source[i])) {
+        if (source[i] < '0' || source[i] > '9') {
             return -1;
         }
         val *= 10;
@@ -73,11 +75,11 @@ INTERNAL int to_int(const unsigned char source[], const int length) {
 }
 
 /* Converts lower case characters to upper case in a string source[] */
-INTERNAL void to_upper(unsigned char source[], const int length) {
-    int i;
+INTERNAL void to_upper(unsigned char source[]) {
+    int i, src_len = (int) ustrlen(source);
 
-    for (i = 0; i < length; i++) {
-        if (z_islower(source[i])) {
+    for (i = 0; i < src_len; i++) {
+        if ((source[i] >= 'a') && (source[i] <= 'z')) {
             source[i] = (source[i] - 'a') + 'A';
         }
     }
@@ -95,92 +97,48 @@ INTERNAL int chr_cnt(const unsigned char string[], const int length, const unsig
     return count;
 }
 
-/* Flag table for `is_chr()` and `is_sane()` */
-#define IS_CLS_F    (IS_CLI_F | IS_SIL_F)
-static const unsigned short flgs[256] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*00-1F*/
-               IS_SPC_F,            IS_C82_F,            IS_C82_F,            IS_HSH_F, /*20-23*/ /*  !"# */
-               IS_CLS_F, IS_SIL_F | IS_C82_F,            IS_C82_F,            IS_C82_F, /*24-27*/ /* $%&' */
-               IS_C82_F,            IS_C82_F,            IS_AST_F,            IS_PLS_F, /*28-2B*/ /* ()*+ */
-               IS_C82_F,            IS_MNS_F, IS_CLS_F | IS_C82_F, IS_CLS_F | IS_C82_F, /*2B-2F*/ /* ,-./ */
-               IS_NUM_F,            IS_NUM_F,            IS_NUM_F,            IS_NUM_F, /*30-33*/ /* 0123 */
-               IS_NUM_F,            IS_NUM_F,            IS_NUM_F,            IS_NUM_F, /*34-37*/ /* 4567 */
-               IS_NUM_F,            IS_NUM_F, IS_CLI_F | IS_C82_F,            IS_C82_F, /*38-3B*/ /* 89:; */
-               IS_C82_F,            IS_C82_F,            IS_C82_F,            IS_C82_F, /*3B-3F*/ /* <=>? */
-                      0, IS_UHX_F | IS_ARS_F, IS_UHX_F | IS_ARS_F, IS_UHX_F | IS_ARS_F, /*40-43*/ /* @ABC */
-    IS_UHX_F | IS_ARS_F, IS_UHX_F | IS_ARS_F, IS_UHX_F | IS_ARS_F, IS_UPO_F | IS_ARS_F, /*44-47*/ /* DEFG */
-    IS_UPO_F | IS_ARS_F,            IS_UPO_F, IS_UPO_F | IS_ARS_F, IS_UPO_F | IS_ARS_F, /*48-4B*/ /* HIJK */
-    IS_UPO_F | IS_ARS_F, IS_UPO_F | IS_ARS_F, IS_UPO_F | IS_ARS_F,            IS_UPO_F, /*4B-4F*/ /* LMNO */
-    IS_UPO_F | IS_ARS_F,            IS_UPO_F, IS_UPO_F | IS_ARS_F, IS_UPO_F | IS_ARS_F, /*50-53*/ /* PQRS */
-    IS_UPO_F | IS_ARS_F, IS_UPO_F | IS_ARS_F, IS_UPO_F | IS_ARS_F, IS_UPO_F | IS_ARS_F, /*53-57*/ /* TUVW */
-    IS_UX__F | IS_ARS_F, IS_UPO_F | IS_ARS_F, IS_UPO_F | IS_ARS_F,                   0, /*58-5B*/ /* XYZ[ */
-                      0,                   0,                   0,            IS_C82_F, /*5B-5F*/ /* \]^_ */
-                      0,            IS_LHX_F,            IS_LHX_F,            IS_LHX_F, /*60-63*/ /* `abc */
-               IS_LHX_F,            IS_LHX_F,            IS_LHX_F,            IS_LWO_F, /*64-67*/ /* defg */
-               IS_LWO_F,            IS_LWO_F,            IS_LWO_F,            IS_LWO_F, /*68-6B*/ /* hijk */
-               IS_LWO_F,            IS_LWO_F,            IS_LWO_F,            IS_LWO_F, /*6B-6F*/ /* lmno */
-               IS_LWO_F,            IS_LWO_F,            IS_LWO_F,            IS_LWO_F, /*70-73*/ /* pqrs */
-               IS_LWO_F,            IS_LWO_F,            IS_LWO_F,            IS_LWO_F, /*74-77*/ /* tuvw */
-               IS_LX__F,            IS_LWO_F,            IS_LWO_F,                   0, /*78-7B*/ /* xyz{ */
-                      0,                   0,                   0,                   0, /*7B-7F*/ /* |}~D */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*80-9F*/
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*A0-BF*/
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*C0-DF*/
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*E0-FF*/
-};
-
-/* Whether a character matches `flg` */
-INTERNAL int is_chr(const unsigned int flg, const unsigned int c) {
-    return c < 0x80 && (flgs[c] & flg) != 0;
-}
-
 /* Verifies that a string only uses valid characters */
-INTERNAL int is_sane(const unsigned int flg, const unsigned char source[], const int length) {
-    int i;
+INTERNAL int is_sane(const char test_string[], const unsigned char source[], const int length) {
+    int i, j, lt = (int) strlen(test_string);
 
     for (i = 0; i < length; i++) {
-        if (!(flgs[source[i]] & flg)) {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-/* Replaces huge switch statements for looking up in tables */
-/* Verifies that a string only uses valid characters, and returns `test_string` position of each in `posns` array */
-INTERNAL int is_sane_lookup(const char test_string[], const int test_length, const unsigned char source[],
-                const int length, int *posns) {
-    int i, j;
-
-    for (i = 0; i < length; i++) {
-        posns[i] = -1;
-        for (j = 0; j < test_length; j++) {
+        unsigned int latch = FALSE;
+        for (j = 0; j < lt; j++) {
             if (source[i] == test_string[j]) {
-                posns[i] = j;
+                latch = TRUE;
                 break;
             }
         }
-        if (posns[i] == -1) {
-            return 0;
+        if (!(latch)) {
+            return ZINT_ERROR_INVALID_DATA;
         }
     }
 
-    return 1;
+    return 0;
 }
 
-/* Returns the position of data in set_string */
-INTERNAL int posn(const char set_string[], const char data) {
-    const char *s;
+/* Replaces huge switch statements for looking up in tables */
+INTERNAL void lookup(const char set_string[], const char *table[], const char data, char dest[]) {
+    int i, n = (int) strlen(set_string);
 
-    for (s = set_string; *s; s++) {
-        if (data == *s) {
-            return s - set_string;
+    for (i = 0; i < n; i++) {
+        if (data == set_string[i]) {
+            strcat(dest, table[i]);
+            break;
         }
     }
-    return -1;
 }
 
-/* Convert an integer value to a string representing its binary equivalent and place at a given position */
+/* Convert an integer value to a string representing its binary equivalent */
+INTERNAL void bin_append(const int arg, const int length, char *binary) {
+    int bin_posn = (int) strlen(binary);
+
+    bin_append_posn(arg, length, binary, bin_posn);
+
+    binary[bin_posn + length] = '\0';
+}
+
+/* Convert an integer value to a string representing its binary equivalent at a set position */
 INTERNAL int bin_append_posn(const int arg, const int length, char *binary, const int bin_posn) {
     int i;
     int start;
@@ -197,7 +155,19 @@ INTERNAL int bin_append_posn(const int arg, const int length, char *binary, cons
     return bin_posn + length;
 }
 
-#ifndef Z_COMMON_INLINE
+/* Returns the position of data in set_string */
+INTERNAL int posn(const char set_string[], const char data) {
+    int i, n = (int) strlen(set_string);
+
+    for (i = 0; i < n; i++) {
+        if (data == set_string[i]) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+#ifndef COMMON_INLINE
 /* Return true (1) if a module is dark/black, otherwise false (0) */
 INTERNAL int module_is_set(const struct zint_symbol *symbol, const int y_coord, const int x_coord) {
     return (symbol->encoded_data[y_coord][x_coord >> 3] >> (x_coord & 0x07)) & 1;
@@ -225,24 +195,20 @@ INTERNAL void unset_module(struct zint_symbol *symbol, const int y_coord, const 
 }
 
 /* Expands from a width pattern to a bit pattern */
-INTERNAL void expand(struct zint_symbol *symbol, const char data[], const int length) {
+INTERNAL void expand(struct zint_symbol *symbol, const char data[]) {
 
-    int reader;
+    int reader, n = (int) strlen(data);
     int writer, i;
     int latch, num;
-    const int row = symbol->rows;
-
-    symbol->rows++;
 
     writer = 0;
     latch = 1;
 
-    for (reader = 0; reader < length; reader++) {
+    for (reader = 0; reader < n; reader++) {
         num = ctoi(data[reader]);
-        assert(num >= 0);
         for (i = 0; i < num; i++) {
             if (latch) {
-                set_module(symbol, row, writer);
+                set_module(symbol, symbol->rows, writer);
             }
             writer++;
         }
@@ -250,9 +216,17 @@ INTERNAL void expand(struct zint_symbol *symbol, const char data[], const int le
         latch = !latch;
     }
 
-    if (writer > symbol->width) {
-        symbol->width = writer;
+    if (symbol->symbology != BARCODE_PHARMA) {
+        if (writer > symbol->width) {
+            symbol->width = writer;
+        }
+    } else {
+        /* Pharmacode One ends with a space - adjust for this */
+        if (writer > symbol->width + 2) {
+            symbol->width = writer - 2;
+        }
     }
+    symbol->rows = symbol->rows + 1;
 }
 
 /* Indicates which symbologies can have row binding */
@@ -306,52 +280,10 @@ INTERNAL int is_composite(const int symbology) {
     return symbology >= BARCODE_EANX_CC && symbology <= BARCODE_DBAR_EXPSTK_CC;
 }
 
-/* Returns 1 if symbology is a matrix design renderable as dots */
-INTERNAL int is_dotty(const int symbology) {
-
-    switch (symbology) {
-        /* Note MAXICODE and ULTRA absent */
-        case BARCODE_QRCODE:
-        case BARCODE_DATAMATRIX:
-        case BARCODE_MICROQR:
-        case BARCODE_HIBC_DM:
-        case BARCODE_AZTEC:
-        case BARCODE_HIBC_QR:
-        case BARCODE_HIBC_AZTEC:
-        case BARCODE_AZRUNE:
-        case BARCODE_CODEONE:
-        case BARCODE_GRIDMATRIX:
-        case BARCODE_HANXIN:
-        case BARCODE_DOTCODE:
-        case BARCODE_UPNQR:
-        case BARCODE_RMQR:
-            return 1;
-            break;
-    }
-
-    return 0;
-}
-
-/* Returns 1 if symbology has fixed aspect ratio (matrix design) */
-INTERNAL int is_fixed_ratio(const int symbology) {
-
-    if (is_dotty(symbology)) {
-        return 1;
-    }
-
-    switch (symbology) {
-        case BARCODE_MAXICODE:
-        case BARCODE_ULTRA:
-            return 1;
-            break;
-    }
-
-    return 0;
-}
-
 /* Whether next two characters are digits */
-INTERNAL int is_twodigits(const unsigned char source[], const int length, const int position) {
-    if ((position + 1 < length) && z_isdigit(source[position]) && z_isdigit(source[position + 1])) {
+INTERNAL int istwodigits(const unsigned char source[], const int length, const int position) {
+    if ((position + 1 < length) && (source[position] >= '0') && (source[position] <= '9')
+            && (source[position + 1] >= '0') && (source[position + 1] <= '9')) {
         return 1;
     }
 
@@ -363,14 +295,12 @@ INTERNAL unsigned int decode_utf8(unsigned int *state, unsigned int *codep, cons
     /*
         Copyright (c) 2008-2009 Bjoern Hoehrmann <bjoern@hoehrmann.de>
 
-        Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-        documentation files (the "Software"), to deal in the Software without restriction, including without
-        limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
-        Software, and to permit persons to whom the Software is furnished to do so, subject to the following
-        conditions:
+        Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation
+        files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy,
+        modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the
+        Software is furnished to do so, subject to the following conditions:
 
-        The above copyright notice and this permission notice shall be included in all copies or substantial portions
-        of the Software.
+        The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
         See https://bjoern.hoehrmann.de/utf-8/decoder/dfa/ for details.
      */
@@ -396,7 +326,7 @@ INTERNAL unsigned int decode_utf8(unsigned int *state, unsigned int *codep, cons
         12,36,12,12,12,12,12,12,12,12,12,12,
     };
 
-    const unsigned int type = utf8d[byte];
+    unsigned int type = utf8d[byte];
 
     *codep = *state != 0 ? (byte & 0x3fu) | (*codep << 6) : (0xff >> type) & byte;
 
@@ -453,100 +383,27 @@ INTERNAL int utf8_to_unicode(struct zint_symbol *symbol, const unsigned char sou
     return 0;
 }
 
-/* Set symbol height, returning a warning if not within minimum and/or maximum if given.
-   `default_height` does not include height of fixed-height rows (i.e. separators/composite data) */
-INTERNAL int set_height(struct zint_symbol *symbol, const float min_row_height, const float default_height,
-            const float max_height, const int no_errtxt) {
-    int error_number = 0;
-    float fixed_height = 0.0f;
+/* Enforce minimum permissable height of rows */
+INTERNAL void set_minimum_height(struct zint_symbol *symbol, const int min_height) {
+    int fixed_height = 0;
     int zero_count = 0;
-    float row_height;
     int i;
-    const int rows = symbol->rows ? symbol->rows : 1; /* Sometimes called before expand() */
 
-    for (i = 0; i < rows; i++) {
-        if (symbol->row_height[i]) {
-            fixed_height += symbol->row_height[i];
-        } else {
+    for (i = 0; i < symbol->rows; i++) {
+        fixed_height += symbol->row_height[i];
+
+        if (symbol->row_height[i] == 0) {
             zero_count++;
         }
     }
 
-    if (zero_count) {
-        if (symbol->height) {
-            if (symbol->input_mode & HEIGHTPERROW_MODE) {
-                row_height = stripf(symbol->height);
-            } else {
-                row_height = stripf((symbol->height - fixed_height) / zero_count);
-            }
-        } else if (default_height) {
-            row_height = stripf(default_height / zero_count);
-        } else {
-            row_height = stripf(min_row_height);
-        }
-        if (row_height < 0.5f) { /* Absolute minimum */
-            row_height = 0.5f;
-        }
-        if (min_row_height) {
-            if (stripf(row_height) < stripf(min_row_height)) {
-                error_number = ZINT_WARN_NONCOMPLIANT;
-                if (!no_errtxt) {
-                    strcpy(symbol->errtxt, "247: Height not compliant with standards");
+    if (zero_count > 0) {
+        if (((symbol->height - fixed_height) / zero_count) < min_height) {
+            for (i = 0; i < symbol->rows; i++) {
+                if (symbol->row_height[i] == 0) {
+                    symbol->row_height[i] = min_height;
                 }
             }
-        }
-        symbol->height = stripf(row_height * zero_count + fixed_height);
-    } else {
-        symbol->height = stripf(fixed_height); /* Ignore any given height */
-    }
-    if (max_height) {
-        if (stripf(symbol->height) > stripf(max_height)) {
-            error_number = ZINT_WARN_NONCOMPLIANT;
-            if (!no_errtxt) {
-                strcpy(symbol->errtxt, "248: Height not compliant with standards");
-            }
-        }
-    }
-
-    return error_number;
-}
-
-/* Prevent inlining of `stripf()` which can optimize away its effect */
-#if defined(__GNUC__) || defined(__clang__)
-__attribute__((__noinline__))
-#endif
-#if defined(_MSC_VER) && _MSC_VER >= 1310 /* MSVC 2003 (VC++ 7.1) */
-__declspec(noinline)
-#endif
-/* Removes excess precision from floats - see https://stackoverflow.com/q/503436 */
-INTERNAL float stripf(const float arg) {
-    return *((volatile const float *) &arg);
-}
-
-/* Returns total length of segments */
-INTERNAL int segs_length(const struct zint_seg segs[], const int seg_count) {
-    int total_len = 0;
-    int i;
-
-    for (i = 0; i < seg_count; i++) {
-        total_len += segs[i].length == -1 ? (int) ustrlen(segs[i].source) : segs[i].length;
-    }
-
-    return total_len;
-}
-
-/* Shallow copy segments, adjusting default ECIs */
-INTERNAL void segs_cpy(const struct zint_symbol *symbol, const struct zint_seg segs[], const int seg_count,
-            struct zint_seg local_segs[]) {
-    const int default_eci = symbol->symbology == BARCODE_GRIDMATRIX ? 29 : symbol->symbology == BARCODE_UPNQR ? 4 : 3;
-    int i;
-
-    local_segs[0] = segs[0];
-    for (i = 1; i < seg_count; i++) {
-        local_segs[i] = segs[i];
-        /* Ensure default ECI set if follows non-default ECI */
-        if (local_segs[i].eci == 0 && local_segs[i - 1].eci != 0 && local_segs[i - 1].eci != default_eci) {
-            local_segs[i].eci = default_eci;
         }
     }
 }
@@ -555,11 +412,11 @@ INTERNAL void segs_cpy(const struct zint_symbol *symbol, const struct zint_seg s
 INTERNAL int colour_to_red(const int colour) {
     int return_val = 0;
 
-    switch (colour) {
-        case 8: /* White */
-        case 3: /* Magenta */
-        case 4: /* Red */
-        case 5: /* Yellow */
+    switch(colour) {
+        case 8: // White
+        case 3: // Magenta
+        case 4: // Red
+        case 5: // Yellow
             return_val = 255;
             break;
     }
@@ -571,11 +428,11 @@ INTERNAL int colour_to_red(const int colour) {
 INTERNAL int colour_to_green(const int colour) {
     int return_val = 0;
 
-    switch (colour) {
-        case 8: /* White */
-        case 1: /* Cyan */
-        case 5: /* Yellow */
-        case 6: /* Green */
+    switch(colour) {
+        case 8: // White
+        case 1: // Cyan
+        case 5: // Yellow
+        case 6: // Green
             return_val = 255;
             break;
     }
@@ -587,11 +444,11 @@ INTERNAL int colour_to_green(const int colour) {
 INTERNAL int colour_to_blue(const int colour) {
     int return_val = 0;
 
-    switch (colour) {
-        case 8: /* White */
-        case 1: /* Cyan */
-        case 2: /* Blue */
-        case 3: /* Magenta */
+    switch(colour) {
+        case 8: // White
+        case 1: // Cyan
+        case 2: // Blue
+        case 3: // Magenta
             return_val = 255;
             break;
     }
@@ -605,7 +462,7 @@ void debug_test_codeword_dump(struct zint_symbol *symbol, const unsigned char *c
     int i, max = length, cnt_len = 0;
     if (length > 30) { /* 30*3 < errtxt 92 (100 - "Warning ") chars */
         sprintf(symbol->errtxt, "(%d) ", length); /* Place the number of codewords at the front */
-        cnt_len = (int) strlen(symbol->errtxt);
+        cnt_len = strlen(symbol->errtxt);
         max = 30 - (cnt_len + 2) / 3;
     }
     for (i = 0; i < max; i++) {
@@ -632,5 +489,3 @@ void debug_test_codeword_dump_int(struct zint_symbol *symbol, const int *codewor
     symbol->errtxt[strlen(symbol->errtxt) - 1] = '\0'; /* Zap last space */
 }
 #endif
-
-/* vim: set ts=4 sw=4 et : */
