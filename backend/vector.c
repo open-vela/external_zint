@@ -407,7 +407,7 @@ INTERNAL int plot_vector(struct zint_symbol *symbol, int rotate_angle, int file_
     float guard_descent;
     const int is_codablockf = symbol->symbology == BARCODE_CODABLOCKF || symbol->symbology == BARCODE_HIBC_BLOCKF;
 
-    float addon_row_height;
+    float addon_row_height = 0.0f;
     float large_bar_height;
     int upcae_outside_text_height = 0; /* UPC-A/E outside digits font size */
     float digit_ascent_factor = 0.25f; /* Assuming digit ascent roughly 25% less than font size */
